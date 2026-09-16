@@ -1,0 +1,35 @@
+┌────────────────────────────────────────────────────────────┐
+│              [SOCIETY NAME]                                 │
+│  Reg. No. _______________________  Dated __/__/____         │
+│  [Society Address]                                           │
+├────────────────────────────────────────────────────────────┤
+│                    REGISTER OF LIEN                          │
+├────────────────────────────────────────────────────────────┤
+│ Wing: __________                    Flat No.: ______         │
+│ Member's Name: ______________________________________       │
+│ Type of Membership: ____________  Flat Area: ____ Sq.Ft. Carpet │
+├────────────────────────────────────────────────────────────┤
+│         PARTICULARS OF LOAN — 1st LOAN                       │
+├────────────────────────────────────────────────────────────┤
+│ Name of the Bank        : ___________________________       │
+│ Bank Address             : ___________________________       │
+│ Loan Amount               : __________  Period of Loan: _____ │
+│ Managing Committee Mtg Date : __/__/20__  Resolution No.: ___ │
+│ Date of NOC given by Society: ________________________       │
+│ Date of Lien Cancellation Docs: ______________________       │
+├────────────────────────────────────────────────────────────┤
+│         PARTICULARS OF LOAN — 2nd LOAN / TOP-UP              │
+├────────────────────────────────────────────────────────────┤
+│ Name of the Bank        : ___________________________       │
+│ Bank Address             : ___________________________       │
+│ Loan Amount               : __________  Period of Loan: _____ │
+│ Managing Committee Mtg Date : __/__/20__  Resolution No.: ___ │
+│ Date of NOC given by Society: ________________________       │
+│ Date of Lien Cancellation Docs: ______________________       │
+├────────────────────────────────────────────────────────────┤
+│         PARTICULARS OF LOAN — 3rd LOAN / TOP-UP              │
+│                    (same fields as above)                    │
+├────────────────────────────────────────────────────────────┤
+│         PARTICULARS OF LOAN — 4th LOAN / TOP-UP              │
+│                    (same fields as above)                    │
+└────────────────────────────────────────────────────────────┘

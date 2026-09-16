@@ -1,0 +1,210 @@
+/* ==========================================================================
+   HENU OS RECORDS MANAGEMENT — DOCUMENTATION STYLESHEET
+   ========================================================================== */
+
+.docs-layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 48px;
+  padding-top: calc(var(--header-height) + 40px);
+  padding-bottom: 80px;
+  align-items: start;
+}
+
+/* ── Sidebar Navigation ──────────────────────────────────── */
+.docs-sidebar {
+  position: sticky;
+  top: calc(var(--header-height) + 30px);
+  max-height: calc(100vh - var(--header-height) - 60px);
+  overflow-y: auto;
+  padding-right: 16px;
+}
+
+.docs-search-box {
+  margin-bottom: 24px;
+  position: relative;
+}
+
+.docs-search-input {
+  width: 100%;
+  padding: 12px 16px 12px 42px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-sm);
+  color: var(--text-main);
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  outline: none;
+  transition: all var(--transition-fast);
+}
+
+.docs-search-input:focus {
+  border-color: var(--accent-light);
+  box-shadow: 0 0 15px rgba(124, 58, 237, 0.25);
+}
+
+.search-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-dim);
+  pointer-events: none;
+}
+
+.docs-nav-group {
+  margin-bottom: 24px;
+}
+
+.docs-nav-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+  margin-bottom: 12px;
+}
+
+.docs-nav-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.docs-nav-item {
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  display: block;
+}
+
+.docs-nav-item:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.docs-nav-item.active {
+  color: var(--accent-light);
+  background: rgba(124, 58, 237, 0.15);
+  font-weight: 600;
+  border-left: 3px solid var(--accent-primary);
+}
+
+/* ── Content Viewer ──────────────────────────────────────── */
+.docs-content {
+  background: var(--bg-glass-card);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-lg);
+  padding: 48px;
+  backdrop-filter: blur(16px);
+  min-height: 600px;
+}
+
+.docs-article-header {
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 24px;
+  margin-bottom: 32px;
+}
+
+.docs-article-header h1 {
+  font-size: 2.4rem;
+  margin-bottom: 12px;
+}
+
+.docs-meta-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+
+.docs-body h2 {
+  font-size: 1.6rem;
+  margin-top: 36px;
+  margin-bottom: 16px;
+}
+
+.docs-body h3 {
+  font-size: 1.25rem;
+  margin-top: 28px;
+  margin-bottom: 12px;
+}
+
+.docs-body p {
+  margin-bottom: 20px;
+  line-height: 1.7;
+}
+
+.docs-body ul, .docs-body ol {
+  margin-bottom: 24px;
+  padding-left: 24px;
+}
+
+.docs-body li {
+  margin-bottom: 8px;
+  color: var(--text-muted);
+}
+
+.docs-code-block {
+  background: #090d16;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 16px 20px;
+  font-family: var(--font-mono);
+  font-size: 0.88rem;
+  color: #e2e8f0;
+  overflow-x: auto;
+  margin-bottom: 24px;
+  position: relative;
+}
+
+.docs-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 24px 0;
+}
+
+.docs-table th {
+  background: rgba(255, 255, 255, 0.04);
+  padding: 12px 16px;
+  text-align: left;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-main);
+  border-bottom: 2px solid var(--border-subtle);
+}
+
+.docs-table td {
+  padding: 12px 16px;
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.docs-callout {
+  border-left: 4px solid var(--accent-primary);
+  background: rgba(124, 58, 237, 0.08);
+  padding: 16px 20px;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  margin: 24px 0;
+}
+
+.docs-callout-warning {
+  border-left-color: var(--accent-amber);
+  background: rgba(245, 158, 11, 0.08);
+}
+
+@media (max-width: 992px) {
+  .docs-layout {
+    grid-template-columns: 1fr;
+  }
+  .docs-sidebar {
+    position: static;
+    max-height: none;
+  }
+}

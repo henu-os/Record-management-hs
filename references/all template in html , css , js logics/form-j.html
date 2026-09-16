@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>HENU OS — Form J: List of Members</title>
+<style>
+  :root{
+    /* ===== Customizable design tokens ===== */
+    --page-bg:           #DCE5D8;  /* Light Sage / Pale Green — page background        */
+    --ink-grid:          #1E3A38;  /* Dark Teal / Deep Forest Green — grid lines + headings */
+    --ink-hand:          #1C2A3A;  /* Navy / Dark Indigo — filled-in (data) text        */
+    --spine-blue:        #0055D4; /* Electric Blue — binder spine / outer border       */
+    --line-thickness:    0.9pt;
+    --font-size-base:    10.5pt;
+    --font-size-small:   9.5pt;
+    --heading-size:      19pt;
+    --subheading-size:   12.5pt;
+    --row-height:        24px;
+    --page-margin:       14mm;
+    --spine-width:       9mm;
+    --print-scale:       1;
+    --font-doc:          'Georgia', 'Times New Roman', serif;
+    --font-label:        'Times New Roman', Georgia, serif;
+  }
+
+  *{ box-sizing:border-box; }
+
+  html,body{
+    margin:0; padding:0;
+    background:#c9cfc5;
+    font-family:var(--font-label);
+    color:var(--ink-hand);
+  }
+
+  /* ============================================================
+     ON-SCREEN CONTROL BAR (never printed / never exported to PDF)
+  ============================================================ */
+  @media print{ .no-print{ display:none !important; } }
+
+  .control-bar{
+    position:sticky; top:0; z-index:50;
+    display:flex; flex-wrap:wrap; align-items:center; gap:10px;
+    background:#1b2320; color:#e8ece6;
+    padding:10px 16px;
+    font-family:'Segoe UI', Arial, sans-serif;
+    font-size:13px;
+  }
+  .control-bar .brand{ font-weight:700; letter-spacing:.03em; margin-right:auto; }
+  .control-bar .brand small{ display:block; font-weight:400; opacity:.65; font-size:11px; }
+  .control-bar button, .control-bar select{
+    background:#2c352f; color:#fff; border:1px solid #4b564d;
+    padding:6px 12px; border-radius:4px; font-size:13px; cursor:pointer;
+  }
+  .control-bar button:hover{ background:#3a4640; }
+  .control-bar .tag{
+    font-size:11px; background:#5a3a00; color:#ffd98a;
+    padding:3px 8px; border-radius:3px; display:none;
+  }
+  .control-bar .tag.show{ display:inline-block; }
+
+  /* ============================================================
+     PAGE / PRINT SETUP
+  ============================================================ */
+  @page{ size: A4 portrait; margin: 0; }
+  @page landscape{ size: A4 landscape; margin: 0; }
+
+  .sheet-wrap{ display:flex; justify-content:center; padding:24px 0 60px; }
+  @media print{ .sheet-wrap{ padding:0; } }
+
+  .form-page{
+    background:var(--page-bg);
+    width:210mm; min-height:297mm;
+    padding:var(--page-margin) var(--page-margin) var(--page-margin) calc(var(--page-margin) + var(--spine-width));
+    box-shadow:0 0 12px rgba(0,0,0,.28);
+    font-size:var(--font-size-base);
+    line-height:1.35;
+    position:relative;
+    page: portrait;
+    border-left:var(--spine-width) solid var(--spine-blue);
+  }
+  .form-page.landscape-mode{
+    width:297mm; min-height:210mm;
+    page: landscape;
+  }
+  @media print{ .form-page{ box-shadow:none; margin:0; } }
+
+  /* ============================================================
+     HEADER
+  ============================================================ */
+  .page-number{
+    position:absolute; top:var(--page-margin); right:var(--page-margin);
+    font-family:var(--font-doc);
+    font-weight:700; font-size:13pt; color:var(--spine-blue);
+  }
+  .page-header{ text-align:center; margin-bottom:18px; }
+  .form-title{
+    font-family:var(--font-doc);
+    color:var(--ink-grid);
+    font-weight:700;
+    font-size:var(--heading-size);
+    margin:0 0 4px;
+    letter-spacing:.01em;
+  }
+  .form-title .rule-ref{ font-size:0.58em; font-weight:700; margin-left:8px; }
+  .form-subtitle{
+    font-family:var(--font-doc);
+    color:var(--ink-grid);
+    font-weight:700;
+    font-size:var(--subheading-size);
+    margin:6px 0 0;
+    letter-spacing:.01em;
+  }
+  .form-subtitle .fill{
+    display:inline-block;
+    min-width:160px;
+    border-bottom:var(--line-thickness) solid var(--ink-grid);
+    padding:0 6px 1px;
+    color:var(--ink-hand);
+    font-weight:600;
+  }
+  .form-subtitle .liability{
+    display:inline-block;
+    min-width:70px;
+    border-bottom:var(--line-thickness) solid var(--ink-grid);
+    padding:0 6px 1px;
+    color:var(--ink-hand);
+    font-weight:600;
+  }
+
+  /* ============================================================
+     MEMBERS TABLE
+  ============================================================ */
+  table.members-table{
+    width:100%;
+    border-collapse:collapse;
+    margin-top:18px;
+    table-layout:fixed;
+  }
+  table.members-table th, table.members-table td{
+    border:var(--line-thickness) solid var(--ink-grid);
+    padding:5px 6px;
+    text-align:left;
+    vertical-align:middle;
+    overflow-wrap:break-word;
+  }
+  table.members-table thead th{
+    color:var(--ink-grid);
+    font-weight:700;
+    font-size:var(--font-size-base);
+    text-align:center;
+    background:rgba(30,58,56,0.06);
+  }
+  table.members-table tbody td{
+    height:var(--row-height);
+    color:var(--ink-hand);
+    font-size:var(--font-size-small);
+  }
+  table.members-table tbody td:first-child{ text-align:center; }
+  table.members-table thead{ display:table-header-group; }
+  table.members-table tr{ break-inside:avoid; page-break-inside:avoid; }
+
+  /* ============================================================
+     HENU OS BRANDING — bottom-left of the printed page only
+  ============================================================ */
+  .henu-brand{
+    position:absolute;
+    left:calc(var(--page-margin) + var(--spine-width) - 2mm);
+    bottom:8mm;
+    display:flex; align-items:baseline; gap:6px;
+    color:var(--ink-grid);
+    opacity:.75;
+  }
+  .henu-brand .mark{
+    font-family:var(--font-doc);
+    font-weight:700;
+    font-size:10.5pt;
+    letter-spacing:.08em;
+  }
+  .henu-brand .sub{
+    font-family:'Segoe UI', Arial, sans-serif;
+    font-size:7.5pt;
+    letter-spacing:.03em;
+  }
+
+  .sample-flag{
+    margin-top:10px; text-align:center;
+    font-size:8.5pt; color:var(--spine-blue); font-style:italic;
+  }
+
+  /* ============================================================
+     RESPONSIVE (screen-only convenience)
+  ============================================================ */
+  @media screen and (max-width:900px){
+    .form-page{ transform:scale(0.42); transform-origin:top center; margin-bottom:-420px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ================= CONTROL BAR (screen only, not printed) ================= -->
+<div class="control-bar no-print">
+  <div class="brand">HENU OS — Records Management
+    <small>Form J · List of Members (Rule 33, MCS Rules 1961)</small>
+  </div>
+  <span id="sampleTag" class="tag">Sample/test data loaded</span>
+  <select id="orientationSelect">
+    <option value="portrait">Portrait</option>
+    <option value="landscape">Landscape</option>
+  </select>
+  <button id="btnSample">Load sample data</button>
+  <button id="btnBlank">Blank template</button>
+  <button id="btnPrint">Print / Save PDF</button>
+</div>
+
+<div class="sheet-wrap">
+  <div class="form-page" id="formPage">
+    <!-- Rendered output is injected here by renderFormJ() -->
+  </div>
+</div>
+
+<!-- ================================================================
+     PERMANENT TEMPLATE (mustache-style bindings — do not hard-code data)
+================================================================= -->
+<script type="text/x-template" id="form-j-template">
+<div class="page-number">{{register_page_number}}</div>
+
+<div class="page-header">
+  <h1 class="form-title">FORM &quot;J&quot;<span class="rule-ref">[See Rule 33]</span></h1>
+  <h2 class="form-subtitle">List of Members of <span class="fill">{{society_name}}</span> Society <span class="liability">{{liability_type}}</span></h2>
+</div>
+
+<table class="members-table">
+  <thead>
+    <tr>
+      <th style="width:12%">Serial No.</th>
+      <th style="width:32%">Full Name of the Member</th>
+      <th style="width:36%">Address</th>
+      <th style="width:20%">Class of Member</th>
+    </tr>
+  </thead>
+  <tbody>
+    {{#members}}
+    <tr>
+      <td>{{serial_no}}</td>
+      <td>{{full_name}}</td>
+      <td>{{address}}</td>
+      <td>{{class_of_member}}</td>
+    </tr>
+    {{/members}}
+  </tbody>
+</table>
+
+{{#is_sample}}
+<p class="sample-flag">*** SAMPLE / TEST DATA — FOR LAYOUT VERIFICATION ONLY — NOT A REAL RECORD ***</p>
+{{/is_sample}}
+
+<div class="henu-brand">
+  <span class="mark">HENU OS</span>
+  <span class="sub">Records Management</span>
+</div>
+</script>
+
+<!-- ================================================================
+     RENDER ENGINE + DATA MODEL  (form-j.js contents — kept inline
+     here for a single-file drop-in; split into an external file if
+     your build prefers that)
+================================================================= -->
+<script>
+(function(){
+
+  /* ---------------------------------------------------------------
+     1. DATA MODEL
+     The application supplies an object shaped like this. Every key
+     below maps 1:1 to a {{binding}} in the template above.
+  ---------------------------------------------------------------- */
+  function emptyRegisterData(){
+    return {
+      register_page_number: "",
+      society_name: "",
+      liability_type: "",     // "Limited" or "Unlimited"
+      members: []              // {serial_no, full_name, address, class_of_member}
+    };
+  }
+
+  /* Clearly-marked SAMPLE DATA — for on-screen/print testing only.
+     Never used unless the user explicitly clicks "Load sample data". */
+  function sampleRegisterData(){
+    return {
+      register_page_number: "01",
+      society_name: "(Test Data) Shanti Sadan Co-operative Housing",
+      liability_type: "Limited",
+      members: [
+        { serial_no:"1", full_name:"(Test Data) Ramesh K. Deshpande", address:"(Test) Flat 302, Om Residency, Kothrud, Pune", class_of_member:"Member" },
+        { serial_no:"2", full_name:"(Test Data) Sunita R. Deshpande", address:"(Test) Flat 302, Om Residency, Kothrud, Pune", class_of_member:"Associate Member" },
+        { serial_no:"3", full_name:"(Test Data) Anil B. Kulkarni", address:"(Test) Flat 105, Om Residency, Kothrud, Pune", class_of_member:"Member" }
+      ]
+    };
+  }
+
+  /* ---------------------------------------------------------------
+     2. TEMPLATE ENGINE
+     Minimal, dependency-free {{field}} and {{#section}}...{{/section}}
+     renderer. Safe against undefined keys (renders blank, matching
+     the "empty template mode" requirement).
+  ---------------------------------------------------------------- */
+  function escapeHtml(str){
+    if (str === undefined || str === null) return "";
+    return String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+  }
+
+  // Pads a rows array with blank rows up to `min` so the printed
+  // table always shows the register's characteristic ruled blank
+  // rows, whether or not real data exists yet.
+  function padRows(rows, min, keys){
+    var out = (rows || []).slice();
+    while (out.length < min){
+      var blank = {};
+      keys.forEach(function(k){ blank[k] = ""; });
+      out.push(blank);
+    }
+    return out;
+  }
+
+  function renderTemplate(tpl, data){
+    tpl = tpl.replace(/{{#(\w+)}}([\s\S]*?){{\/\1}}/g, function(full, key, inner){
+      var val = data[key];
+      if (Array.isArray(val)){
+        if (val.length === 0) return "";
+        return val.map(function(item){
+          return inner.replace(/{{(\w+)}}/g, function(m, k){
+            return escapeHtml(item[k]);
+          });
+        }).join("");
+      }
+      return val ? inner : "";
+    });
+    tpl = tpl.replace(/{{(\w+)}}/g, function(m, key){
+      return escapeHtml(data[key]);
+    });
+    return tpl;
+  }
+
+  /* ---------------------------------------------------------------
+     3. PUBLIC RENDER FUNCTION
+     renderFormJ(registerData, { minMemberRows, isSample })
+  ---------------------------------------------------------------- */
+  var MEMBER_ROW_KEYS = ["serial_no","full_name","address","class_of_member"];
+
+  function renderFormJ(registerData, options){
+    options = options || {};
+    var base = emptyRegisterData();
+    var data = Object.assign({}, base, registerData || {});
+
+    var renderData = {
+      register_page_number: data.register_page_number,
+      society_name: data.society_name,
+      liability_type: data.liability_type,
+      members: padRows(data.members, options.minMemberRows != null ? options.minMemberRows : 16, MEMBER_ROW_KEYS),
+      is_sample: !!options.isSample
+    };
+
+    var tpl = document.getElementById("form-j-template").innerHTML;
+    var html = renderTemplate(tpl, renderData);
+
+    var mount = document.getElementById("formPage");
+    mount.innerHTML = html;
+  }
+
+  function setOrientation(mode){
+    var page = document.getElementById("formPage");
+    if (mode === "landscape"){
+      page.classList.add("landscape-mode");
+    } else {
+      page.classList.remove("landscape-mode");
+    }
+  }
+
+  /* ---------------------------------------------------------------
+     4. CLEAN INTEGRATION SURFACE for the desktop application.
+  ---------------------------------------------------------------- */
+  window.HENUFormJ = {
+    render: renderFormJ,            // HENUFormJ.render(registerData, options)
+    setOrientation: setOrientation, // HENUFormJ.setOrientation('portrait'|'landscape')
+    emptyRegisterData: emptyRegisterData,
+    print: function(){ window.print(); }
+  };
+
+  // Dynamic Electron integration
+  window.addEventListener('message', function (event) {
+    var msg = event.data;
+    if (!msg || typeof msg !== 'object') return;
+    if (msg.type === 'INIT_TEMPLATE') {
+      var records = msg.records || [];
+      if (msg.record && records.length === 0) {
+        records = [msg.record];
+      }
+      var config = msg.config || {};
+
+      var formattedMembers = records.map(function(m, idx) {
+        return {
+          serial_no: m.serial_number || String(idx + 1),
+          full_name: m.full_name || '',
+          address: m.address || m.residential_address || '',
+          class_of_member: m.occupation || 'Member'
+        };
+      });
+
+      var registerData = {
+        register_page_number: (msg.record && msg.record.page_number) || '01',
+        society_name: config.appName || 'HLabs filing',
+        liability_type: 'Limited',
+        members: formattedMembers
+      };
+
+      var renderConfig = {
+        minMemberRows: (config.appearance && config.appearance.minMemberRows) || 16,
+        isSample: false
+      };
+
+      if (config.colors) {
+        var root = document.documentElement;
+        root.style.setProperty('--page-bg', config.colors.paperBg || '#DCE5D8');
+        root.style.setProperty('--ink-grid', config.colors.border || '#1E3A38');
+        root.style.setProperty('--ink-hand', config.colors.text || '#1C2A3A');
+        root.style.setProperty('--spine-blue', config.colors.primary || '#0055D4');
+      }
+
+      var controlBar = document.querySelector('.control-bar');
+      if (controlBar) controlBar.style.display = 'none';
+
+      renderFormJ(registerData, renderConfig);
+    }
+  });
+
+  /* ---------------------------------------------------------------
+     5. DEMO CONTROL BAR WIRING (screen-only convenience; safe to
+     delete this block entirely when embedding in the desktop app).
+  ---------------------------------------------------------------- */
+  document.addEventListener("DOMContentLoaded", function(){
+    renderFormJ({}, { isSample:false });
+
+    document.getElementById("btnSample").addEventListener("click", function(){
+      renderFormJ(sampleRegisterData(), { isSample:true });
+      document.getElementById("sampleTag").classList.add("show");
+    });
+    document.getElementById("btnBlank").addEventListener("click", function(){
+      renderFormJ({}, { isSample:false });
+      document.getElementById("sampleTag").classList.remove("show");
+    });
+    document.getElementById("btnPrint").addEventListener("click", function(){
+      window.print();
+    });
+    document.getElementById("orientationSelect").addEventListener("change", function(e){
+      setOrientation(e.target.value);
+    });
+  });
+
+})();
+</script>
+</body>
+</html>

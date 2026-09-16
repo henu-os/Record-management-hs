@@ -1,0 +1,1095 @@
+@font-face {
+  font-family: 'Tiro Devanagari Marathi';
+  src: url('/fonts/TiroDevanagariMarathi-Regular.ttf') format('truetype');
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Tiro Devanagari Marathi';
+  src: url('/fonts/TiroDevanagariMarathi-Italic.ttf') format('truetype');
+  font-weight: 400 700;
+  font-style: italic;
+  font-display: swap;
+}
+
+:root {
+  --cert-cream: #fbf6e3;
+  --cert-red: #c1272d;
+  --cert-red-dark: #8f1c20;
+  --cert-maroon-text: #6b1a1a;
+  --cert-blue: #1a3f7a;
+  --cert-blue-dark: #14315f;
+  --cert-gold: #e0b84c;
+  --cert-gold-dark: #b8912f;
+  --cert-ink: #1a1a1a;
+  --cert-line: #333333;
+  --cert-border-width: 10px;
+}
+
+.henu-os-2,
+.marathi-copy,
+.marathi-acknowledgement,
+.transfer-memo-card--marathi,
+.ack-panel-back--marathi {
+  font-family: 'Tiro Devanagari Marathi', 'Mukta', 'Noto Sans Devanagari', serif, sans-serif !important;
+}
+
+.cert-sheet {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  background: #ffffff;
+  width: 100%;
+  max-width: 1400px;
+  min-height: 920px;
+  margin: 0 auto;
+  font-family: "Times New Roman", Georgia, "Noto Serif", serif;
+  color: var(--cert-ink);
+}
+
+.cert-sheet--single {
+  max-width: 700px;
+}
+
+/* ---------- Left acknowledgement stub ---------- */
+
+.ack-panel {
+  flex: 0 0 200px;
+  border-right: 2px dashed #999;
+  padding: 20px 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  justify-content: space-between;
+  background: var(--cert-cream);
+}
+
+.ack-panel .ribbon-banner {
+  transform: scale(0.85);
+  margin-bottom: 6px;
+}
+
+.ack-society-name {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--cert-red-dark);
+  line-height: 1.25;
+  margin: 4px 0 6px;
+  text-transform: uppercase;
+}
+
+.ack-heading {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  margin: 0 0 16px;
+  text-transform: uppercase;
+}
+
+.ack-block {
+  width: 100%;
+  border: 1px solid #ccc;
+  background: #fff;
+  border-radius: 2px;
+  padding: 12px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.ack-field {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+}
+
+.ack-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: #444;
+}
+
+.ack-line {
+  width: 100%;
+  border-bottom: 1px solid #999;
+  height: 16px;
+}
+
+/* ---------- Certificate copy ---------- */
+
+.certificate {
+  flex: 1 1 0;
+  padding: 8px;
+  min-width: 0;
+  display: flex;
+}
+
+.certificate-border {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 880px;
+  border: var(--cert-border-width) solid transparent;
+  border-image: repeating-linear-gradient(
+      45deg,
+      var(--cert-red) 0 4px,
+      var(--cert-cream) 4px 8px
+    )
+    10;
+  background: var(--cert-cream);
+  padding: 22px 28px 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+/* Diamond lattice guilloché pattern behind the border, echoing the security print */
+.certificate-border::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+      45deg,
+      rgba(193, 39, 45, 0.06) 0,
+      rgba(193, 39, 45, 0.06) 1px,
+      transparent 1px,
+      transparent 8px
+    ),
+    repeating-linear-gradient(
+      -45deg,
+      rgba(193, 39, 45, 0.06) 0,
+      rgba(193, 39, 45, 0.06) 1px,
+      transparent 1px,
+      transparent 8px
+    );
+}
+
+.cert-topline {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  margin-bottom: 6px;
+  position: relative;
+  z-index: 1;
+}
+
+.cert-topline-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  width: 100%;
+}
+
+.cert-topline u {
+  font-weight: 700;
+}
+
+/* Ribbon banner reading "Share Certificate" */
+.ribbon-banner {
+  align-self: center;
+  position: relative;
+  background: linear-gradient(180deg, var(--cert-gold) 0%, var(--cert-gold-dark) 100%);
+  color: var(--cert-red-dark);
+  font-weight: 800;
+  font-style: italic;
+  font-size: 22px;
+  padding: 6px 48px;
+  margin: 6px 0 12px;
+  border: 1.5px solid var(--cert-red);
+  clip-path: polygon(
+    3% 0%,
+    97% 0%,
+    100% 50%,
+    97% 100%,
+    3% 100%,
+    0% 50%
+  );
+  z-index: 1;
+}
+
+.cert-authorised {
+  text-align: center;
+  font-size: 11.5px;
+  font-weight: 700;
+  margin: 0 0 6px;
+  position: relative;
+  z-index: 1;
+}
+
+.cert-society-title {
+  text-align: center;
+  color: var(--cert-red);
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  margin: 0;
+  position: relative;
+  z-index: 1;
+  text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.08);
+}
+
+.cert-society-subtitle {
+  text-align: center;
+  color: var(--cert-red);
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  margin: 0 0 8px;
+  position: relative;
+  z-index: 1;
+}
+
+.cert-address {
+  text-align: center;
+  color: var(--cert-blue);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
+  margin: 0 0 12px;
+  position: relative;
+  z-index: 1;
+}
+
+.cert-certify {
+  font-size: 12.5px;
+  margin: 0 0 10px;
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.certify-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.certify-row u {
+  flex: 1 1 auto;
+  border-bottom: 1px solid var(--cert-line);
+  text-decoration: none;
+  font-weight: 700;
+  text-transform: uppercase;
+  min-height: 18px;
+}
+
+.certify-line-secondary {
+  width: 100%;
+  border-bottom: 1px solid var(--cert-line);
+  height: 14px;
+}
+
+.cert-holder-name {
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.cert-body-text {
+  font-size: 12px;
+  line-height: 1.7;
+  margin: 0 0 14px;
+  text-align: justify;
+  position: relative;
+  z-index: 1;
+}
+
+.cert-body-text strong {
+  font-weight: 800;
+}
+
+.cert-lower {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 14px;
+  position: relative;
+  z-index: 1;
+}
+
+.cert-stamp {
+  flex: 0 0 auto;
+  border: 1.5px solid var(--cert-line);
+  padding: 6px 14px;
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+  font-weight: 700;
+  font-size: 16px;
+  background: #fff;
+}
+
+.stamp-rupee {
+  font-size: 16px;
+}
+
+.cert-lieu-text {
+  flex: 1 1 auto;
+  font-size: 11px;
+  line-height: 1.6;
+  margin: 0;
+  text-align: justify;
+}
+
+.cert-owners {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 20px;
+  position: relative;
+  z-index: 1;
+}
+
+.owner-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.owner-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.owner-label {
+  white-space: nowrap;
+}
+
+.owner-line {
+  flex: 1;
+  border-bottom: 1.2px solid var(--cert-line);
+  min-height: 16px;
+}
+
+.owner-line-secondary {
+  width: 100%;
+  border-bottom: 1.2px solid var(--cert-line);
+  height: 14px;
+}
+
+.cert-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 14px;
+  position: relative;
+  z-index: 1;
+}
+
+.seal-circle {
+  width: 96px;
+  height: 96px;
+  border: 2px dashed #b8a98f;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 10.5px;
+  color: #b8a98f;
+  font-style: italic;
+}
+
+.signatures {
+  flex: 1;
+  display: flex;
+  justify-content: space-around;
+  gap: 12px;
+  border-top: 1.2px solid var(--cert-line);
+  padding-top: 6px;
+  margin-left: 24px;
+}
+
+.sig-line {
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.copy-label-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 2px solid var(--cert-red);
+  margin-top: 14px;
+  padding-top: 6px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: var(--cert-red-dark);
+  position: relative;
+  z-index: 1;
+}
+
+.pto {
+  font-style: italic;
+  font-weight: 700;
+}
+
+/* ---------- Back view transfer memorandum ---------- */
+.cert-sheet--back {
+  background: #ffffff;
+}
+
+.transfer-memo-card {
+  flex: 1 1 0;
+  border: 1.2px solid #000000;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+}
+
+.memo-title-bar {
+  border-bottom: 1.2px solid #000000;
+  padding: 8px 4px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--cert-red);
+  letter-spacing: 0.5px;
+}
+
+.memo-table-header {
+  display: flex;
+  border-bottom: 1.2px solid #000000;
+  font-size: 10.5px;
+  font-weight: 800;
+  color: var(--cert-red);
+  text-align: center;
+}
+
+.col-date { width: 54px; border-right: 1px solid #000000; padding: 4px 2px; display: flex; align-items: center; justify-content: center; }
+.col-tno { width: 44px; border-right: 1px solid #000000; padding: 4px 2px; display: flex; align-items: center; justify-content: center; }
+.col-reg-tr { width: 48px; border-right: 1px solid #000000; padding: 4px 2px; display: flex; align-items: center; justify-content: center; }
+.col-whom { flex: 1; border-right: 1px solid #000000; padding: 4px 2px; display: flex; align-items: center; justify-content: center; }
+.col-reg-te { width: 64px; padding: 4px 2px; display: flex; align-items: center; justify-content: center; }
+
+.memo-rows {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.memo-row {
+  flex: 1;
+  display: flex;
+  border-bottom: 1px solid #000000;
+  min-height: 120px;
+}
+
+.memo-row:last-child {
+  border-bottom: none;
+}
+
+.cell-date { width: 54px; border-right: 1px solid #000000; }
+.cell-tno-group {
+  width: 92px;
+  position: relative;
+  border-right: 1px solid #000000;
+  display: flex;
+  flex-direction: column;
+}
+.tno-cols-top {
+  display: flex;
+  height: 52%;
+  border-bottom: 1px solid #000000;
+}
+.cell-tno { width: 44px; border-right: 1px solid #000000; }
+.cell-reg-tr { width: 48px; }
+
+.cell-whom-wrapper {
+  flex: 1;
+  border-right: 1px solid #000000;
+  display: flex;
+  flex-direction: column;
+}
+.whom-top {
+  flex: 1;
+  border-bottom: 1px solid #000000;
+}
+.whom-bottom {
+  height: 52px;
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+.memo-seal-arch {
+  position: absolute;
+  left: 50%;
+  top: 52%;
+  transform: translate(-50%, -50%);
+  width: 82px;
+  height: 82px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 1px solid #000000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 0 2px #ffffff;
+  z-index: 2;
+}
+.memo-seal-circle span {
+  font-size: 15px;
+  font-family: var(--font-times);
+  font-weight: 800;
+  color: #c0c0c0;
+}
+.memo-signatures {
+  flex: 1;
+  display: flex;
+  justify-content: space-around;
+  gap: 8px;
+  padding: 0 10px;
+}
+.memo-sig {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.memo-sig-line {
+  width: 100%;
+  border-bottom: 1px solid #000000;
+}
+.memo-sig span {
+  font-size: 9.5px;
+  font-weight: 800;
+  color: var(--cert-red);
+  white-space: nowrap;
+}
+.cell-reg-te { width: 64px; }
+
+.ack-panel-back {
+  width: 160px;
+  flex: 0 0 160px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ack-back-box {
+  flex: 1;
+  border: 1px solid #000000;
+  border-radius: 6px;
+  padding: 8px 6px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  font-size: 9.5px;
+}
+.ack-back-field {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+}
+.ack-back-label {
+  font-weight: 700;
+  white-space: nowrap;
+}
+.dotted-line {
+  flex: 1;
+  border-bottom: 1px dotted #888888;
+  height: 10px;
+}
+
+/* ---------- Marathi Template 3 Styles (Royal Violet & Lavender #42326E / #E0D4FC) ---------- */
+
+.cert-card--marathi {
+  background: #fbf9ff;
+  border-color: #42326e;
+}
+
+.ack-panel--marathi {
+  background: #e0d4fc;
+  border-right: 2px dashed #42326e;
+}
+
+.ack-panel--marathi .ack-ribbon {
+  background: #42326e;
+  border: 1.5px solid #e0b84c;
+}
+
+.ack-panel--marathi .ack-box {
+  border-color: #d7c8ed;
+  background: #ffffff;
+}
+
+.cert-card--marathi .ribbon-banner {
+  background: #42326e;
+  border: 2px solid #e0b84c;
+  box-shadow: 0 0 0 2px #6e5b9a;
+}
+
+.cert-card--marathi .copy-label-bar {
+  color: #42326e;
+  border-top: 2px solid #42326e;
+}
+
+.ganesha-emblem {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 2px solid #e0b84c;
+  background: #fbf9ff;
+  color: #42326e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 13px;
+  margin: 6px auto;
+  box-shadow: 0 1px 4px rgba(66, 50, 110, 0.15);
+}
+
+.ack-society-sub {
+  font-size: 10px;
+  font-weight: 700;
+  color: #42326e;
+  margin: 0 0 4px;
+}
+
+.ack-reg-marathi {
+  font-size: 8px;
+  font-weight: 700;
+  color: #6e5b9a;
+  margin: 2px 0;
+}
+
+.ack-addr-marathi {
+  font-size: 8.5px;
+  font-weight: 600;
+  color: #222;
+  line-height: 1.25;
+  margin: 4px 0 10px;
+}
+
+.marathi-poch-badge {
+  display: inline-block;
+  background: #ffffff;
+  color: #42326e;
+  border: 1.5px solid #42326e;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 3px 16px;
+  border-radius: 3px;
+  margin: 6px auto 14px;
+}
+
+.cert-authorised-marathi {
+  font-size: 11px;
+  text-align: center;
+  margin: 4px 0 10px;
+  font-weight: 600;
+  color: #111;
+}
+
+.marathi-header-img-container {
+  width: 100%;
+  margin: 6px 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.marathi-society-header-img {
+  width: 100%;
+  max-height: 112px;
+  object-fit: contain;
+  border-radius: 4px;
+  border: 1px solid #d7c8ed;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.marathi-ack-img-container {
+  width: 100%;
+  margin: 8px 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.marathi-ack-header-img {
+  width: 100%;
+  max-height: 100px;
+  object-fit: contain;
+  border-radius: 4px;
+}
+
+.marathi-header-card {
+  position: relative;
+  border: 1.5px solid #6e5b9a;
+  background: #fbf9ff;
+  border-radius: 4px;
+  padding: 12px 14px 28px;
+  margin: 8px 0 6px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.marathi-card-emblem {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 2px solid #e0b84c;
+  background: #e0d4fc;
+  color: #42326e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.marathi-card-text {
+  flex: 1;
+  text-align: center;
+}
+
+.marathi-card-title {
+  font-size: 28px;
+  font-weight: 800;
+  color: #42326e;
+  margin: 0;
+  line-height: 1.15;
+  font-family: 'Mukta', 'Noto Sans Devanagari', 'Times New Roman', serif;
+}
+
+.marathi-card-subtitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: #42326e;
+  margin: 2px 0;
+}
+
+.marathi-card-reg {
+  font-size: 9px;
+  font-weight: 700;
+  color: #6e5b9a;
+  margin: 2px 0 0;
+}
+
+.marathi-star-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #42326e;
+  color: #ffffff;
+  font-size: 9px;
+  font-weight: 700;
+  text-align: center;
+  padding: 3px 6px;
+  border-bottom-left-radius: 2px;
+  border-bottom-right-radius: 2px;
+}
+
+.marathi-act-line {
+  font-size: 11px;
+  font-weight: 700;
+  color: #42326e;
+  text-align: center;
+  margin: 4px 0 10px;
+}
+
+.marathi-lower {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-top: 14px;
+}
+
+.cert-stamp--marathi {
+  border: 2px solid #42326e;
+  background: #fff;
+  padding: 6px 14px;
+  font-size: 14px;
+  font-weight: 800;
+  border-radius: 2px;
+}
+
+.marathi-signatures {
+  display: flex;
+  gap: 24px;
+}
+
+.marathi-signatures .sig-block {
+  text-align: center;
+  width: 110px;
+}
+
+.marathi-signatures .sig-line {
+  border-bottom: 1px solid #000;
+  height: 24px;
+  margin-bottom: 4px;
+}
+
+.marathi-signatures .sig-block span {
+  font-size: 11px;
+  font-weight: 700;
+  color: #42326e;
+}
+
+.marathi-pto {
+  text-align: right;
+  font-size: 10px;
+  font-weight: 700;
+  margin-top: 4px;
+}
+
+.transfer-memo-card--marathi {
+  background: #fbf9ff;
+  border: 2px solid #42326e;
+}
+
+.transfer-memo-card--marathi .memo-title-bar {
+  background: #e0d4fc;
+  color: #42326e;
+  border-bottom: 1px solid #42326e;
+  font-weight: 800;
+}
+
+.transfer-memo-card--marathi .memo-table-header {
+  background: #fbf9ff;
+  border-bottom: 1px solid #42326e;
+  color: #42326e;
+  font-weight: 800;
+}
+
+.transfer-memo-card--marathi .memo-seal-circle span {
+  color: #6e5b9a;
+}
+
+.transfer-memo-card--marathi .memo-sig span {
+  color: #42326e;
+}
+
+.ack-panel-back--marathi {
+  background: #e0d4fc;
+  border: 1.5px solid #42326e;
+}
+
+.ack-panel-back--marathi .ack-back-box {
+  background: #ffffff;
+  border: 1px solid #42326e;
+}
+
+/* ---------- Polaris Luxury 13x9 Styles ---------- */
+.cert-sheet--polaris {
+  background: #F7F5F1;
+  font-family: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: #17151B;
+}
+
+.polaris-ribbon-img-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  margin: 6px 0;
+}
+
+.polaris-ribbon-img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+.polaris-ribbon-text-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: 0.5px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+  white-space: nowrap;
+}
+
+.polaris-ack-card {
+  border: 1.5px solid #280C4D;
+  border-radius: 6px;
+  background: #ffffff;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+}
+
+.polaris-ack-card .ack-field {
+  margin-bottom: 4px;
+  font-size: 11px;
+}
+
+.polaris-header-block {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 8px 0;
+}
+
+.polaris-logo-zone {
+  width: 60px;
+  height: 60px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.polaris-soc-info {
+  flex: 1;
+}
+
+.polaris-soc-name {
+  font-size: 24px;
+  font-weight: 900;
+  letter-spacing: 1px;
+  line-height: 1.1;
+  color: #280C4D;
+  margin: 0;
+}
+
+.polaris-soc-sub {
+  font-size: 10px;
+  font-weight: 700;
+  color: #875700;
+  letter-spacing: 0.5px;
+}
+
+.polaris-soc-addr {
+  font-size: 8.5px;
+  color: #17151B;
+  margin-top: 4px;
+  line-height: 1.2;
+}
+
+.polaris-soc-reg {
+  font-size: 8px;
+  font-weight: 700;
+  color: #280C4D;
+  margin-top: 2px;
+}
+
+.polaris-lower {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-top: 16px;
+  position: relative;
+  z-index: 2;
+}
+
+.polaris-stamp {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  border: 2px solid #280C4D;
+  box-shadow: 0 0 0 2px #d4af37;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  font-size: 13px;
+  background: #ffffff;
+}
+
+.polaris-signatures {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 220px;
+}
+
+.polaris-sig-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.polaris-sig-line {
+  flex: 1;
+  border-bottom: 1px solid #77747D;
+  margin-left: 8px;
+}
+
+.polaris-oval-seal {
+  width: 92px;
+  height: 52px;
+  border-radius: 50%;
+  border: 1.5px solid #280C4D;
+  box-shadow: 0 0 0 1px #d4af37;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+  color: #280C4D;
+  font-family: 'Times New Roman', serif;
+  font-size: 13px;
+  font-weight: 700;
+  margin: 0 auto;
+}
+
+.polaris-sig-cross {
+  color: #280C4D;
+  font-size: 11px;
+  margin: 0 6px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.polaris-ack-cross {
+  color: #280C4D;
+  font-size: 12px;
+  text-align: center;
+  margin: 1px 0 3px;
+  line-height: 1;
+}
+
+.polaris-back-skyline {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 54px;
+  opacity: 0.28;
+  background: repeating-linear-gradient(90deg, #9b82c7, #9b82c7 4px, transparent 4px, transparent 10px);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ---------- Master Print Rules ---------- */
+
+@media print {
+  html,
+  body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+  }
+
+  .cert-sheet {
+    box-shadow: none !important;
+    margin: 0 !important;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}

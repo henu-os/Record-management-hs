@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FORM "I" — REGISTER OF MEMBERS</title>
+<link rel="stylesheet" href="form-i.css">
+</head>
+<body class="orientation-portrait">
+
+  <!-- ================= CONTROL BAR (Screen only, never printed) ================= -->
+  <div class="control-bar no-print">
+    <div class="brand">HLABS FILING — Records Management
+      <small>Form I · Register of Members (MCS Act Section 38(1))</small>
+    </div>
+    <span id="sampleTag" class="tag">Sample/test data loaded</span>
+    <label>
+      Orientation:
+      <select id="ctrl-orientation">
+        <option value="portrait">A4 Portrait</option>
+        <option value="landscape">A4 Landscape</option>
+      </select>
+    </label>
+    <button id="ctrl-sample" type="button">Load Sample Data</button>
+    <button id="ctrl-blank" type="button">Blank Template</button>
+    <button id="ctrl-print" type="button">Print / Save PDF</button>
+  </div>
+
+  <!-- ================= REGISTER SHEETS WRAPPER ================= -->
+  <div class="sheet-wrap">
+    <div id="form-root">
+      <section class="form-page" data-page="1">
+
+        <!-- Corner Page Number -->
+        <div class="page-no-wrap">
+          <span class="page-no-label">Page No.</span>
+          <input type="text" class="page-no-val" data-field="page_number" placeholder="00" />
+        </div>
+
+        <header class="doc-header">
+          <h1 class="form-title">FORM &ldquo;I&rdquo; <span class="rule-ref">[See Rule 32 and 65(1)]</span></h1>
+          <h2 class="form-subtitle">REGISTER OF MEMBERS</h2>
+          <p class="form-act-ref">[Section 38(1) of the Maharashtra Co-operative Societies' Act, 1960]</p>
+        </header>
+
+        <!-- ============ B. MEMBER INFORMATION ============ -->
+        <div class="member-fields">
+
+          <div class="field-row">
+            <div class="field-item field-narrow">
+              <label class="field-label">1.&nbsp;Serial Number</label>
+              <input type="text" class="field-value" data-field="serial_number" placeholder="" />
+            </div>
+            <div class="field-item field-wide">
+              <label class="field-label">2.&nbsp;Date of admission</label>
+              <input type="text" class="field-value" data-field="date_of_admission" placeholder="DD/MM/YYYY" />
+            </div>
+          </div>
+
+          <div class="field-row">
+            <div class="field-item field-full">
+              <label class="field-label">3.&nbsp;Date of Payment of entrance fee</label>
+              <input type="text" class="field-value" data-field="entrance_fee_date" placeholder="DD/MM/YYYY" />
+            </div>
+          </div>
+
+          <div class="field-row">
+            <div class="field-item field-full">
+              <label class="field-label">4.&nbsp;Full Name</label>
+              <input type="text" class="field-value" data-field="full_name" placeholder="" />
+            </div>
+          </div>
+
+          <div class="field-row">
+            <div class="field-item field-full">
+              <label class="field-label">5.&nbsp;Address</label>
+              <span class="field-value field-value-static">&nbsp;</span>
+            </div>
+          </div>
+
+          <div class="field-row indented">
+            <div class="field-item field-full">
+              <label class="field-label">Permanent</label>
+              <textarea class="field-value field-textarea" data-field="permanent_address" rows="1" placeholder=""></textarea>
+            </div>
+          </div>
+
+          <div class="field-row indented">
+            <div class="field-item field-full">
+              <label class="field-label">Residential</label>
+              <textarea class="field-value field-textarea" data-field="residential_address" rows="1" placeholder=""></textarea>
+            </div>
+          </div>
+
+          <div class="field-row">
+            <div class="field-item field-narrow">
+              <label class="field-label">6.&nbsp;Occupation</label>
+              <input type="text" class="field-value" data-field="occupation" placeholder="" />
+            </div>
+            <div class="field-item field-wide">
+              <label class="field-label">7.&nbsp;Age on the date of admission</label>
+              <input type="text" class="field-value" data-field="age_on_admission" placeholder="" />
+            </div>
+          </div>
+
+          <div class="field-row">
+            <div class="field-item field-full">
+              <label class="field-label">8.&nbsp;Full Name and address of the person nominated by the member under section 30(1)</label>
+              <input type="text" class="field-value" data-field="nominee_name" placeholder="" />
+            </div>
+          </div>
+          <div class="field-row indented continuation">
+            <div class="field-item field-full">
+              <input type="text" class="field-value" data-field="nominee_address_line1" placeholder="" />
+            </div>
+          </div>
+          <div class="field-row indented continuation">
+            <div class="field-item field-full">
+              <input type="text" class="field-value" data-field="nominee_address_line2" placeholder="" />
+            </div>
+          </div>
+
+          <div class="field-row">
+            <div class="field-item field-narrow">
+              <label class="field-label">9.&nbsp;Date of nomination</label>
+              <input type="text" class="field-value" data-field="date_of_nomination" placeholder="DD/MM/YYYY" />
+            </div>
+            <div class="field-item field-wide">
+              <label class="field-label">10.&nbsp;Date of cessation of membership</label>
+              <input type="text" class="field-value" data-field="date_of_cessation" placeholder="DD/MM/YYYY" />
+            </div>
+          </div>
+
+          <div class="field-row">
+            <div class="field-item field-full">
+              <label class="field-label">11.&nbsp;Reason for cessation</label>
+              <input type="text" class="field-value" data-field="reason_for_cessation" placeholder="" />
+            </div>
+          </div>
+
+          <div class="field-row">
+            <div class="field-item field-full">
+              <label class="field-label">12.&nbsp;Remarks</label>
+              <textarea class="field-value field-textarea" data-field="remarks" rows="1" placeholder=""></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============ C. PARTICULARS OF SHARES HELD ============ -->
+        <table class="shares-table shares-held-table" id="shares-held-table">
+          <colgroup>
+            <col class="col-date">
+            <col class="col-folio">
+            <col class="col-application">
+            <col class="col-allotment">
+            <col class="col-call">
+            <col class="col-call">
+            <col class="col-total">
+            <col class="col-numshares">
+            <col class="col-certno">
+          </colgroup>
+          <thead>
+            <tr class="head-r1">
+              <th rowspan="3" class="th-date">Date</th>
+              <th rowspan="3" class="th-folio">Cash<br>Book<br>folio</th>
+              <th colspan="4" class="th-group-title">PARTICULARS OF SHARES HELD</th>
+              <th rowspan="3" class="th-total">Total amount<br>received</th>
+              <th rowspan="3" class="th-numshares">No. of<br>shares<br>held</th>
+              <th rowspan="3" class="th-certno">Serial No.<br>of share<br>certificate</th>
+            </tr>
+            <tr class="head-r2">
+              <th rowspan="2" class="th-application">Application</th>
+              <th rowspan="2" class="th-allotment">Allotment</th>
+              <th colspan="2" class="th-amountgroup">Amount received on</th>
+            </tr>
+            <tr class="head-r3">
+              <th class="th-call">1st Call</th>
+              <th class="th-call">2nd Call</th>
+            </tr>
+          </thead>
+          <tbody id="shares-held-body"></tbody>
+        </table>
+
+        <!-- ============ D. PARTICULARS OF SHARES TRANSFERRED OR SURRENDERED ============ -->
+        <table class="shares-table shares-transfer-table" id="shares-transfer-table">
+          <colgroup>
+            <col class="col-date">
+            <col class="col-folio">
+            <col class="col-date2">
+            <col class="col-transferfolio">
+            <col class="col-certref">
+            <col class="col-transferred">
+            <col class="col-balshares">
+            <col class="col-balcert">
+            <col class="col-amount">
+          </colgroup>
+          <thead>
+            <tr class="head-r1">
+              <th colspan="9" class="th-section-title">PARTICULARS OF SHARES TRANSFERRED OR SURRENDERED</th>
+            </tr>
+            <tr class="head-r2">
+              <th rowspan="2" class="th-date">Date</th>
+              <th rowspan="2" class="th-folio">Cash<br>Book<br>folio</th>
+              <th rowspan="2" class="th-date2">Date</th>
+              <th rowspan="2" class="th-transferfolio">Cash Book folio or<br>shares transfer<br>register No.</th>
+              <th rowspan="2" class="th-certref">No. of shares certificate /<br><span class="th-sub">serial number of share certificate</span></th>
+              <th rowspan="2" class="th-transferred">No. of shares<br>transferred<br>or refunded</th>
+              <th colspan="2" class="th-balgroup">BALANCES</th>
+              <th rowspan="2" class="th-amount">Amount<br>Rs.</th>
+            </tr>
+            <tr class="head-r3">
+              <th class="th-balshares">No. of<br>shares held</th>
+              <th class="th-balcert">Serial No.<br>of share<br>certificate</th>
+            </tr>
+          </thead>
+          <tbody id="shares-transfer-body"></tbody>
+        </table>
+
+        <!-- Page Footer Branding -->
+        <div class="page-footer">
+          <span class="app-tag">HLABS FILING System</span>
+          <span class="page-count">Sheet 1</span>
+        </div>
+
+      </section>
+    </div>
+  </div>
+
+  <script src="form-i.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      // Boot Form I rendering engine
+      renderFormI(window.memberData || blankMemberData(), window.formConfig || defaultConfig);
+
+      document.getElementById('ctrl-orientation').addEventListener('change', function () {
+        setOrientation(this.value);
+      });
+      document.getElementById('ctrl-sample').addEventListener('click', function () {
+        document.getElementById('sampleTag').classList.add('show');
+        renderFormI(SAMPLE_MEMBER_DATA_FOR_TESTING, window.formConfig);
+      });
+      document.getElementById('ctrl-blank').addEventListener('click', function () {
+        document.getElementById('sampleTag').classList.remove('show');
+        renderFormI(blankMemberData(), window.formConfig);
+      });
+      document.getElementById('ctrl-print').addEventListener('click', function () {
+        window.print();
+      });
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FORM PROP — PROPERTY REGISTER</title>
+<link rel="stylesheet" href="property.css?v=3">
+</head>
+<body class="orientation-portrait">
+
+  <!-- ================= CONTROL BAR (Screen only, never printed) ================= -->
+  <div class="controls no-print">
+    <div class="controls-left">
+      <span class="brand">HLABS FILING — Records Management</span>
+      <span class="brand-sub">Form PROP — Property Register (MCS Act Section 38(1))</span>
+    </div>
+
+    <div class="controls-right">
+      <label>
+        Orientation
+        <select id="ctrl-orientation">
+          <option value="portrait">A4 Portrait</option>
+          <option value="landscape">A4 Landscape</option>
+        </select>
+      </label>
+
+      <label>
+        Rows / page
+        <input id="ctrl-rowsPerPage" type="number" min="4" max="30" value="12">
+      </label>
+
+      <label>
+        Table font
+        <input id="ctrl-fontSize" type="number" min="8" max="16" value="10"> pt
+      </label>
+
+      <label>
+        Row height
+        <input id="ctrl-rowHeight" type="number" min="16" max="60" value="25"> mm
+      </label>
+
+      <label>
+        Line weight
+        <input id="ctrl-lineWeight" type="number" min="1" max="3" step="0.5" value="1"> px
+      </label>
+
+      <label>
+        Accent color
+        <input id="ctrl-accentColor" type="color" value="#2F4157">
+      </label>
+
+      <label>
+        Print scale
+        <input id="ctrl-printScale" type="number" min="70" max="100" value="100"> %
+      </label>
+
+      <button id="btn-addRow" type="button">+ Add Property</button>
+      <button id="btn-loadSample" type="button">Load Sample Data</button>
+      <button id="btn-clear" type="button">Clear All</button>
+      <button id="btn-print" type="button" class="primary">Print / Save PDF</button>
+    </div>
+  </div>
+
+  <!-- ================= APPLICATION SHELL ================= -->
+  <div class="hf-shell">
+
+    <!-- Config sidebar + Record tracker (Screen only) -->
+    <div class="no-print" style="width:300px; flex:0 0 300px;">
+      <div class="hf-config" id="cfgPanel">
+        <h3>Document Calibration</h3>
+        
+        <label>Orientation</label>
+        <select id="cfgOrientation" onchange="hfApplyConfig()">
+          <option value="portrait">A4 Portrait</option>
+          <option value="landscape">A4 Landscape</option>
+        </select>
+
+        <div class="row2">
+          <div>
+            <label>Font Size (pt)</label>
+            <input type="number" id="cfgFontSize" value="10" min="7" max="16" onchange="hfApplyConfig()">
+          </div>
+          <div>
+            <label>Line Weight (px)</label>
+            <input type="number" id="cfgLineThickness" value="1.0" step="0.1" min="0.5" max="4" onchange="hfApplyConfig()">
+          </div>
+        </div>
+
+        <div class="row2">
+          <div>
+            <label>Row Height (mm)</label>
+            <input type="number" id="cfgRowHeight" value="25" min="16" max="60" onchange="hfApplyConfig()">
+          </div>
+          <div>
+            <label>Rows Per Page</label>
+            <input type="number" id="cfgRowsPerPage" value="12" min="4" max="30" onchange="hfApplyConfig()">
+          </div>
+        </div>
+
+        <label>Blue Line Color</label>
+        <input type="color" id="cfgBlueColor" value="#2F4157" onchange="hfApplyConfig()">
+
+        <h4>Print Metrics</h4>
+        <div class="row2">
+          <div>
+            <label>Margin (mm)</label>
+            <input type="number" id="cfgMargin" value="12" min="5" max="30" onchange="hfApplyConfig()">
+          </div>
+          <div>
+            <label>Scale (%)</label>
+            <input type="number" id="cfgScale" value="100" min="50" max="150" onchange="hfApplyConfig()">
+          </div>
+        </div>
+      </div>
+
+      <div class="hf-records" style="margin-top: 16px;">
+        <h3>Property List</h3>
+        <div id="recordList"></div>
+        <button class="hf-add-btn" onclick="addPropertyRecord()">+ Add Property Record</button>
+      </div>
+    </div>
+
+    <!-- Printable workspace canvas -->
+    <div class="hf-doc-wrap">
+      <div id="register-root"></div>
+    </div>
+
+  </div>
+
+  <script src="property.js"></script>
+  <script>
+    // Document bootstrap bindings
+    document.addEventListener('DOMContentLoaded', function () {
+      // Connect workspace calibrations
+      document.getElementById('ctrl-orientation').addEventListener('change', function(e) {
+        document.getElementById('cfgOrientation').value = e.target.value;
+        hfApplyConfig();
+      });
+      document.getElementById('ctrl-rowsPerPage').addEventListener('input', function(e) {
+        document.getElementById('cfgRowsPerPage').value = e.target.value;
+        hfApplyConfig();
+      });
+      document.getElementById('ctrl-fontSize').addEventListener('input', function(e) {
+        document.getElementById('cfgFontSize').value = e.target.value;
+        hfApplyConfig();
+      });
+      document.getElementById('ctrl-rowHeight').addEventListener('input', function(e) {
+        document.getElementById('cfgRowHeight').value = e.target.value;
+        hfApplyConfig();
+      });
+      document.getElementById('ctrl-lineWeight').addEventListener('input', function(e) {
+        document.getElementById('cfgLineThickness').value = e.target.value;
+        hfApplyConfig();
+      });
+      document.getElementById('ctrl-accentColor').addEventListener('input', function(e) {
+        document.getElementById('cfgBlueColor').value = e.target.value;
+        hfApplyConfig();
+      });
+      document.getElementById('ctrl-printScale').addEventListener('input', function(e) {
+        document.getElementById('cfgScale').value = e.target.value;
+        hfApplyConfig();
+      });
+
+      document.getElementById('btn-addRow').addEventListener('click', addPropertyRecord);
+      document.getElementById('btn-loadSample').addEventListener('click', loadSampleData);
+      document.getElementById('btn-clear').addEventListener('click', clearAllRecords);
+      document.getElementById('btn-print').addEventListener('click', function() {
+        window.print();
+      });
+
+      // Bootstrap render
+      loadSampleData();
+    });
+  </script>
+</body>
+</html>

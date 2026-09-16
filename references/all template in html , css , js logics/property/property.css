@@ -1,0 +1,511 @@
+/* ==========================================================================
+   HLABS FILING — Records Management
+   FORM 'PROP' — Property Register — CSS styling
+   Visual theme: Business Blue (Light Blue/Grey paper, blue lines, dark text)
+   ========================================================================== */
+
+:root {
+  /* ===== Customizable design tokens ===== */
+  --blue:              #2F4157;   /* Deep Dark Business Blue — headings + headers */
+  --ink-grid:          #567C8E;   /* Medium Steel Blue — register lines + cell borders */
+  --ink-hand:          #1C2A3A;   /* Deep Navy/Dark Indigo — user-filled record text */
+  --page-bg:           #E3ECF2;   /* Soft Light Blue/Grey — ledger paper appearance */
+  --accent:            #2F4157;   /* Accent color */
+  --spine-blue:        #2F4157;   /* Spine color representing the binder boundary */
+  --spine-width:       8mm;
+  --line-thickness:    1px;
+  --font-size:         9.5pt;
+  --row-height:        25mm;      /* Generous height for physical register style */
+  --margin:            12mm;
+  --print-scale:       1;
+  --font-doc:          'Georgia', 'Times New Roman', serif;
+  --font-label:        'Times New Roman', Georgia, serif;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #C7D9E5; /* Workspace background color matching theme */
+  font-family: var(--font-label);
+  color: var(--ink-hand);
+}
+
+/* ============================================================
+   ON-SCREEN CHROME (Never printed)
+   ============================================================ */
+@media print { .no-print { display: none !important; } }
+
+.controls {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  background: #2F4157;
+  color: #F3F6F9;
+  padding: 10px 20px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  font-size: 13px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+  width: 100%;
+}
+.controls-left {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+.controls-left .brand {
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.5px;
+}
+.controls-left .brand-sub {
+  font-size: 11px;
+  opacity: 0.7;
+  margin-top: 1px;
+}
+.controls-right {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+.controls-right label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #DFE7EC;
+}
+.controls-right input, .controls-right select {
+  padding: 4px 6px;
+  font-size: 12px;
+  background: #4A607A;
+  color: #fff;
+  border: 1px solid #567C8E;
+  border-radius: 4px;
+  width: 80px;
+  outline: none;
+}
+.controls-right input[type=color] {
+  width: 40px;
+  padding: 2px;
+  height: 26px;
+  cursor: pointer;
+}
+.controls-right button {
+  background: #A2C1D1;
+  color: #2F4157;
+  border: none;
+  font-weight: 700;
+  padding: 6px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.controls-right button:hover {
+  background: #C7D9E5;
+}
+.controls-right button.primary {
+  background: #A2C1D1;
+  color: #2F4157;
+}
+.controls-right button.danger {
+  background: #a3241f;
+  color: #fff;
+}
+
+.hf-shell {
+  display: flex;
+  gap: 20px;
+  padding: 20px;
+  align-items: flex-start;
+  width: 100%;
+}
+@media print { .hf-shell { padding: 0; display: block; } }
+
+.hf-config, .hf-records {
+  background: #fff;
+  border: 1px solid #c7d1da;
+  border-radius: 6px;
+  padding: 16px;
+  font-size: 13px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+.hf-config h3, .hf-records h3 {
+  margin: 0 0 12px;
+  font-size: 14px;
+  color: var(--blue);
+  border-bottom: 2px solid #E3ECF2;
+  padding-bottom: 6px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-weight: 700;
+}
+.hf-config h4 {
+  margin: 14px 0 6px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  color: #5a6b7b;
+}
+.hf-config label {
+  display: block;
+  margin: 8px 0 3px;
+  color: #33475b;
+  font-weight: 600;
+  font-size: 12px;
+}
+.hf-config input[type=number],
+.hf-config input[type=text],
+.hf-config select {
+  width: 100%;
+  padding: 5px 8px;
+  border: 1px solid #c7d1da;
+  border-radius: 4px;
+  font-size: 12px;
+  outline: none;
+  background: #FAFBF8;
+}
+.hf-config input[type=color] {
+  width: 100%;
+  height: 28px;
+  border: 1px solid #c7d1da;
+  border-radius: 4px;
+  padding: 2px;
+  cursor: pointer;
+}
+.hf-config .row2 {
+  display: flex;
+  gap: 8px;
+}
+.hf-config .row2 > div {
+  flex: 1;
+}
+
+.hf-record-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 4px;
+  border-bottom: 1px solid #eef1f4;
+  font-size: 12px;
+}
+.hf-record-row .sr {
+  width: 26px;
+  font-weight: 700;
+  color: var(--blue);
+}
+.hf-record-row .nm {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+.hf-record-row button {
+  border: 1px solid #c7d1da;
+  background: #f5f8fa;
+  border-radius: 4px;
+  font-size: 11px;
+  padding: 3px 6px;
+  cursor: pointer;
+}
+.hf-record-row button:hover {
+  background: #e9f0f6;
+}
+.hf-add-btn {
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px;
+  background: var(--blue);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+}
+.hf-add-btn:hover {
+  opacity: 0.9;
+}
+
+.hf-doc-wrap {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  justify-content: center;
+}
+@media print { .hf-doc-wrap { display: block; } }
+
+/* ============================================================
+   THE PRINTABLE SHEET (Ledger Book Page)
+   ============================================================ */
+#register-root {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+}
+@media print { #register-root { gap: 0; } }
+
+.register-page {
+  background: var(--page-bg);
+  width: 210mm;
+  min-height: 297mm;
+  padding: var(--margin) var(--margin) var(--margin) calc(var(--margin) + var(--spine-width));
+  border-left: var(--spine-width) solid var(--spine-blue);
+  box-shadow: 0 0 12px rgba(0,0,0,0.25);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.register-page.orientation-portrait {
+  width: 210mm;
+  min-height: 297mm;
+}
+.register-page.orientation-landscape {
+  width: 297mm;
+  min-height: 210mm;
+}
+
+@media print {
+  .register-page {
+    box-shadow: none;
+    margin: 0;
+    width: auto;
+    min-height: 0;
+    page-break-after: always;
+    break-after: page;
+    border-left: var(--spine-width) solid var(--spine-blue);
+  }
+  .register-page:last-child {
+    page-break-after: avoid;
+    break-after: avoid;
+  }
+}
+
+/* ============================================================
+   HEADER
+   ============================================================ */
+.page-no-wrap {
+  position: absolute;
+  top: var(--margin);
+  right: var(--margin);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.page-no-label {
+  font-family: var(--font-doc);
+  font-weight: 700;
+  color: var(--blue);
+  font-size: 10pt;
+}
+.page-no-val {
+  width: 36px;
+  border: none;
+  border-bottom: var(--line-thickness) solid var(--ink-grid);
+  background: transparent;
+  color: #B22222; /* Red page numbers */
+  font-family: var(--font-doc);
+  font-weight: 700;
+  font-size: 12pt;
+  text-align: center;
+  outline: none;
+}
+
+.doc-header {
+  flex: 0 0 auto;
+  border-bottom: calc(var(--line-thickness) * 2) double var(--blue);
+  padding-bottom: 4px;
+  width: 100%;
+}
+.doc-title {
+  margin: 4px 0;
+  text-align: center;
+  color: var(--blue);
+  font-family: var(--font-doc);
+  font-weight: 700;
+  letter-spacing: 5px;
+  font-size: var(--heading-size);
+  line-height: 1.2;
+}
+
+/* ============================================================
+   SOCIETY NAME UNDERLINE
+   ============================================================ */
+.society-line {
+  flex: 0 0 auto;
+  margin: 12px 0;
+  font-size: calc(var(--font-size) * 1.05);
+  color: var(--blue);
+  white-space: nowrap;
+}
+.society-label {
+  font-weight: 700;
+  margin-right: 8px;
+}
+.society-underline {
+  display: inline-block;
+  min-width: 60%;
+  border-bottom: var(--line-thickness) solid var(--ink-grid);
+  padding: 0 4px 1px;
+  color: var(--ink-hand);
+  font-family: var(--font-doc);
+  font-weight: 600;
+  outline: none;
+}
+.society-underline:hover {
+  background: rgba(162, 193, 209, 0.15);
+  outline: 1px dashed var(--ink-grid);
+}
+.society-underline:focus {
+  background: rgba(162, 193, 209, 0.25);
+  outline: 1px solid var(--blue);
+}
+
+/* ============================================================
+   TABLE
+   ============================================================ */
+.property-table-wrap {
+  width: 100%;
+  flex: 1 1 auto;
+}
+.property-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size);
+  font-family: var(--font-label);
+}
+.property-table th, .property-table td {
+  border: var(--line-thickness) solid var(--ink-grid);
+  padding: 4px;
+  vertical-align: top;
+}
+.property-table thead th {
+  color: var(--blue);
+  font-weight: 700;
+  text-align: center;
+  line-height: 1.25;
+  background: rgba(86, 124, 142, 0.08);
+}
+.property-table thead th.th-sub-col {
+  background: rgba(86, 124, 142, 0.14);
+}
+.property-table thead .th-sub {
+  display: block;
+  font-weight: 500;
+  font-size: calc(var(--font-size) * 0.85);
+  font-style: italic;
+  margin-top: 1px;
+}
+
+table.property-table tbody tr {
+  height: var(--row-height);
+}
+table.property-table tbody tr.blank-row td {
+  color: transparent;
+}
+table.property-table tbody td {
+  color: var(--ink-hand);
+  font-family: var(--font-doc);
+  font-weight: 600;
+  text-align: center;
+  padding: 0;
+}
+table.property-table tbody td[contenteditable="true"] {
+  height: 100%;
+  padding: 4px;
+  outline: none;
+}
+table.property-table tbody td[contenteditable="true"]:hover {
+  background: rgba(162, 193, 209, 0.15);
+  outline: 1px dashed var(--ink-grid);
+  outline-offset: -1px;
+}
+table.property-table tbody td[contenteditable="true"]:focus {
+  background: rgba(162, 193, 209, 0.25);
+  outline: 1px solid var(--blue);
+}
+
+table.property-table tbody td.cell-name,
+table.property-table tbody td.cell-desc,
+table.property-table tbody td.cell-remarks {
+  text-align: left;
+}
+
+table.property-table thead {
+  display: table-header-group;
+}
+table.property-table tr {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+/* -------------------- Column widths -------------------- */
+.col-sr        { width: 4.5%; }
+.col-name      { width: 17%; }
+.col-possession{ width: 8.5%; }
+.col-flat      { width: 6%; }
+.col-floor     { width: 5.5%; }
+.col-desc      { width: 9.5%; }
+.col-area      { width: 6.5%; }
+.col-land      { width: 6.5%; }
+.col-const     { width: 6.5%; }
+.col-rent      { width: 6.5%; }
+.col-cessation { width: 8.5%; }
+.col-signature { width: 7.5%; }
+.col-remarks   { width: 14%; }
+
+/* ============================================================
+   PAGE FOOTER
+   ============================================================ */
+.page-footer {
+  flex: 0 0 auto;
+  margin-top: auto;
+  padding-top: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+  font-size: 8pt;
+  color: var(--ink-grid);
+  opacity: 0.8;
+  border-top: var(--line-thickness) dotted var(--ink-grid);
+}
+.page-footer .app-tag {
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+/* ============================================================
+   RESPONSIVE PREVIEW SCALING
+   ============================================================ */
+@media screen and (max-width: 900px) {
+  .register-page {
+    transform: scale(0.75);
+    transform-origin: top center;
+    margin-bottom: -150px;
+  }
+}
+@media screen and (max-width: 700px) {
+  .register-page {
+    transform: scale(0.5);
+    transform-origin: top center;
+    margin-bottom: -350px;
+  }
+}
+
+@media print {
+  body.orientation-landscape {
+    zoom: var(--print-scale);
+  }
+}

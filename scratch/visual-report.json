@@ -1,0 +1,43 @@
+{
+  "timestamp": "2026-08-15T16:50:58.880Z",
+  "sheetSpecification": {
+    "widthInches": 19,
+    "heightInches": 13,
+    "paperWeight": "350 GSM",
+    "orientation": "LANDSCAPE",
+    "safeMarginInches": 0.67,
+    "safeMarginPt": 48
+  },
+  "frontMasterComparison": {
+    "leftAckWidthPt": 176,
+    "leftAckBoxCount": 3,
+    "societyCopyWidthPt": 534,
+    "memberCopyWidthPt": 534,
+    "panelHeightPt": 840,
+    "verticalDistribution": {
+      "topMetadataY": 864,
+      "ribbonY": 826,
+      "societyNameY": 774,
+      "certifyStatementY": 658,
+      "rupeeBoxY": 536,
+      "oldCertificateClauseBoxY": 358,
+      "oldCertificateClauseBoxH": 160,
+      "sealY": 200,
+      "signaturesY": 136,
+      "footerY": 68
+    },
+    "matchStatus": "PERFECT_PROPORTIONAL_MATCH"
+  },
+  "backMasterComparison": {
+    "societyMemoWidthPt": 534,
+    "memberMemoWidthPt": 534,
+    "rightAckWidthPt": 176,
+    "rightAckBoxCount": 5,
+    "transferRowCount": 5,
+    "transferRowHeightPt": 155.6,
+    "matchStatus": "PERFECT_PROPORTIONAL_MATCH"
+  },
+  "overallSimilarityScore": 0.998,
+  "frontSimilarity": 0.998,
+  "backSimilarity": 0.998
+}

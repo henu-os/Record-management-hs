@@ -1,0 +1,51 @@
++======================================================================================================================================+
+|                                           PREMIUM SHARE CERTIFICATE — LANDSCAPE MASTER                                              |
++============================+=========================================================================================================+
+| ACKNOWLEDGEMENT             |                              SOCIETY COPY                         |             MEMBER COPY          |
+| Receiver Name               | {{society.name}}                                                    | {{society.name}}               |
+| _________________________   | {{society.legal_name}}                                              | {{society.legal_name}}         |
+| PAN/Aadhaar                 | {{society.address_line_1}} {{society.address_line_2}}              | {{society.address_line_1}}    |
+| _________________________   | Regd. No. {{society.registration_number}}                          | Regd. No. {{society.registration_number}}|
+| Mobile                      +-----------------------------------------------------------------------+--------------------------------+
+| _________________________   | Serial: {{certificate.serial_no}}                                   | Serial: {{certificate.serial_no}}|
+| Signature                   | Share Cert.: {{certificate.share_certificate_no}}                   | Share Cert.: {{certificate.share_certificate_no}}|
+| _________________________   | Member Reg.: {{certificate.member_register_no}}                     | Member Reg.: {{certificate.member_register_no}}|
+|                             | Shares: {{certificate.no_of_shares}} Wing: {{certificate.wing}}    | Shares: {{certificate.no_of_shares}} Wing: {{certificate.wing}}|
++-----------------------------+-----------------------------------------------------------------------+--------------------------------+
+|                             |                         [ SHARE CERTIFICATE ]                         | [ SHARE CERTIFICATE ]          |
+|                             +-----------------------------------------------------------------------+--------------------------------+
+|                             | AUTH. CAPITAL Rs. {{society.authorised_capital}}/-                 | AUTH. CAPITAL Rs. {{society.authorised_capital}}/-|
+|                             | DIVIDED INTO {{society.total_authorised_shares}} SHARES OF Rs. {{society.face_value}} EACH | DIVIDED INTO ...|
+|                             +-----------------------------------------------------------------------+--------------------------------+
+|                             | THIS IS TO CERTIFY THAT                                              | THIS IS TO CERTIFY THAT        |
+|                             | {{member.holder_1}}                                                  | {{member.holder_1}}            |
+|                             | {{member.holder_2}}                                                  | {{member.holder_2}}            |
+|                             | {{member.holder_3}}                                                  | {{member.holder_3}}            |
+|                             +-----------------------------------------------------------------------+--------------------------------+
+|                             | Registered Holder(s) of {{certificate.no_of_shares_words}} fully     | Registered Holder(s) of ...    |
+|                             | paid-up shares of Rs. {{certificate.share_value_words}} each         | paid-up shares ...             |
+|                             | numbered {{certificate.distinctive_from}} to {{certificate.distinctive_to}} | numbered ... to ...         |
+|                             +-----------------------------------------------------------------------+--------------------------------+
+|                             | ₹ {{certificate.share_value}}/-                                      | ₹ {{certificate.share_value}}/-|
+|                             | Chairman __________________ Secretary __________________             | Chairman _____________________|
+|                             | Authorised M.C. Member ____________________________                 | Authorised M.C. Member _______|
+|                             | SOCIETY COPY / P.T.O.                                                | MEMBER COPY / P.T.O.           |
++=============================+=========================================================================================================+
+| BACK — TRANSFER MEMORANDUM                                                                                                         |
++------------------------------------------------------------------------------------------------------------------------------------+
+| Date | Transfer No. | Register No. | To whom Transferred                       | Register No. of transferee        | SEAL |
++------+--------------+--------------+-------------------------------------------+-----------------------------------+------+
+|      |              |              |                                           |                                   |      |
++------+--------------+--------------+-------------------------------------------+-----------------------------------+------+
+|      |              |              |                                           |                                   |      |
++------+--------------+--------------+-------------------------------------------+-----------------------------------+------+
+|      |              |              |                                           |                                   |      |
++------+--------------+--------------+-------------------------------------------+-----------------------------------+------+
+|      |              |              |                                           |                                   |      |
++------+--------------+--------------+-------------------------------------------+-----------------------------------+------+
+|      |              |              |                                           |                                   |      |
++------+--------------+--------------+-------------------------------------------+-----------------------------------+------+
+| Hon. Chairman __________________ | Hon. Secretary __________________ | Authorised M.C. Member ________________________________ |
++---------------------------------+-----------------------------------+-------------------------------------------------------------+
+| ACKNOWLEDGEMENT: Name __________________________ | PAN/Aadhaar __________________ | Mobile __________________ | Signature ______________ |
++======================================================================================================================================+

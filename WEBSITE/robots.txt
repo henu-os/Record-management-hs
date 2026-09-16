@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://henuos.com/sitemap.xml

@@ -1,0 +1,89 @@
+{
+  "settings": {},
+  "societies": [
+    {
+      "id": "default-society-1",
+      "society_name": "HENU OS PRIVATE LIMITED",
+      "registration_no": "U62099RJ2025PTC109150",
+      "registration_date": "02/12/2025",
+      "full_address": "Home Bhagesar, 10B-204 Second Floor, Pali AASAN home",
+      "city": "Pali",
+      "state": "Rajasthan",
+      "pin_code": "306401",
+      "logo_base64": "",
+      "created_at": "2026-08-25T01:10:38.721Z",
+      "is_active": 1
+    }
+  ],
+  "master_data_sessions": [
+    {
+      "id": "id-a53jwg-65eh",
+      "society_id": "repro-soc-1",
+      "file_name": "Repro.xlsx",
+      "society_name": "Repro Soc",
+      "registration_no": "R1",
+      "common_record_count": 2,
+      "form_i_count": 2,
+      "form_j_count": 2,
+      "share_count": 0,
+      "nomination_count": 0,
+      "property_count": 0,
+      "bank_count": 0,
+      "validation_errors": "[]",
+      "validation_warnings": "[]",
+      "workbook_json": "{\"fileName\":\"Repro.xlsx\",\"societyMaster\":{\"societyName\":\"Repro Soc\",\"registrationNo\":\"R1\"},\"commonFile\":[{\"srNo\":\"001\",\"memberId\":\"M001\",\"memberName\":\"Alice Original\",\"member1\":\"Alice Original\",\"flatNo\":\"10001\"},{\"srNo\":\"002\",\"memberId\":\"M002\",\"memberName\":\"Bob Original\",\"member1\":\"Bob Original\",\"flatNo\":\"10002\"}],\"formIData\":[{\"srNo\":\"001\",\"memberId\":\"M001\",\"memberName\":\"Alice Original\",\"member1\":\"Alice Original\",\"flatNo\":\"10001\"},{\"srNo\":\"002\",\"memberId\":\"M002\",\"memberName\":\"Bob Original\",\"member1\":\"Bob Original\",\"flatNo\":\"10002\"}],\"formJData\":[{\"srNo\":\"001\",\"memberId\":\"M001\",\"memberName\":\"Alice Original\",\"member1\":\"Alice Original\",\"flatNo\":\"10001\"},{\"srNo\":\"002\",\"memberId\":\"M002\",\"memberName\":\"Bob Original\",\"member1\":\"Bob Original\",\"flatNo\":\"10002\"}],\"shareData\":[],\"nominationData\":[],\"propertyData\":[],\"bankLineMarkData\":[],\"voucherData\":[],\"validationErrors\":[],\"validationWarnings\":[],\"loadedAt\":\"2026-08-25T00:00:00.000Z\"}",
+      "loaded_at": "2026-08-25T00:00:00.000Z",
+      "is_active": 0
+    },
+    {
+      "id": "id-5bcx2w-65im",
+      "society_id": "repro-soc-1",
+      "file_name": "Repro.xlsx",
+      "society_name": "Repro Soc",
+      "registration_no": "R1",
+      "common_record_count": 2,
+      "form_i_count": 2,
+      "form_j_count": 2,
+      "share_count": 0,
+      "nomination_count": 0,
+      "property_count": 0,
+      "bank_count": 0,
+      "validation_errors": "[]",
+      "validation_warnings": "[]",
+      "workbook_json": "{\"fileName\":\"Repro.xlsx\",\"societyMaster\":{\"societyName\":\"Repro Soc\",\"registrationNo\":\"R1\"},\"commonFile\":[{\"srNo\":\"001\",\"memberId\":\"M001\",\"memberName\":\"Alice EDITED\",\"member1\":\"Alice EDITED\",\"flatNo\":\"10001\",\"member2\":\"\",\"member3\":\"\",\"member4\":\"\",\"member5\":\"\",\"member6\":\"\",\"wingNo\":\"\",\"floor\":\"\",\"membershipNo\":\"\",\"shareCertificateNo\":\"\",\"noOfShares\":\"\",\"valueOfOneShare\":\"\",\"valueOfShares\":\"\",\"sharesFrom\":\"\",\"sharesTo\":\"\",\"dateOfAdmission\":\"\",\"dateOfEntranceFee\":\"\",\"residentialAddress\":\"\",\"permanentAddress\":\"\",\"occupation\":\"\",\"age\":\"\",\"nomineeName\":\"\",\"nomineeAddress\":\"\",\"nomineeRelationship\":\"\",\"dateOfNomination\":\"\"},{\"srNo\":\"002\",\"memberId\":\"M002\",\"memberName\":\"Bob Original\",\"member1\":\"Bob Original\",\"flatNo\":\"10002\",\"member2\":\"\",\"member3\":\"\",\"member4\":\"\",\"member5\":\"\",\"member6\":\"\",\"wingNo\":\"\",\"floor\":\"\",\"membershipNo\":\"\",\"shareCertificateNo\":\"\",\"noOfShares\":\"\",\"valueOfOneShare\":\"\",\"valueOfShares\":\"\",\"sharesFrom\":\"\",\"sharesTo\":\"\",\"dateOfAdmission\":\"\",\"dateOfEntranceFee\":\"\",\"residentialAddress\":\"\",\"permanentAddress\":\"\",\"occupation\":\"\",\"age\":\"\",\"nomineeName\":\"\",\"nomineeAddress\":\"\",\"nomineeRelationship\":\"\",\"dateOfNomination\":\"\"}],\"formIData\":[{\"srNo\":\"001\",\"memberId\":\"M001\",\"memberName\":\"Alice EDITED\",\"member1\":\"Alice EDITED\",\"flatNo\":\"10001\",\"member2\":\"\",\"member3\":\"\",\"member4\":\"\",\"member5\":\"\",\"member6\":\"\",\"wingNo\":\"\",\"floor\":\"\",\"membershipNo\":\"\",\"shareCertificateNo\":\"\",\"noOfShares\":\"\",\"valueOfOneShare\":\"\",\"valueOfShares\":\"\",\"sharesFrom\":\"\",\"sharesTo\":\"\",\"dateOfAdmission\":\"\",\"dateOfEntranceFee\":\"\",\"residentialAddress\":\"\",\"permanentAddress\":\"\",\"occupation\":\"\",\"age\":\"\",\"nomineeName\":\"\",\"nomineeAddress\":\"\",\"nomineeRelationship\":\"\",\"dateOfNomination\":\"\"},{\"srNo\":\"002\",\"memberId\":\"M002\",\"memberName\":\"Bob Original\",\"member1\":\"Bob Original\",\"flatNo\":\"10002\",\"member2\":\"\",\"member3\":\"\",\"member4\":\"\",\"member5\":\"\",\"member6\":\"\",\"wingNo\":\"\",\"floor\":\"\",\"membershipNo\":\"\",\"shareCertificateNo\":\"\",\"noOfShares\":\"\",\"valueOfOneShare\":\"\",\"valueOfShares\":\"\",\"sharesFrom\":\"\",\"sharesTo\":\"\",\"dateOfAdmission\":\"\",\"dateOfEntranceFee\":\"\",\"residentialAddress\":\"\",\"permanentAddress\":\"\",\"occupation\":\"\",\"age\":\"\",\"nomineeName\":\"\",\"nomineeAddress\":\"\",\"nomineeRelationship\":\"\",\"dateOfNomination\":\"\"}],\"formJData\":[{\"srNo\":\"001\",\"memberId\":\"M001\",\"memberName\":\"Alice EDITED\",\"member1\":\"Alice EDITED\",\"flatNo\":\"10001\",\"member2\":\"\",\"member3\":\"\",\"member4\":\"\",\"member5\":\"\",\"member6\":\"\",\"wingNo\":\"\",\"floor\":\"\",\"membershipNo\":\"\",\"shareCertificateNo\":\"\",\"noOfShares\":\"\",\"valueOfOneShare\":\"\",\"valueOfShares\":\"\",\"sharesFrom\":\"\",\"sharesTo\":\"\",\"dateOfAdmission\":\"\",\"dateOfEntranceFee\":\"\",\"residentialAddress\":\"\",\"permanentAddress\":\"\",\"occupation\":\"\",\"age\":\"\",\"nomineeName\":\"\",\"nomineeAddress\":\"\",\"nomineeRelationship\":\"\",\"dateOfNomination\":\"\"},{\"srNo\":\"002\",\"memberId\":\"M002\",\"memberName\":\"Bob Original\",\"member1\":\"Bob Original\",\"flatNo\":\"10002\",\"member2\":\"\",\"member3\":\"\",\"member4\":\"\",\"member5\":\"\",\"member6\":\"\",\"wingNo\":\"\",\"floor\":\"\",\"membershipNo\":\"\",\"shareCertificateNo\":\"\",\"noOfShares\":\"\",\"valueOfOneShare\":\"\",\"valueOfShares\":\"\",\"sharesFrom\":\"\",\"sharesTo\":\"\",\"dateOfAdmission\":\"\",\"dateOfEntranceFee\":\"\",\"residentialAddress\":\"\",\"permanentAddress\":\"\",\"occupation\":\"\",\"age\":\"\",\"nomineeName\":\"\",\"nomineeAddress\":\"\",\"nomineeRelationship\":\"\",\"dateOfNomination\":\"\"}],\"shareData\":[{\"srNo\":\"001\",\"memberId\":\"M001\",\"memberName\":\"Alice EDITED\",\"member1\":\"Alice EDITED\",\"flatNo\":\"10001\",\"member2\":\"\",\"member3\":\"\",\"member4\":\"\",\"member5\":\"\",\"member6\":\"\",\"wingNo\":\"\",\"floor\":\"\",\"membershipNo\":\"\",\"shareCertificateNo\":\"\",\"noOfShares\":\"\",\"valueOfOneShare\":\"\",\"valueOfShares\":\"\",\"sharesFrom\":\"\",\"sharesTo\":\"\",\"dateOfAdmission\":\"\",\"dateOfEntranceFee\":\"\",\"residentialAddress\":\"\",\"permanentAddress\":\"\",\"occupation\":\"\",\"age\":\"\",\"nomineeName\":\"\",\"nomineeAddress\":\"\",\"nomineeRelationship\":\"\",\"dateOfNomination\":\"\"},{\"srNo\":\"002\",\"memberId\":\"M002\",\"memberName\":\"Bob Original\",\"member1\":\"Bob Original\",\"flatNo\":\"10002\",\"member2\":\"\",\"member3\":\"\",\"member4\":\"\",\"member5\":\"\",\"member6\":\"\",\"wingNo\":\"\",\"floor\":\"\",\"membershipNo\":\"\",\"shareCertificateNo\":\"\",\"noOfShares\":\"\",\"valueOfOneShare\":\"\",\"valueOfShares\":\"\",\"sharesFrom\":\"\",\"sharesTo\":\"\",\"dateOfAdmission\":\"\",\"dateOfEntranceFee\":\"\",\"residentialAddress\":\"\",\"permanentAddress\":\"\",\"occupation\":\"\",\"age\":\"\",\"nomineeName\":\"\",\"nomineeAddress\":\"\",\"nomineeRelationship\":\"\",\"dateOfNomination\":\"\"}],\"nominationData\":[{\"srNo\":\"001\",\"memberId\":\"M001\",\"memberName\":\"Alice EDITED\",\"member1\":\"Alice EDITED\",\"flatNo\":\"10001\",\"member2\":\"\",\"member3\":\"\",\"member4\":\"\",\"member5\":\"\",\"member6\":\"\",\"wingNo\":\"\",\"floor\":\"\",\"membershipNo\":\"\",\"shareCertificateNo\":\"\",\"noOfShares\":\"\",\"valueOfOneShare\":\"\",\"valueOfShares\":\"\",\"sharesFrom\":\"\",\"sharesTo\":\"\",\"dateOfAdmission\":\"\",\"dateOfEntranceFee\":\"\",\"residentialAddress\":\"\",\"permanentAddress\":\"\",\"occupation\":\"\",\"age\":\"\",\"nomineeName\":\"\",\"nomineeAddress\":\"\",\"nomineeRelationship\":\"\",\"dateOfNomination\":\"\"},{\"srNo\":\"002\",\"memberId\":\"M002\",\"memberName\":\"Bob Original\",\"member1\":\"Bob Original\",\"flatNo\":\"10002\",\"member2\":\"\",\"member3\":\"\",\"member4\":\"\",\"member5\":\"\",\"member6\":\"\",\"wingNo\":\"\",\"floor\":\"\",\"membershipNo\":\"\",\"shareCertificateNo\":\"\",\"noOfShares\":\"\",\"valueOfOneShare\":\"\",\"valueOfShares\":\"\",\"sharesFrom\":\"\",\"sharesTo\":\"\",\"dateOfAdmission\":\"\",\"dateOfEntranceFee\":\"\",\"residentialAddress\":\"\",\"permanentAddress\":\"\",\"occupation\":\"\",\"age\":\"\",\"nomineeName\":\"\",\"nomineeAddress\":\"\",\"nomineeRelationship\":\"\",\"dateOfNomination\":\"\"}],\"propertyData\":[{\"srNo\":\"001\",\"memberId\":\"M001\",\"memberName\":\"Alice EDITED\",\"member1\":\"Alice EDITED\",\"flatNo\":\"10001\",\"member2\":\"\",\"member3\":\"\",\"member4\":\"\",\"member5\":\"\",\"member6\":\"\",\"wingNo\":\"\",\"floor\":\"\",\"membershipNo\":\"\",\"shareCertificateNo\":\"\",\"noOfShares\":\"\",\"valueOfOneShare\":\"\",\"valueOfShares\":\"\",\"sharesFrom\":\"\",\"sharesTo\":\"\",\"dateOfAdmission\":\"\",\"dateOfEntranceFee\":\"\",\"residentialAddress\":\"\",\"permanentAddress\":\"\",\"occupation\":\"\",\"age\":\"\",\"nomineeName\":\"\",\"nomineeAddress\":\"\",\"nomineeRelationship\":\"\",\"dateOfNomination\":\"\"},{\"srNo\":\"002\",\"memberId\":\"M002\",\"memberName\":\"Bob Original\",\"member1\":\"Bob Original\",\"flatNo\":\"10002\",\"member2\":\"\",\"member3\":\"\",\"member4\":\"\",\"member5\":\"\",\"member6\":\"\",\"wingNo\":\"\",\"floor\":\"\",\"membershipNo\":\"\",\"shareCertificateNo\":\"\",\"noOfShares\":\"\",\"valueOfOneShare\":\"\",\"valueOfShares\":\"\",\"sharesFrom\":\"\",\"sharesTo\":\"\",\"dateOfAdmission\":\"\",\"dateOfEntranceFee\":\"\",\"residentialAddress\":\"\",\"permanentAddress\":\"\",\"occupation\":\"\",\"age\":\"\",\"nomineeName\":\"\",\"nomineeAddress\":\"\",\"nomineeRelationship\":\"\",\"dateOfNomination\":\"\"}],\"bankLineMarkData\":[{\"srNo\":\"001\",\"memberId\":\"M001\",\"memberName\":\"Alice EDITED\",\"member1\":\"Alice EDITED\",\"flatNo\":\"10001\",\"member2\":\"\",\"member3\":\"\",\"member4\":\"\",\"member5\":\"\",\"member6\":\"\",\"wingNo\":\"\",\"floor\":\"\",\"membershipNo\":\"\",\"shareCertificateNo\":\"\",\"noOfShares\":\"\",\"valueOfOneShare\":\"\",\"valueOfShares\":\"\",\"sharesFrom\":\"\",\"sharesTo\":\"\",\"dateOfAdmission\":\"\",\"dateOfEntranceFee\":\"\",\"residentialAddress\":\"\",\"permanentAddress\":\"\",\"occupation\":\"\",\"age\":\"\",\"nomineeName\":\"\",\"nomineeAddress\":\"\",\"nomineeRelationship\":\"\",\"dateOfNomination\":\"\"},{\"srNo\":\"002\",\"memberId\":\"M002\",\"memberName\":\"Bob Original\",\"member1\":\"Bob Original\",\"flatNo\":\"10002\",\"member2\":\"\",\"member3\":\"\",\"member4\":\"\",\"member5\":\"\",\"member6\":\"\",\"wingNo\":\"\",\"floor\":\"\",\"membershipNo\":\"\",\"shareCertificateNo\":\"\",\"noOfShares\":\"\",\"valueOfOneShare\":\"\",\"valueOfShares\":\"\",\"sharesFrom\":\"\",\"sharesTo\":\"\",\"dateOfAdmission\":\"\",\"dateOfEntranceFee\":\"\",\"residentialAddress\":\"\",\"permanentAddress\":\"\",\"occupation\":\"\",\"age\":\"\",\"nomineeName\":\"\",\"nomineeAddress\":\"\",\"nomineeRelationship\":\"\",\"dateOfNomination\":\"\"}],\"voucherData\":[],\"validationErrors\":[],\"validationWarnings\":[],\"loadedAt\":\"2026-08-25T00:00:00.000Z\"}",
+      "loaded_at": "2026-08-25T01:10:38.737Z",
+      "is_active": 0
+    },
+    {
+      "id": "mr-base",
+      "society_id": "repro-mr-1",
+      "file_name": "f.xlsx",
+      "society_name": "S",
+      "registration_no": "R",
+      "common_record_count": 1,
+      "form_i_count": 0,
+      "form_j_count": 1,
+      "share_count": 0,
+      "nomination_count": 0,
+      "property_count": 0,
+      "bank_count": 0,
+      "validation_errors": "[]",
+      "validation_warnings": "[]",
+      "workbook_json": "{\"commonFile\":[{\"srNo\":\"001\",\"memberId\":\"M1\",\"memberName\":\"MEMBER_EDITED\"}],\"formJData\":[{\"srNo\":\"001\",\"memberId\":\"M1\",\"memberName\":\"MEMBER_EDITED\"}],\"validationErrors\":[],\"validationWarnings\":[]}",
+      "loaded_at": "2026-08-25T01:11:19.058Z",
+      "is_active": 0
+    }
+  ],
+  "generation_history": [],
+  "app_logs": [],
+  "schema_migrations": [
+    {
+      "version": 1,
+      "applied_at": "2026-08-25T01:08:10.013Z"
+    },
+    {
+      "version": 2,
+      "applied_at": "2026-08-25T01:08:10.016Z"
+    }
+  ]
+}

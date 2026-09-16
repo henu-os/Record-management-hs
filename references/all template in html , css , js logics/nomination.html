@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>FORM NOM — REGISTER OF NOMINATION</title>
+<meta name="app" content="HLABS FILING">
+<meta name="document-type" content="Register of Nomination">
+<style>
+/* ==========================================================================
+   HLABS FILING — Records Management
+   FORM NOM — REGISTER OF NOMINATION — CSS Styling
+   Visual theme: Business Blue (Light Blue/Grey paper, blue lines, dark text)
+   ========================================================================== */
+
+:root {
+  /* ===== Customizable design tokens ===== */
+  --hf-blue:            #2F4157;   /* Deep Dark Business Blue — headings + headers */
+  --hf-ink-grid:        #567C8E;   /* Medium Steel Blue — register lines + cell borders */
+  --hf-ink:             #1C2A3A;   /* Deep Navy/Dark Indigo — user-filled record text */
+  --hf-paper-bg:        #E3ECF2;   /* Soft Light Blue/Grey — ledger paper appearance */
+  --hf-page-bg:         #C7D9E5;   /* Workspace background color matching theme */
+  --hf-binding:         #2F4157;   /* Spine color representing the binder boundary */
+  --hf-spine-width:     8mm;
+  --hf-line-thickness:  1px;
+  --hf-font-size:       10pt;
+  --hf-heading-size:    18pt;
+  --hf-row-height:      32px;
+  --hf-print-scale:     1;
+  --hf-page-margin:     12mm;
+  --font-doc:           'Georgia', 'Times New Roman', serif;
+  --font-label:         'Times New Roman', Georgia, serif;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--hf-page-bg);
+  font-family: var(--font-label);
+  color: var(--hf-ink);
+}
+
+/* ============================================================
+   ON-SCREEN CHROME (Never printed)
+   ============================================================ */
+@media print { .no-print { display: none !important; } }
+
+.hf-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  background: #2F4157;
+  color: #F3F6F9;
+  padding: 10px 20px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  font-size: 13px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+  width: 100%;
+}
+.hf-topbar .brand {
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  margin-right: auto;
+}
+.hf-topbar .brand span {
+  font-weight: 400;
+  opacity: 0.7;
+  font-size: 11px;
+  margin-left: 6px;
+}
+.hf-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.hf-topbar-actions button {
+  background: #A2C1D1;
+  color: #2F4157;
+  border: none;
+  font-weight: 700;
+  padding: 6px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.hf-topbar-actions button:hover {
+  background: #C7D9E5;
+}
+.hf-topbar-actions button.secondary {
+  background: #4A607A;
+  color: #fff;
+  border: 1px solid #567C8E;
+}
+.hf-topbar-actions button.danger {
+  background: #a3241f;
+  color: #fff;
+}
+
+.hf-shell {
+  display: flex;
+  gap: 20px;
+  padding: 20px;
+  align-items: flex-start;
+  width: 100%;
+}
+@media print { .hf-shell { padding: 0; display: block; } }
+
+.hf-config, .hf-records {
+  background: #fff;
+  border: 1px solid #c7d1da;
+  border-radius: 6px;
+  padding: 16px;
+  font-size: 13px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+.hf-config h3, .hf-records h3 {
+  margin: 0 0 12px;
+  font-size: 14px;
+  color: var(--hf-blue);
+  border-bottom: 2px solid #E3ECF2;
+  padding-bottom: 6px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-weight: 700;
+}
+.hf-config h4 {
+  margin: 14px 0 6px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  color: #5a6b7b;
+}
+.hf-config label {
+  display: block;
+  margin: 8px 0 3px;
+  color: #33475b;
+  font-weight: 600;
+  font-size: 12px;
+}
+.hf-config input[type=number],
+.hf-config input[type=text],
+.hf-config select {
+  width: 100%;
+  padding: 5px 8px;
+  border: 1px solid #c7d1da;
+  border-radius: 4px;
+  font-size: 12px;
+  outline: none;
+  background: #FAFBF8;
+}
+.hf-config input[type=color] {
+  width: 100%;
+  height: 28px;
+  border: 1px solid #c7d1da;
+  border-radius: 4px;
+  padding: 2px;
+  cursor: pointer;
+}
+.hf-config .row2 {
+  display: flex;
+  gap: 8px;
+}
+.hf-config .row2 > div {
+  flex: 1;
+}
+
+.hf-record-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 4px;
+  border-bottom: 1px solid #eef1f4;
+  font-size: 12px;
+}
+.hf-record-row .sr {
+  width: 26px;
+  font-weight: 700;
+  color: var(--hf-blue);
+}
+.hf-record-row .nm {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+.hf-record-row button {
+  border: 1px solid #c7d1da;
+  background: #f5f8fa;
+  border-radius: 4px;
+  font-size: 11px;
+  padding: 3px 6px;
+  cursor: pointer;
+}
+.hf-record-row button:hover {
+  background: #e9f0f6;
+}
+.hf-add-btn {
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px;
+  background: var(--hf-blue);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+}
+.hf-add-btn:hover {
+  opacity: 0.9;
+}
+
+.hf-doc-wrap {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  justify-content: center;
+}
+@media print { .hf-doc-wrap { display: block; } }
+
+/* ============================================================
+   THE PRINTABLE SHEET (Ledger Book Page)
+   ============================================================ */
+.hf-sheet {
+  background: var(--hf-paper-bg);
+  box-shadow: 0 4px 18px rgba(0,0,0,.18);
+  padding: var(--hf-page-margin) var(--hf-page-margin) var(--hf-page-margin) calc(var(--hf-page-margin) + var(--hf-spine-width));
+  width: 210mm;
+  min-height: 297mm;
+  border-left: var(--hf-spine-width) solid var(--hf-binding);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+.hf-sheet.landscape {
+  width: 297mm;
+  min-height: 210mm;
+}
+
+@media print {
+  .hf-sheet {
+    box-shadow: none;
+    margin: 0;
+    padding: var(--hf-page-margin) var(--hf-page-margin) var(--hf-page-margin) calc(var(--hf-page-margin) + var(--hf-spine-width)) !important;
+    width: auto;
+    min-height: 0;
+    page-break-after: always;
+    border-left: var(--hf-spine-width) solid var(--hf-binding);
+  }
+}
+
+/* ============================================================
+   HEADER
+   ============================================================ */
+.hf-doc-header {
+  text-align: center;
+  margin-bottom: 16px;
+  border-bottom: calc(var(--hf-line-thickness) * 2) double var(--hf-blue);
+  padding-bottom: 6px;
+  width: 100%;
+}
+.hf-doc-header h1.hf-title-en {
+  margin: 0;
+  font-family: var(--font-doc);
+  font-size: var(--hf-heading-size);
+  color: var(--hf-blue);
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+.hf-doc-header h1.hf-title-mr {
+  margin: 1px 0 0 0;
+  font-family: var(--font-doc);
+  font-size: calc(var(--hf-heading-size) * 0.88);
+  color: var(--hf-blue);
+  font-weight: 700;
+}
+.hf-doc-header-top {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  font-family: var(--font-doc);
+  color: var(--hf-blue);
+  font-weight: 700;
+  font-size: 10pt;
+  margin-bottom: 4px;
+  line-height: 1.3;
+}
+
+.page-no-wrap {
+  position: absolute;
+  top: var(--hf-page-margin);
+  right: var(--hf-page-margin);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.page-no-label {
+  font-family: var(--font-doc);
+  font-weight: 700;
+  color: var(--hf-blue);
+  font-size: 10pt;
+}
+.page-no-val {
+  width: 36px;
+  border: none;
+  border-bottom: var(--hf-line-thickness) solid var(--hf-ink-grid);
+  background: transparent;
+  color: #B22222; /* Red page numbers */
+  font-family: var(--font-doc);
+  font-weight: 700;
+  font-size: 12pt;
+  text-align: center;
+  outline: none;
+}
+
+/* ============================================================
+   TABLE
+   ============================================================ */
+table.hf-register {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-family: var(--font-label);
+  font-size: var(--hf-font-size);
+}
+table.hf-register th, table.hf-register td {
+  border: var(--hf-line-thickness) solid var(--hf-ink-grid);
+  padding: 5px;
+  vertical-align: top;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+table.hf-register thead tr.labels th {
+  background: rgba(86, 124, 142, 0.08);
+  color: var(--hf-blue);
+  font-weight: 700;
+  text-align: center;
+  font-size: calc(var(--hf-font-size) - 1pt);
+  line-height: 1.25;
+}
+table.hf-register thead tr.nums th {
+  background: rgba(86, 124, 142, 0.14);
+  color: var(--hf-blue);
+  font-weight: 700;
+  text-align: center;
+  font-size: calc(var(--hf-font-size) - 1pt);
+  padding: 2px;
+}
+table.hf-register tbody td {
+  height: var(--hf-row-height);
+  color: var(--hf-ink);
+  font-family: var(--font-doc);
+  font-weight: 600;
+}
+table.hf-register tbody td.center {
+  text-align: center;
+}
+
+/* Column dimensions matching physical layout */
+.col-sr      { width: 8%;  }
+.col-member  { width: 23%; }
+.col-nomdate { width: 11%; }
+.col-nominee { width: 26%; }
+.col-meeting { width: 12%; }
+.col-revoke  { width: 10%; }
+.col-remarks { width: 10%; }
+
+.hf-doc-footer {
+  margin-top: auto;
+  padding-top: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+  font-size: 8pt;
+  color: var(--hf-ink-grid);
+  opacity: 0.8;
+  border-top: var(--hf-line-thickness) dotted var(--hf-ink-grid);
+}
+.hf-brand-mark {
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+/* Cell edit styling */
+td[contenteditable="true"]:hover {
+  background: rgba(162, 193, 209, 0.15);
+  outline: 1px dashed var(--hf-ink-grid);
+  outline-offset: -1px;
+}
+td[contenteditable="true"]:focus {
+  background: rgba(162, 193, 209, 0.25);
+  outline: 1px solid var(--hf-blue);
+}
+
+/* ============================================================
+   RESPONSIVE PREVIEW SCALING
+   ============================================================ */
+@media screen and (max-width: 900px) {
+  .hf-sheet {
+    transform: scale(0.75);
+    transform-origin: top center;
+    margin-bottom: -150px;
+  }
+}
+@media screen and (max-width: 700px) {
+  .hf-sheet {
+    transform: scale(0.5);
+    transform-origin: top center;
+    margin-bottom: -350px;
+  }
+}
+
+@media print {
+  body.orientation-landscape {
+    zoom: var(--hf-print-scale);
+  }
+}
+</style>
+</head>
+<body class="orientation-portrait">
+
+  <!-- ================= TOP BAR — Chrome UI ================= -->
+  <div class="hf-topbar no-print">
+    <div class="brand">HLABS FILING <span>Records Management — Register of Nomination</span></div>
+    <div class="hf-topbar-actions">
+      <button class="secondary" onclick="hfToggleConfig()">⚙ Settings</button>
+      <button onclick="hfAddRecord()">+ Add Nomination</button>
+      <button onclick="hfPrint()">🖨 Print / Save PDF</button>
+      <button class="danger" onclick="hfLoadBlank()">Blank Register</button>
+    </div>
+  </div>
+
+  <div class="hf-shell">
+
+    <!-- ================= CONFIG PANEL (Left sidebar) ================= -->
+    <div class="no-print" style="width:300px; flex:0 0 300px;">
+      <div class="hf-config" id="hfConfigPanel">
+        <h3>Document Calibration</h3>
+
+        <label>Orientation</label>
+        <select id="cfgOrientation" onchange="hfApplyConfig()">
+          <option value="portrait">A4 Portrait</option>
+          <option value="landscape">A4 Landscape</option>
+        </select>
+
+        <div class="row2">
+          <div>
+            <label>Font Size (pt)</label>
+            <input type="number" id="cfgFontSize" value="10" min="7" max="16" onchange="hfApplyConfig()">
+          </div>
+          <div>
+            <label>Heading Size (pt)</label>
+            <input type="number" id="cfgHeadingSize" value="18" min="14" max="40" onchange="hfApplyConfig()">
+          </div>
+        </div>
+
+        <div class="row2">
+          <div>
+            <label>Row Height (px)</label>
+            <input type="number" id="cfgRowHeight" value="32" min="18" max="80" onchange="hfApplyConfig()">
+          </div>
+          <div>
+            <label>Line Thickness (px)</label>
+            <input type="number" id="cfgLineThickness" value="1.0" step="0.1" min="0.5" max="4" onchange="hfApplyConfig()">
+          </div>
+        </div>
+
+        <label>Blue Line / Heading Color</label>
+        <input type="color" id="cfgBlueColor" value="#2F4157" onchange="hfApplyConfig()">
+
+        <h4>Print Metrics</h4>
+        <div class="row2">
+          <div>
+            <label>Margin (mm)</label>
+            <input type="number" id="cfgMargin" value="12" min="5" max="30" onchange="hfApplyConfig()">
+          </div>
+          <div>
+            <label>Scale (%)</label>
+            <input type="number" id="cfgScale" value="100" min="50" max="150" onchange="hfApplyConfig()">
+          </div>
+        </div>
+
+        <h4>Ruled Blank Sheet</h4>
+        <label>Ruled empty lines to fill</label>
+        <input type="number" id="cfgBlankRows" value="18" min="1" max="60" onchange="hfLoadBlank()">
+      </div>
+
+      <div class="hf-records" style="margin-top: 16px;">
+        <h3>Filing Records</h3>
+        <div id="hfRecordList"></div>
+        <button class="hf-add-btn" onclick="hfAddRecord()">+ Add Row Record</button>
+      </div>
+    </div>
+
+    <!-- ================= THE PRINTABLE LEDGER PAGE ================= -->
+    <div class="hf-doc-wrap">
+      <div class="hf-sheet" id="hfSheet">
+
+        <!-- Corner Page Number -->
+        <div class="page-no-wrap">
+          <span class="page-no-label">Page No.</span>
+          <input type="text" class="page-no-val" id="cfgPageNo" value="01" oninput="hfUpdateFooter()" />
+        </div>
+
+        <div class="hf-doc-header">
+          <div class="hf-doc-header-top">
+            <span>FORM NOM / नमुना नामनिर्देशन</span>
+            <span>[See MCS Act Section 30(1)] / [सहकार कायदा कलम ३०(१) पहा]</span>
+          </div>
+          <h1 class="hf-title-en">Register of Nomination</h1>
+          <h1 class="hf-title-mr">नामनिर्देशन नोंदवही</h1>
+        </div>
+
+        <table class="hf-register" id="hfTable">
+          <thead>
+            <tr class="labels">
+              <th class="col-sr">Sr.<br>No.</th>
+              <th class="col-member">Name of the Member making Nomination</th>
+              <th class="col-nomdate">Date of Nomination</th>
+              <th class="col-nominee">Name/s of Nominee/s &amp; Address/es of the Nominee/s</th>
+              <th class="col-meeting">Date of the Managing Committee Meeting in which the Nomination was recorded</th>
+              <th class="col-revoke">Date of any subsequent revocation of Nomination</th>
+              <th class="col-remarks">Remarks</th>
+            </tr>
+            <tr class="nums">
+              <th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th>
+            </tr>
+          </thead>
+          <tbody id="hfTbody">
+            <!-- Bound rows dynamically compiled by JS -->
+          </tbody>
+        </table>
+
+        <div class="hf-doc-footer">
+          <span class="hf-brand-mark">HLABS FILING System</span>
+          <span id="hfFooterRight"></span>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // Nomination data model store
+    let nominationRecords = [
+      {
+        serialNumber: "01",
+        memberName: "ARVIND RAMCHANDRA KALE",
+        nominationDate: "18/04/2012",
+        nomineeNameAddress: "MRS. PRIYA ARVIND KALE\nFlat No. 502, B-Wing, Shanti Sadan CHS, Kothrud, Pune - 411038",
+        committeeMeetingDate: "12/05/2012",
+        revocationDate: "",
+        remarks: "Recorded in MC Folio 14"
+      },
+      {
+        serialNumber: "02",
+        memberName: "SURESH NARAYAN KULKARNI",
+        nominationDate: "20/06/1985",
+        nomineeNameAddress: "MRS. ANJALI SURESH KULKARNI\nFlat No. 12, Shivaji Society, Pune - 411004",
+        committeeMeetingDate: "15/07/1985",
+        revocationDate: "",
+        remarks: "Original member nominee"
+      },
+      {
+        serialNumber: "03",
+        memberName: "MEENAKSHI SHRIPAD JOSHI",
+        nominationDate: "10/11/2016",
+        nomineeNameAddress: "SHRIDHAR VISHWANATH JOSHI (Husband)\nFlat No. 201, Om Residency, Karve Road, Pune - 411038",
+        committeeMeetingDate: "05/12/2016",
+        revocationDate: "",
+        remarks: "Vol-II Folio 82"
+      }
+    ];
+
+    const MIN_BLANK_TRAILING_ROWS = 6; 
+
+    const HF_ROW_TEMPLATE = `
+      <tr data-id="{{row_id}}">
+        <td class="col-sr center" data-field="serialNumber">{{serial_number}}</td>
+        <td class="col-member" data-field="memberName">{{member_name}}</td>
+        <td class="col-nomdate center" data-field="nominationDate">{{nomination_date}}</td>
+        <td class="col-nominee" data-field="nomineeNameAddress">{{nominee_name_address}}</td>
+        <td class="col-meeting center" data-field="committeeMeetingDate">{{committee_meeting_date}}</td>
+        <td class="col-revoke center" data-field="revocationDate">{{revocation_date}}</td>
+        <td class="col-remarks" data-field="remarks">{{remarks}}</td>
+      </tr>`;
+
+    function hfBindRow(record, rowId) {
+      return HF_ROW_TEMPLATE
+        .replace('{{row_id}}', rowId)
+        .replace('{{serial_number}}', hfEsc(record.serialNumber))
+        .replace('{{member_name}}', hfEsc(record.memberName))
+        .replace('{{nomination_date}}', hfEsc(record.nominationDate))
+        .replace('{{nominee_name_address}}', hfEsc(record.nomineeNameAddress).replace(/\n/g, '<br>'))
+        .replace('{{committee_meeting_date}}', hfEsc(record.committeeMeetingDate))
+        .replace('{{revocation_date}}', hfEsc(record.revocationDate))
+        .replace('{{remarks}}', hfEsc(record.remarks));
+    }
+
+    function hfEsc(v) {
+      if (v === undefined || v === null) return '';
+      const d = document.createElement('div');
+      d.innerText = String(v);
+      return d.innerHTML;
+    }
+
+    function hfBlankRow(rowId) {
+      return HF_ROW_TEMPLATE
+        .replace('{{row_id}}', rowId)
+        .replace('{{serial_number}}', '&nbsp;')
+        .replace('{{member_name}}', '')
+        .replace('{{nomination_date}}', '')
+        .replace('{{nominee_name_address}}', '')
+        .replace('{{committee_meeting_date}}', '')
+        .replace('{{revocation_date}}', '')
+        .replace('{{remarks}}', '');
+    }
+
+    function hfLoadBlank() {
+      const n = parseInt(document.getElementById('cfgBlankRows').value, 10) || 18;
+      nominationRecords = [];
+      let html = '';
+      for (let i = 0; i < n; i++) {
+        html += hfBlankRow('blank-' + i);
+      }
+      document.getElementById('hfTbody').innerHTML = html;
+      hfRenderRecordList();
+      hfBindEditableCells();
+    }
+
+    function hfRender() {
+      const tbody = document.getElementById('hfTbody');
+      let html = '';
+      nominationRecords.forEach((rec, idx) => {
+        html += hfBindRow(rec, 'rec-' + idx);
+      });
+      // Pad empty rows to maintain printed sheet visual borders
+      var blanksNeeded = Math.max(0, MIN_BLANK_TRAILING_ROWS - nominationRecords.length);
+      if (nominationRecords.length === 0) {
+        blanksNeeded = 18;
+      }
+      for (let i = 0; i < blanksNeeded; i++) {
+        html += hfBlankRow('trailing-' + i);
+      }
+      tbody.innerHTML = html;
+      hfRenderRecordList();
+      hfBindEditableCells();
+    }
+
+    function hfBindEditableCells() {
+      document.querySelectorAll('#hfTbody td[data-field]').forEach(td => {
+        td.setAttribute('contenteditable', 'true');
+        td.oninput = function() {
+          const tr = this.closest('tr');
+          const id = tr.getAttribute('data-id');
+          const field = this.getAttribute('data-field');
+          
+          // Re-map content breaklines to standard format
+          const enteredVal = this.innerHTML.replace(/<br>/g, '\n').replace(/<div>/g, '\n').replace(/<\/div>/g, '');
+          
+          if (id.startsWith('blank-') || id.startsWith('trailing-')) {
+            // Dynamically instantiate record on cell keystroke input
+            const newIdx = nominationRecords.length;
+            const newRec = {
+              serialNumber: String(newIdx + 1).padStart(2, '0'),
+              memberName: '',
+              nominationDate: '',
+              nomineeNameAddress: '',
+              committeeMeetingDate: '',
+              revocationDate: '',
+              remarks: ''
+            };
+            newRec[field] = enteredVal;
+            nominationRecords.push(newRec);
+            
+            // Re-render row context to bind ID
+            tr.setAttribute('data-id', 'rec-' + newIdx);
+            hfRenderRecordList();
+          } else if (id.startsWith('rec-')) {
+            const idx = parseInt(id.split('-')[1], 10);
+            if (nominationRecords[idx]) {
+              nominationRecords[idx][field] = enteredVal;
+            }
+            hfRenderRecordList();
+          }
+        };
+      });
+    }
+
+    function hfAddRecord() {
+      nominationRecords.push({
+        serialNumber: String(nominationRecords.length + 1).padStart(2, '0'),
+        memberName: '',
+        nominationDate: '',
+        nomineeNameAddress: '',
+        committeeMeetingDate: '',
+        revocationDate: '',
+        remarks: ''
+      });
+      hfRender();
+    }
+
+    function hfDeleteRecord(idx) {
+      nominationRecords.splice(idx, 1);
+      hfRender();
+    }
+
+    function hfDuplicateRecord(idx) {
+      const copy = Object.assign({}, nominationRecords[idx]);
+      copy.serialNumber = String(nominationRecords.length + 1).padStart(2, '0');
+      nominationRecords.splice(idx + 1, 0, copy);
+      hfRender();
+    }
+
+    function hfRenderRecordList() {
+      const list = document.getElementById('hfRecordList');
+      if (!list) return;
+      if (nominationRecords.length === 0) {
+        list.innerHTML = '<div style="color:#93a2b0;font-size:12px;padding:4px;">No records — blank register sheet.</div>';
+        return;
+      }
+      list.innerHTML = nominationRecords.map((r, idx) => `
+        <div class="hf-record-row">
+          <span class="sr">${hfEsc(r.serialNumber) || (idx + 1)}</span>
+          <span class="nm">${hfEsc(r.memberName) || '(unnamed)'}</span>
+          <button onclick="hfDuplicateRecord(${idx})" title="Duplicate">⧉</button>
+          <button onclick="hfDeleteRecord(${idx})" title="Delete">✕</button>
+        </div>
+      `).join('');
+    }
+
+    function hfPrint() {
+      window.print();
+    }
+
+    function hfUpdateFooter() {
+      const pageNo = document.getElementById('cfgPageNo').value;
+      const today = new Date().toLocaleDateString('en-IN');
+      document.getElementById('hfFooterRight').innerText = 'Page ' + (pageNo || '01') + ' · Generated ' + today;
+    }
+
+    function hfApplyConfig() {
+      const root = document.documentElement.style;
+      const orientation = document.getElementById('cfgOrientation').value;
+      const fontSize    = document.getElementById('cfgFontSize').value;
+      const headingSize = document.getElementById('cfgHeadingSize').value;
+      const rowHeight   = document.getElementById('cfgRowHeight').value;
+      const lineThick   = document.getElementById('cfgLineThickness').value;
+      const blueColor   = document.getElementById('cfgBlueColor').value;
+      const margin      = document.getElementById('cfgMargin').value;
+      const scale       = document.getElementById('cfgScale').value;
+
+      root.setProperty('--hf-font-size', fontSize + 'pt');
+      root.setProperty('--hf-heading-size', headingSize + 'pt');
+      root.setProperty('--hf-row-height', rowHeight + 'px');
+      root.setProperty('--hf-line-thickness', lineThick + 'px');
+      root.setProperty('--hf-blue', blueColor);
+      root.setProperty('--hf-page-margin', margin + 'mm');
+      root.setProperty('--hf-print-scale', (scale / 100));
+
+      const sheet = document.getElementById('hfSheet');
+      const body = document.body;
+      if (orientation === 'landscape') {
+        sheet.classList.add('landscape');
+        body.classList.add('orientation-landscape');
+        body.classList.remove('orientation-portrait');
+      } else {
+        sheet.classList.remove('landscape');
+        body.classList.remove('orientation-landscape');
+        body.classList.add('orientation-portrait');
+      }
+
+      // page styling
+      let pageStyle = document.getElementById('hfPageStyle');
+      if (!pageStyle) {
+        pageStyle = document.createElement('style');
+        pageStyle.id = 'hfPageStyle';
+        document.head.appendChild(pageStyle);
+      }
+      pageStyle.innerHTML = orientation === 'landscape'
+        ? `@page { size: A4 landscape; margin: 0; } .hf-sheet { padding: ${margin}mm ${margin}mm ${margin}mm calc(${margin}mm + var(--hf-spine-width)) !important; }`
+        : `@page { size: A4 portrait; margin: 0; } .hf-sheet { padding: ${margin}mm ${margin}mm ${margin}mm calc(${margin}mm + var(--hf-spine-width)) !important; }`;
+    }
+
+    function hfToggleConfig() {
+      const panel = document.getElementById('hfConfigPanel');
+      panel.style.display = (panel.style.display === 'none') ? 'block' : 'none';
+    }
+
+    // Dynamic Electron integration
+    window.addEventListener('message', function (event) {
+      const msg = event.data;
+      if (!msg || typeof msg !== 'object') return;
+      if (msg.type === 'INIT_TEMPLATE') {
+        const records = msg.records || [];
+        const config = msg.config || {};
+        
+        const formatted = records.map((m, idx) => ({
+          id: m.id,
+          serial_number: m.serial_number || String(idx + 1).padStart(2, '0'),
+          full_name: m.full_name || '',
+          nominee_name: m.nominee_name || '',
+          nominee_address: m.nominee_address || '',
+          date_of_nomination: m.date_of_nomination || '',
+          remarks: m.remarks || ''
+        }));
+
+        nominationRecords = formatted;
+
+        document.getElementById('cfgOrientation').value = config.appearance?.orientation || 'portrait';
+        document.getElementById('cfgFontSize').value = config.appearance?.fontSize || 10;
+        document.getElementById('cfgRowHeight').value = config.appearance?.rowHeight || 32;
+        document.getElementById('cfgBlueColor').value = config.colors?.primary || '#2F4157';
+        document.getElementById('cfgMargin').value = config.appearance?.margin || 12;
+        document.getElementById('cfgScale').value = config.appearance?.scale || 100;
+
+        if (config.colors) {
+          const root = document.documentElement.style;
+          root.setProperty('--hf-blue', config.colors.primary);
+          root.setProperty('--hf-page-bg', config.colors.paperBg || '#E3ECF2');
+          root.setProperty('--hf-line-thickness', (config.appearance?.lineWeight || 1.0) + 'px');
+          root.setProperty('--hf-text-color', config.colors.text || '#1C2A3A');
+        }
+
+        hfApplyConfig();
+        hfRender();
+        hfUpdateFooter();
+      }
+    });
+
+    // bootstrap init
+    document.addEventListener('DOMContentLoaded', function() {
+      hfApplyConfig();
+      hfRender();
+      hfUpdateFooter();
+    });
+  </script>
+</body>
+</html>

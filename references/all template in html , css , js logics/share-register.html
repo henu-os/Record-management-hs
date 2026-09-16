@@ -1,0 +1,1106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>FORM SHARE — SHARE REGISTER</title>
+<meta name="app" content="HLABS FILING">
+<meta name="document-type" content="Share Register">
+<style>
+/* ==========================================================================
+   HLABS FILING — Records Management
+   FORM 'SHARE' — SHARE REGISTER — CSS Styling
+   Visual theme: Business Blue (Light Blue/Grey paper, blue lines, dark text)
+   ========================================================================== */
+
+:root {
+  /* ===== Customizable design tokens ===== */
+  --blue:              #2F4157;   /* Deep Dark Business Blue — headings + headers */
+  --ink-grid:          #567C8E;   /* Medium Steel Blue — register lines + cell borders */
+  --ink-hand:          #1C2A3A;   /* Deep Navy/Dark Indigo — user-filled record text */
+  --page-bg:           #E3ECF2;   /* Soft Light Blue/Grey — ledger paper appearance */
+  --accent:            #2F4157;   /* Accent color */
+  --spine-blue:        #2F4157;   /* Spine color representing the binder boundary */
+  --spine-width:       8mm;
+  --line-thickness:    1px;
+  --font-size-base:    9.5pt;
+  --font-size-small:   8.5pt;
+  --heading-size:      18pt;
+  --row-height:        25mm;      /* Generous height for physical register style */
+  --page-margin:       12mm;
+  --print-scale:       1;
+  --font-doc:          'Georgia', 'Times New Roman', serif;
+  --font-label:        'Times New Roman', Georgia, serif;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #C7D9E5; /* Workspace background color matching theme */
+  font-family: var(--font-label);
+  color: var(--ink-hand);
+}
+
+/* ============================================================
+   ON-SCREEN CHROME (Never printed)
+   ============================================================ */
+@media print { .no-print { display: none !important; } }
+
+.controls {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  background: #2F4157;
+  color: #F3F6F9;
+  padding: 10px 20px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  font-size: 13px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+  width: 100%;
+}
+.controls-left {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+.controls-left .brand {
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.5px;
+}
+.controls-left .brand-sub {
+  font-size: 11px;
+  opacity: 0.7;
+  margin-top: 1px;
+}
+.controls-right {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+.controls-right label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #DFE7EC;
+}
+.controls-right input, .controls-right select {
+  padding: 4px 6px;
+  font-size: 12px;
+  background: #4A607A;
+  color: #fff;
+  border: 1px solid #567C8E;
+  border-radius: 4px;
+  width: 80px;
+  outline: none;
+}
+.controls-right input[type=color] {
+  width: 40px;
+  padding: 2px;
+  height: 26px;
+  cursor: pointer;
+}
+.controls-right button {
+  background: #A2C1D1;
+  color: #2F4157;
+  border: none;
+  font-weight: 700;
+  padding: 6px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.controls-right button:hover {
+  background: #C7D9E5;
+}
+.controls-right button.primary {
+  background: #A2C1D1;
+  color: #2F4157;
+}
+.controls-right button.danger {
+  background: #a3241f;
+  color: #fff;
+}
+
+.hf-shell {
+  display: flex;
+  gap: 20px;
+  padding: 20px;
+  align-items: flex-start;
+  width: 100%;
+}
+@media print { .hf-shell { padding: 0; display: block; } }
+
+.hf-config, .hf-records {
+  background: #fff;
+  border: 1px solid #c7d1da;
+  border-radius: 6px;
+  padding: 16px;
+  font-size: 13px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+.hf-config h3, .hf-records h3 {
+  margin: 0 0 12px;
+  font-size: 14px;
+  color: var(--blue);
+  border-bottom: 2px solid #E3ECF2;
+  padding-bottom: 6px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-weight: 700;
+}
+.hf-config h4 {
+  margin: 14px 0 6px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  color: #5a6b7b;
+}
+.hf-config label {
+  display: block;
+  margin: 8px 0 3px;
+  color: #33475b;
+  font-weight: 600;
+  font-size: 12px;
+}
+.hf-config input[type=number],
+.hf-config input[type=text],
+.hf-config select {
+  width: 100%;
+  padding: 5px 8px;
+  border: 1px solid #c7d1da;
+  border-radius: 4px;
+  font-size: 12px;
+  outline: none;
+  background: #FAFBF8;
+}
+.hf-config input[type=color] {
+  width: 100%;
+  height: 28px;
+  border: 1px solid #c7d1da;
+  border-radius: 4px;
+  padding: 2px;
+  cursor: pointer;
+}
+.hf-config .row2 {
+  display: flex;
+  gap: 8px;
+}
+.hf-config .row2 > div {
+  flex: 1;
+}
+
+.hf-record-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 4px;
+  border-bottom: 1px solid #eef1f4;
+  font-size: 12px;
+}
+.hf-record-row .sr {
+  width: 26px;
+  font-weight: 700;
+  color: var(--blue);
+}
+.hf-record-row .nm {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+.hf-record-row button {
+  border: 1px solid #c7d1da;
+  background: #f5f8fa;
+  border-radius: 4px;
+  font-size: 11px;
+  padding: 3px 6px;
+  cursor: pointer;
+}
+.hf-record-row button:hover {
+  background: #e9f0f6;
+}
+.hf-add-btn {
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px;
+  background: var(--blue);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+}
+.hf-add-btn:hover {
+  opacity: 0.9;
+}
+
+.hf-doc-wrap {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  justify-content: center;
+}
+@media print { .hf-doc-wrap { display: block; } }
+
+/* ============================================================
+   THE PRINTABLE SHEET (Ledger Book Page)
+   ============================================================ */
+.form-page {
+  background: var(--page-bg);
+  width: 297mm;
+  min-height: 210mm;
+  padding: var(--page-margin) var(--page-margin) var(--page-margin) calc(var(--page-margin) + var(--spine-width));
+  border-left: var(--spine-width) solid var(--spine-blue);
+  box-shadow: 0 0 12px rgba(0,0,0,0.28);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.form-page.portrait-mode {
+  width: 210mm;
+  min-height: 297mm;
+}
+
+@media print {
+  .form-page {
+    box-shadow: none;
+    margin: 0;
+    width: auto;
+    min-height: 0;
+    page-break-after: always;
+    break-after: page;
+    border-left: var(--spine-width) solid var(--spine-blue);
+  }
+  .form-page:last-child {
+    page-break-after: avoid;
+    break-after: avoid;
+  }
+}
+
+/* ============================================================
+   HEADER
+   ============================================================ */
+.page-number {
+  position: absolute;
+  top: var(--page-margin);
+  right: var(--page-margin);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.page-no-label {
+  font-family: var(--font-doc);
+  font-weight: 700;
+  color: var(--blue);
+  font-size: 10pt;
+}
+.page-no-val {
+  width: 36px;
+  border: none;
+  border-bottom: var(--line-thickness) solid var(--ink-grid);
+  background: transparent;
+  color: #B22222; /* Red page numbers */
+  font-family: var(--font-doc);
+  font-weight: 700;
+  font-size: 12pt;
+  text-align: center;
+  outline: none;
+}
+
+.page-header {
+  border-bottom: calc(var(--line-thickness) * 2) double var(--blue);
+  padding-bottom: 4px;
+  margin-bottom: 12px;
+  width: 100%;
+}
+.page-header-top {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  font-family: var(--font-doc);
+  color: var(--blue);
+  font-weight: 700;
+  font-size: 9.5pt;
+  margin-bottom: 4px;
+  line-height: 1.3;
+}
+.form-title {
+  margin: 2px 0;
+  text-align: center;
+  color: var(--blue);
+  font-family: var(--font-doc);
+  font-weight: 700;
+  letter-spacing: 5px;
+  font-size: var(--heading-size);
+  line-height: 1.2;
+}
+
+/* ============================================================
+   TABLE
+   ============================================================ */
+.share-table-wrap {
+  width: 100%;
+  flex: 1 1 auto;
+}
+table.register-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-small);
+  font-family: var(--font-label);
+}
+table.register-table th, table.register-table td {
+  border: var(--line-thickness) solid var(--ink-grid);
+  padding: 4px;
+  vertical-align: top;
+  text-align: center;
+}
+table.register-table thead th {
+  color: var(--blue);
+  font-weight: 700;
+  background: rgba(86, 124, 142, 0.08);
+}
+table.register-table thead th.col-index {
+  background: rgba(86, 124, 142, 0.14);
+}
+table.register-table thead .group-header {
+  font-size: var(--font-size-base);
+  letter-spacing: 0.5px;
+}
+
+table.register-table tbody tr {
+  height: var(--row-height);
+}
+table.register-table tbody tr.blank-row td {
+  color: transparent;
+}
+table.register-table tbody td {
+  color: var(--ink-hand);
+  font-family: var(--font-doc);
+  font-weight: 600;
+  padding: 0;
+}
+table.register-table tbody td[contenteditable="true"] {
+  height: 100%;
+  padding: 4px;
+  outline: none;
+}
+table.register-table tbody td[contenteditable="true"]:hover {
+  background: rgba(162, 193, 209, 0.15);
+  outline: 1px dashed var(--ink-grid);
+  outline-offset: -1px;
+}
+table.register-table tbody td[contenteditable="true"]:focus {
+  background: rgba(162, 193, 209, 0.25);
+  outline: 1px solid var(--blue);
+}
+
+table.register-table tbody td.col-name {
+  text-align: left;
+}
+
+table.register-table thead {
+  display: table-header-group;
+}
+table.register-table tr {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+/* ============================================================
+   PAGE FOOTER
+   ============================================================ */
+.henu-brand {
+  margin-top: auto;
+  padding-top: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+  font-size: 8pt;
+  color: var(--ink-grid);
+  opacity: 0.8;
+  border-top: var(--line-thickness) dotted var(--ink-grid);
+}
+.henu-brand .mark {
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+/* ============================================================
+   RESPONSIVE PREVIEW SCALING
+   ============================================================ */
+@media screen and (max-width: 1100px) {
+  .form-page {
+    transform: scale(0.65);
+    transform-origin: top center;
+    margin-bottom: -250px;
+  }
+}
+@media screen and (max-width: 800px) {
+  .form-page {
+    transform: scale(0.48);
+    transform-origin: top center;
+    margin-bottom: -400px;
+  }
+}
+
+@media print {
+  body.orientation-landscape {
+    zoom: var(--print-scale);
+  }
+}
+</style>
+</head>
+<body class="orientation-landscape">
+
+  <!-- ================= CONTROL BAR (Screen only, never printed) ================= -->
+  <div class="controls no-print">
+    <div class="controls-left">
+      <span class="brand">HLABS FILING — Records Management</span>
+      <span class="brand-sub">Form SHARE — Share Register (MCS Act Section 36(1))</span>
+    </div>
+
+    <div class="controls-right">
+      <label>
+        Orientation
+        <select id="ctrl-orientation">
+          <option value="landscape" selected>A4 Landscape</option>
+          <option value="portrait">A4 Portrait</option>
+        </select>
+      </label>
+
+      <label>
+        Rows / page
+        <input id="ctrl-rowsPerPage" type="number" min="4" max="30" value="8">
+      </label>
+
+      <label>
+        Table font
+        <input id="ctrl-fontSize" type="number" min="8" max="16" value="10"> pt
+      </label>
+
+      <label>
+        Row height
+        <input id="ctrl-rowHeight" type="number" min="16" max="60" value="25"> mm
+      </label>
+
+      <label>
+        Line weight
+        <input id="ctrl-lineWeight" type="number" min="1" max="3" step="0.5" value="1"> px
+      </label>
+
+      <label>
+        Accent color
+        <input id="ctrl-accentColor" type="color" value="#2F4157">
+      </label>
+
+      <label>
+        Print scale
+        <input id="ctrl-printScale" type="number" min="70" max="100" value="100"> %
+      </label>
+
+      <button id="btn-addRow" type="button">+ Add Share</button>
+      <button id="btn-loadSample" type="button">Load Sample Data</button>
+      <button id="btn-clear" type="button">Clear All</button>
+      <button id="btn-print" type="button" class="primary">Print / Save PDF</button>
+    </div>
+  </div>
+
+  <!-- ================= APPLICATION SHELL ================= -->
+  <div class="hf-shell">
+
+    <!-- Config sidebar + Record tracker (Screen only) -->
+    <div class="no-print" style="width:300px; flex:0 0 300px;">
+      <div class="hf-config" id="cfgPanel">
+        <h3>Document Calibration</h3>
+        
+        <label>Orientation</label>
+        <select id="cfgOrientation" onchange="hfApplyConfig()">
+          <option value="landscape">A4 Landscape</option>
+          <option value="portrait">A4 Portrait</option>
+        </select>
+
+        <div class="row2">
+          <div>
+            <label>Font Size (pt)</label>
+            <input type="number" id="cfgFontSize" value="10" min="7" max="16" onchange="hfApplyConfig()">
+          </div>
+          <div>
+            <label>Line Weight (px)</label>
+            <input type="number" id="cfgLineThickness" value="1.0" step="0.1" min="0.5" max="4" onchange="hfApplyConfig()">
+          </div>
+        </div>
+
+        <div class="row2">
+          <div>
+            <label>Row Height (mm)</label>
+            <input type="number" id="cfgRowHeight" value="25" min="16" max="60" onchange="hfApplyConfig()">
+          </div>
+          <div>
+            <label>Rows Per Page</label>
+            <input type="number" id="cfgRowsPerPage" value="8" min="4" max="30" onchange="hfApplyConfig()">
+          </div>
+        </div>
+
+        <label>Blue Line Color</label>
+        <input type="color" id="cfgBlueColor" value="#2F4157" onchange="hfApplyConfig()">
+
+        <h4>Print Metrics</h4>
+        <div class="row2">
+          <div>
+            <label>Margin (mm)</label>
+            <input type="number" id="cfgMargin" value="12" min="5" max="30" onchange="hfApplyConfig()">
+          </div>
+          <div>
+            <label>Scale (%)</label>
+            <input type="number" id="cfgScale" value="100" min="50" max="150" onchange="hfApplyConfig()">
+          </div>
+        </div>
+      </div>
+
+      <div class="hf-records" style="margin-top: 16px;">
+        <h3>Share Ledgers</h3>
+        <div id="recordList"></div>
+        <button class="hf-add-btn" onclick="addShareRecord()">+ Add Share Record</button>
+      </div>
+    </div>
+
+    <!-- Printable workspace canvas -->
+    <div class="hf-doc-wrap">
+      <div id="formPage"></div>
+    </div>
+
+  </div>
+
+  <script>
+    (function() {
+
+      // Share register records array
+      var shareRecords = [];
+
+      var defaultConfig = {
+        orientation: 'landscape',
+        margin: '12mm',
+        fontSize: '10pt',
+        rowHeightMm: 25,
+        lineWeight: 1.0,
+        printScale: 100,
+        accentColor: '#2F4157',
+        rowsPerPage: 8
+      };
+
+      function escapeHtml(value) {
+        if (value === null || value === undefined) return '';
+        return String(value)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      }
+
+      function chunk(arr, size) {
+        const out = [];
+        for (let i = 0; i < arr.length; i += size) {
+          out.push(arr.slice(i, i + size));
+        }
+        if (out.length === 0) out.push([]);
+        return out;
+      }
+
+      const RECORD_KEYS = [
+        "serial_number",
+        "date_of_share",
+        "cash_book_folio",
+        "share_certificate_number",
+        "number_of_shares",
+        "value_of_shares",
+        "member_name",
+        "date_of_transfer_or_refund",
+        "number_transferred_or_refunded",
+        "transferred_certificate_number",
+        "value_of_shares_transferred_or_refunded",
+        "transferee_name",
+        "authority",
+        "remarks"
+      ];
+
+      function buildRowHtml(record, indexInDataset) {
+        let html = `<tr class="record-row" data-id="rec-${indexInDataset}">`;
+        RECORD_KEYS.forEach(key => {
+          let rawVal = record[key] || '';
+          if (key === 'serial_number' && !rawVal) {
+            rawVal = String(indexInDataset + 1).padStart(2, '0');
+          }
+          let displayVal = escapeHtml(rawVal).replace(/\n/g, '<br>');
+          let cellCls = (key === 'member_name' || key === 'transferee_name') ? 'col-name' : '';
+          html += `<td class="${cellCls}" data-field="${key}" contenteditable="true">${displayVal}</td>`;
+        });
+        html += `</tr>`;
+        return html;
+      }
+
+      function buildBlankRowHtml(pageIndex, blankIndex) {
+        let html = `<tr class="blank-row" data-id="blank-${pageIndex}-${blankIndex}">`;
+        RECORD_KEYS.forEach(key => {
+          html += `<td data-field="${key}" contenteditable="true">&nbsp;</td>`;
+        });
+        html += `</tr>`;
+        return html;
+      }
+
+      function buildPageHtml(pageIndex, pageCount, rowsHtml, config) {
+        return `
+          <div class="form-page orientation-${config.orientation}" data-page="${pageIndex + 1}">
+            
+            <!-- Corner Page Number -->
+            <div class="page-number">
+              <span class="page-no-label">Page No.</span>
+              <input type="text" class="page-no-val" data-page-idx="${pageIndex}" value="${pageIndex + 1}" />
+            </div>
+
+            <div class="page-header">
+              <div class="page-header-top no-print" style="margin-bottom: 6px;">
+                <span>FORM SHARE / नमुना भाग नोंदवही</span>
+                <span>[See MCS Act Section 36(1)] / [सहकार कायदा कलम ३६(१) पहा]</span>
+              </div>
+              <h1 class="form-title">SHARE REGISTER</h1>
+            </div>
+
+            <div class="share-table-wrap">
+              <table class="register-table">
+                <colgroup>
+                  <col style="width: 4%;">
+                  <col style="width: 6.5%;">
+                  <col style="width: 5.5%;">
+                  <col style="width: 6%;">
+                  <col style="width: 5%;">
+                  <col style="width: 6%;">
+                  <col style="width: 14%;">
+                  <col style="width: 6.5%;">
+                  <col style="width: 6.5%;">
+                  <col style="width: 6.5%;">
+                  <col style="width: 6.5%;">
+                  <col style="width: 12.5%;">
+                  <col style="width: 8.5%;">
+                  <col style="width: 6.5%;">
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th rowspan="3">Sr.<br>No.</th>
+                    <th rowspan="3">Date of<br>allotment<br>of Share</th>
+                    <th rowspan="3">Cash<br>Book<br>Folio No.</th>
+                    <th rowspan="3">Share<br>Certificate<br>No.</th>
+                    <th rowspan="3">No. of<br>Shares</th>
+                    <th rowspan="3">Value of<br>Shares Rs.</th>
+                    <th rowspan="3">Name of the Member to<br>whom Shares allotted</th>
+                    <th colspan="7" class="group-header">DETAILS OF SHARES TRANSFERRED OR REFUNDED</th>
+                  </tr>
+                  <tr>
+                    <th rowspan="2">Date of<br>transfer<br>or refund</th>
+                    <th rowspan="2">No. of Shares<br>transferred<br>or refunded</th>
+                    <th rowspan="2">Share Certificate<br>No. transferred<br>or refunded</th>
+                    <th rowspan="2">Shares Value<br>transferred or<br>refunded Rs.</th>
+                    <th rowspan="2">Name of the transferee<br>or the person receiving refund</th>
+                    <th rowspan="2">Authority for<br>transfer or refund</th>
+                    <th rowspan="2">Remarks</th>
+                  </tr>
+                  <tr></tr>
+                  <tr class="no-print-row">
+                    <th class="col-index">1</th><th class="col-index">2</th><th class="col-index">3</th>
+                    <th class="col-index">4</th><th class="col-index">5</th><th class="col-index">6</th>
+                    <th class="col-index">7</th><th class="col-index">8</th><th class="col-index">9</th>
+                    <th class="col-index">10</th><th class="col-index">11</th><th class="col-index">12</th>
+                    <th class="col-index">13</th><th class="col-index">14</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${rowsHtml}
+                </tbody>
+              </table>
+            </div>
+
+            <div class="henu-brand">
+              <span class="mark">HLABS FILING System</span>
+              <span class="page-count-footer">Sheet ${pageIndex + 1} of ${pageCount}</span>
+            </div>
+
+          </div>
+        `;
+      }
+
+      function applyRuntimeVars(config) {
+        const root = document.documentElement;
+        root.style.setProperty("--blue", config.accentColor);
+        root.style.setProperty("--spine-blue", config.accentColor);
+        root.style.setProperty("--line-thickness", config.lineWeight + "px");
+        root.style.setProperty("--font-size-base", config.fontSize);
+        root.style.setProperty("--row-height", config.rowHeightMm + "mm");
+        root.style.setProperty("--page-margin", config.margin);
+
+        let scaleTag = document.getElementById("share-print-scale");
+        if (!scaleTag) {
+          scaleTag = document.createElement("style");
+          scaleTag.id = "share-print-scale";
+          document.head.appendChild(scaleTag);
+        }
+        const scale = (config.printScale || 100) / 100;
+        scaleTag.textContent = `
+          @media print {
+            .form-page { transform: scale(${scale}); transform-origin: top left; }
+          }
+        `;
+      }
+
+      function setOrientation(orientation, config) {
+        config = config || defaultConfig;
+        const isLandscape = orientation === 'landscape';
+        document.body.classList.toggle('orientation-landscape', isLandscape);
+        document.body.classList.toggle('orientation-portrait', !isLandscape);
+
+        const pageEl = document.getElementById("formPage");
+        if (pageEl) {
+          if (isLandscape) {
+            pageEl.classList.remove("portrait-mode");
+          } else {
+            pageEl.classList.add("portrait-mode");
+          }
+        }
+
+        let styleTag = document.getElementById('share-page-size');
+        if (!styleTag) {
+          styleTag = document.createElement('style');
+          styleTag.id = 'share-page-size';
+          document.head.appendChild(styleTag);
+        }
+        const size = isLandscape ? 'A4 landscape' : 'A4 portrait';
+        const margin = config.margin || defaultConfig.margin;
+        styleTag.textContent = `@page { size: ${size}; margin: 0; } .form-page { padding: ${margin} ${margin} ${margin} calc(${margin} + var(--spine-width)) !important; }`;
+      }
+
+      function renderShareRegister(data, config) {
+        config = Object.assign({}, defaultConfig, config || {});
+        shareRecords = Array.isArray(data) ? data : [];
+        const rowsPerPage = Math.max(1, config.rowsPerPage || 8);
+
+        applyRuntimeVars(config);
+        setOrientation(config.orientation, config);
+
+        const pages = shareRecords.length > 0
+          ? chunk(shareRecords.map((r, i) => ({ r, i })), rowsPerPage)
+          : [[]];
+
+        const pageCount = pages.length;
+        let html = "";
+
+        pages.forEach((pageRows, pageIndex) => {
+          let rowsHtml = "";
+          pageRows.forEach(({ r, i }) => {
+            rowsHtml += buildRowHtml(r, i);
+          });
+
+          // Pad blank rows to complete ledger grid height
+          var blanksNeeded = rowsPerPage - pageRows.length;
+          for (var b = 0; b < blanksNeeded; b++) {
+            rowsHtml += buildBlankRowHtml(pageIndex, b);
+          }
+
+          html += buildPageHtml(pageIndex, pageCount, rowsHtml, config);
+        });
+
+        const mount = document.getElementById("formPage");
+        mount.innerHTML = html;
+
+        bindEditableCells();
+        renderSidebarList();
+      }
+
+      function bindEditableCells() {
+        document.querySelectorAll('#formPage td[data-field]').forEach(td => {
+          td.addEventListener('input', function() {
+            const tr = this.closest('tr');
+            const id = tr.getAttribute('data-id');
+            const field = this.getAttribute('data-field');
+            const textVal = this.innerHTML.replace(/<br>/g, '\n').replace(/<div>/g, '\n').replace(/<\/div>/g, '');
+
+            if (id.startsWith('blank-')) {
+              // Automatically instantiate record when typing inside ruled blank lines
+              const newIdx = shareRecords.length;
+              const newRec = {
+                serial_number: String(newIdx + 1).padStart(2, '0'),
+                date_of_share: '',
+                cash_book_folio: '',
+                share_certificate_number: '',
+                number_of_shares: '',
+                value_of_shares: '',
+                member_name: '',
+                date_of_transfer_or_refund: '',
+                number_transferred_or_refunded: '',
+                transferred_certificate_number: '',
+                value_of_shares_transferred_or_refunded: '',
+                transferee_name: '',
+                authority: '',
+                remarks: ''
+              };
+              newRec[field] = textVal;
+              shareRecords.push(newRec);
+
+              tr.setAttribute('data-id', 'rec-' + newIdx);
+              renderSidebarList();
+            } else if (id.startsWith('rec-')) {
+              const idx = parseInt(id.split('-')[1], 10);
+              if (shareRecords[idx]) {
+                shareRecords[idx][field] = textVal;
+              }
+              renderSidebarList();
+            }
+          });
+        });
+      }
+
+      function renderSidebarList() {
+        const list = document.getElementById('recordList');
+        if (!list) return;
+        if (shareRecords.length === 0) {
+          list.innerHTML = `<div style="color:#93a2b0;font-size:12px;padding:4px;">No records — blank register sheet.</div>`;
+          return;
+        }
+        list.innerHTML = shareRecords.map((r, idx) => `
+          <div class="hf-record-row">
+            <span class="sr">${escapeHtml(r.serial_number) || (idx + 1)}</span>
+            <span class="nm">${escapeHtml(r.member_name) || '(unnamed)'}</span>
+            <button onclick="duplicateShareRecord(${idx})" title="Duplicate">⧉</button>
+            <button onclick="deleteShareRecord(${idx})" title="Delete">✕</button>
+          </div>
+        `).join('');
+      }
+
+      function addShareRecord() {
+        shareRecords.push({
+          serial_number: String(shareRecords.length + 1).padStart(2, '0'),
+          date_of_share: '',
+          cash_book_folio: '',
+          share_certificate_number: '',
+          number_of_shares: '',
+          value_of_shares: '',
+          member_name: '',
+          date_of_transfer_or_refund: '',
+          number_transferred_or_refunded: '',
+          transferred_certificate_number: '',
+          value_of_shares_transferred_or_refunded: '',
+          transferee_name: '',
+          authority: '',
+          remarks: ''
+        });
+        hfSyncAndRender();
+      }
+
+      function deleteShareRecord(idx) {
+        shareRecords.splice(idx, 1);
+        hfSyncAndRender();
+      }
+
+      function duplicateShareRecord(idx) {
+        const copy = Object.assign({}, shareRecords[idx]);
+        copy.serial_number = String(shareRecords.length + 1).padStart(2, '0');
+        shareRecords.splice(idx + 1, 0, copy);
+        hfSyncAndRender();
+      }
+
+      function loadSampleData() {
+        const samples = [
+          {
+            serial_number: "01",
+            date_of_share: "28/04/2012",
+            cash_book_folio: "12",
+            share_certificate_number: "101",
+            number_of_shares: "10",
+            value_of_shares: "500",
+            member_name: "ARVIND RAMCHANDRA KALE\nFlat No. 502, B-Wing, Pune - 411038",
+            date_of_transfer_or_refund: "",
+            number_transferred_or_refunded: "",
+            transferred_certificate_number: "",
+            value_of_shares_transferred_or_refunded: "",
+            transferee_name: "",
+            authority: "",
+            remarks: "Allotted on admission"
+          },
+          {
+            serial_number: "02",
+            date_of_share: "14/06/1985",
+            cash_book_folio: "04",
+            share_certificate_number: "42",
+            number_of_shares: "10",
+            value_of_shares: "500",
+            member_name: "SURESH NARAYAN KULKARNI\nFlat No. 12, Shivaji Society, Pune - 411004",
+            date_of_transfer_or_refund: "",
+            number_transferred_or_refunded: "",
+            transferred_certificate_number: "",
+            value_of_shares_transferred_or_refunded: "",
+            transferee_name: "",
+            authority: "",
+            remarks: "Founder member"
+          },
+          {
+            serial_number: "03",
+            date_of_share: "10/11/2016",
+            cash_book_folio: "45",
+            share_certificate_number: "205",
+            number_of_shares: "10",
+            value_of_shares: "500",
+            member_name: "MEENAKSHI SHRIPAD JOSHI\nFlat No. 201, Om Residency, Pune - 411038",
+            date_of_transfer_or_refund: "",
+            number_transferred_or_refunded: "",
+            transferred_certificate_number: "",
+            value_of_shares_transferred_or_refunded: "",
+            transferee_name: "",
+            authority: "",
+            remarks: "Transferred from G. B. Joshi"
+          }
+        ];
+        shareRecords = samples;
+        hfSyncAndRender();
+      }
+
+      function clearAllRecords() {
+        shareRecords = [];
+        hfSyncAndRender();
+      }
+
+      function hfSyncAndRender() {
+        const config = {
+          orientation: document.getElementById('cfgOrientation').value,
+          fontSize: document.getElementById('cfgFontSize').value + 'pt',
+          lineWeight: parseFloat(document.getElementById('cfgLineThickness').value),
+          rowHeightMm: parseInt(document.getElementById('cfgRowHeight').value, 10),
+          margin: document.getElementById('cfgMargin').value + 'mm',
+          printScale: parseInt(document.getElementById('cfgScale').value, 10),
+          accentColor: document.getElementById('cfgBlueColor').value,
+          rowsPerPage: parseInt(document.getElementById('cfgRowsPerPage').value, 10)
+        };
+        renderShareRegister(shareRecords, config);
+      }
+
+      function hfApplyConfig() {
+        hfSyncAndRender();
+      }
+
+      // Expose public API
+      if (typeof window !== 'undefined') {
+        window.renderShareRegister = renderShareRegister;
+        window.shareRecords = shareRecords;
+        window.defaultConfig = defaultConfig;
+        window.addShareRecord = addShareRecord;
+        window.deleteShareRecord = deleteShareRecord;
+        window.duplicateShareRecord = duplicateShareRecord;
+        window.loadSampleData = loadSampleData;
+        window.clearAllRecords = clearAllRecords;
+        window.hfApplyConfig = hfApplyConfig;
+      }
+
+      // Dynamic Electron integration
+      window.addEventListener('message', function (event) {
+        const msg = event.data;
+        if (!msg || typeof msg !== 'object') return;
+        if (msg.type === 'INIT_TEMPLATE') {
+          const records = msg.records || [];
+          const config = msg.config || {};
+          
+          const formatted = records.map((m, idx) => ({
+            id: m.id,
+            serial_number: m.serial_number || String(idx + 1).padStart(2, '0'),
+            date_of_share: m.date_of_admission || '',
+            cash_book_folio: m.share_certificate_number ? '01' : '',
+            share_certificate_number: m.share_certificate_number || '',
+            number_of_shares: m.share_count || '',
+            value_of_shares: m.share_value || '',
+            member_name: m.full_name || '',
+            date_of_transfer_or_refund: m.date_of_cessation || '',
+            number_transferred_or_refunded: '',
+            transferred_certificate_number: '',
+            value_of_shares_transferred_or_refunded: '',
+            transferee_name: '',
+            authority: m.reason_for_cessation || '',
+            remarks: m.remarks || ''
+          }));
+
+          shareRecords = formatted;
+
+          document.getElementById('cfgOrientation').value = config.appearance?.orientation || 'landscape';
+          document.getElementById('cfgFontSize').value = config.appearance?.fontSize || 10;
+          document.getElementById('cfgRowHeight').value = config.appearance?.rowHeight || 25;
+          document.getElementById('cfgBlueColor').value = config.colors?.primary || '#2F4157';
+          document.getElementById('cfgMargin').value = config.appearance?.margin || 12;
+          document.getElementById('cfgScale').value = config.appearance?.scale || 100;
+          document.getElementById('cfgRowsPerPage').value = config.appearance?.rowsPerPage || 8;
+
+          if (config.colors) {
+            const root = document.documentElement;
+            root.style.setProperty('--blue', config.colors.primary);
+            root.style.setProperty('--spine-blue', config.colors.primary);
+            root.style.setProperty('--page-bg', config.colors.paperBg || '#E3ECF2');
+            root.style.setProperty('--ink-grid', config.colors.border || '#567C8E');
+            root.style.setProperty('--ink-hand', config.colors.text || '#1C2A3A');
+          }
+
+          hfApplyConfig();
+          renderSidebarList();
+        }
+      });
+
+      // DOM event connections
+      document.addEventListener('DOMContentLoaded', function () {
+        document.getElementById('ctrl-orientation').addEventListener('change', function(e) {
+          document.getElementById('cfgOrientation').value = e.target.value;
+          hfApplyConfig();
+        });
+        document.getElementById('ctrl-rowsPerPage').addEventListener('input', function(e) {
+          document.getElementById('cfgRowsPerPage').value = e.target.value;
+          hfApplyConfig();
+        });
+        document.getElementById('ctrl-fontSize').addEventListener('input', function(e) {
+          document.getElementById('cfgFontSize').value = e.target.value;
+          hfApplyConfig();
+        });
+        document.getElementById('ctrl-rowHeight').addEventListener('input', function(e) {
+          document.getElementById('cfgRowHeight').value = e.target.value;
+          hfApplyConfig();
+        });
+        document.getElementById('ctrl-lineWeight').addEventListener('input', function(e) {
+          document.getElementById('cfgLineThickness').value = e.target.value;
+          hfApplyConfig();
+        });
+        document.getElementById('ctrl-accentColor').addEventListener('input', function(e) {
+          document.getElementById('cfgBlueColor').value = e.target.value;
+          hfApplyConfig();
+        });
+        document.getElementById('ctrl-printScale').addEventListener('input', function(e) {
+          document.getElementById('cfgScale').value = e.target.value;
+          hfApplyConfig();
+        });
+
+        document.getElementById('btn-addRow').addEventListener('click', addShareRecord);
+        document.getElementById('btn-loadSample').addEventListener('click', loadSampleData);
+        document.getElementById('btn-clear').addEventListener('click', clearAllRecords);
+        document.getElementById('btn-print').addEventListener('click', function() {
+          window.print();
+        });
+
+        loadSampleData();
+      });
+
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,38 @@
+﻿
+Applying database migration version 1...
+Applying database migration version 2...
+electron.exe : [25088:0810/122202.679:INFO:CONSOLE(495)] "[vite] connecting...", source: 
+http://localhost:5173/@vite/client (495)
+At line:1 char:1
++ & "H:\New folder\electron.exe" . --enable-logging 2>&1 | Out-File -Fi ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([25088:0810/122...te/client (495):String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+[25088:0810/122202.689:INFO:CONSOLE(618)] "[vite] connected.", source: http://localhost:5173/@vite/client (618)
+[25088:0810/122202.807:INFO:CONSOLE(21549)] "%cDownload the React DevTools for a better development experience: 
+https://reactjs.org/link/react-devtools font-weight:bold", source: 
+http://localhost:5173/@fs/G:/Astro/node_modules/.vite/deps/chunk-BCXODTBQ.js?v=7dbbfb75 (21549)
+[25088:0810/122203.116:INFO:CONSOLE(2)] "%cElectron Security Warning (Insecure Content-Security-Policy) font-weight: 
+bold; This renderer process has either no Content Security
+  Policy set or a policy with "unsafe-eval" enabled. This exposes users of
+  this app to unnecessary security risks.
+
+For more information and help, consult
+https://electronjs.org/docs/tutorial/security.
+This warning will not show up
+once the app is packaged.", source: node:electron/js2c/sandbox_bundle (2)
+[25088:0810/122204.934:WARNING:CONSOLE(2)] "%cElectron Security Warning (Insecure Content-Security-Policy) 
+font-weight: bold; This renderer process has either no Content Security
+  Policy set or a policy with "unsafe-eval" enabled. This exposes users of
+  this app to unnecessary security risks.
+
+For more information and help, consult
+https://electronjs.org/docs/tutorial/security.
+This warning will not show up
+once the app is packaged.", source: node:electron/js2c/sandbox_bundle (2)
+[25088:0810/122205.247:ERROR:CONSOLE(1)] "Request Autofill.enable failed. {"code":-32601,"message":"'Autofill.enable' 
+wasn't found"}", source: devtools://devtools/bundled/core/protocol_client/protocol_client.js (1)
+[25088:0810/122205.247:ERROR:CONSOLE(1)] "Request Autofill.setAddresses failed. 
+{"code":-32601,"message":"'Autofill.setAddresses' wasn't found"}", source: 
+devtools://devtools/bundled/core/protocol_client/protocol_client.js (1)

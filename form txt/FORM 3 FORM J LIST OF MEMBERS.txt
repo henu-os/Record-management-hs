@@ -1,0 +1,26 @@
+┌────────────────────────────────────────────────────────┐
+│                    [SOCIETY NAME]                        │
+│                    [REGISTRATION No. & DATE]              │
+│                    [ADDRESS]                              │
+│                                                          │
+│              FORM "J" [See Rule 33]                      │
+│             LIST OF MEMBERS OF SOCIETY                    │
+├──────────┬──────────────────┬────────────────┬──────────┤
+│ Sr. No.  │ Full Name of     │ Address         │ Class of │
+│          │ Member(s)        │                 │ Member   │
+├──────────┼──────────────────┼─────────────────┼──────────┤
+│ 001      │ [____________]   │ [Flat/Shop No., │ Ordinary │
+│          │                  │  Wing, Building, │ Member   │
+│          │                  │  Society Name,   │          │
+│          │                  │  Full Address]   │          │
+├──────────┼──────────────────┼─────────────────┼──────────┤
+│ 002      │ [____________]   │ [____________]  │ Ordinary │
+│          │                  │                 │ Member   │
+├──────────┼──────────────────┼─────────────────┼──────────┤
+│  ...     │  ...             │  ...            │  ...     │
+├──────────┼──────────────────┼─────────────────┼──────────┤
+│ 0nn      │ [____________]   │ [____________]  │ Ordinary │
+│          │                  │                 │ Member   │
+└──────────┴──────────────────┴─────────────────┴──────────┘
+   (One row per flat/shop/office — repeats for every unit
+    in the society, continuing across multiple pages)

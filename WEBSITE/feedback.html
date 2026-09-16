@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Feedback & QA Portal — HENU OS Records Management</title>
+  <meta name="description" content="Submit bug reports, feature suggestions, or documentation feedback for HENU OS Records Management.">
+  
+  <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/pages.css">
+  <link rel="stylesheet" href="css/chatbot.css">
+  <link rel="icon" type="image/png" href="assets/henu_business.png">
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="site-header scrolled">
+    <div class="container nav-wrapper">
+      <a href="index.html" class="brand-logo">
+        <img src="assets/henu_business.png" alt="HENU OS Logo">
+        <div class="brand-title">
+          <span class="brand-name">HENU <span>OS</span></span>
+          <span class="brand-sub">Records Management</span>
+        </div>
+      </a>
+
+      <nav>
+        <ul class="nav-links">
+          <li><a href="index.html" class="nav-link">Home</a></li>
+          <li><a href="documentation.html" class="nav-link">Documentation</a></li>
+          <li><a href="download.html" class="nav-link">Download</a></li>
+          <li><a href="contact.html" class="nav-link">Contact</a></li>
+        </ul>
+      </nav>
+
+      <div class="nav-actions">
+        <a href="download.html" class="btn btn-primary">Download v1.0.0</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="page-hero">
+      <span class="badge badge-emerald">Continuous Improvement</span>
+      <h1>HENU OS Feedback & QA Portal</h1>
+      <p>Your feedback shapes the future of HENU OS. Report issues, request new statutory register formats, or share suggestions directly with the development team.</p>
+    </section>
+
+    <div style="max-width: 800px; margin: 0 auto 80px;">
+      <div class="form-card">
+        <form id="feedback-form">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <div class="form-group">
+              <label class="form-label" for="fb-name">Your Name *</label>
+              <input type="text" id="fb-name" name="yourName" class="form-control" placeholder="e.g. S. K. Mehta" required />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="fb-email">Email Address *</label>
+              <input type="email" id="fb-email" name="email" class="form-control" placeholder="name@society.org" required />
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <div class="form-group">
+              <label class="form-label" for="fb-type">Feedback Category *</label>
+              <select id="fb-type" name="category" class="form-control" required>
+                <option value="🐞 Bug Report (Error / Calculation issue)">🐞 Bug Report (Error / Calculation issue)</option>
+                <option value="💡 Feature Request / New Register format">💡 Feature Request / New Register format</option>
+                <option value="📝 Documentation & Manual Feedback">📝 Documentation & Manual Feedback</option>
+                <option value="💬 General Quality & User Experience">💬 General Quality & User Experience</option>
+                <option value="⚠️ Security or Data Integrity Notice">⚠️ Security or Data Integrity Notice</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="fb-ver">HENU OS Version *</label>
+              <select id="fb-ver" name="version" class="form-control" required>
+                <option value="v1.0.0">v1.0.0 (Latest Release)</option>
+                <option value="Beta / Developer Build">Beta / Developer Build</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="fb-subject">Subject / Title *</label>
+            <input type="text" id="fb-subject" name="subject" class="form-control" placeholder="Brief summary of the issue or idea..." required />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="fb-desc">Detailed Description *</label>
+            <textarea id="fb-desc" name="description" class="form-control" placeholder="Describe the steps to reproduce, expected vs actual behavior, or your specific suggestion..." required></textarea>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="fb-priority">Severity / Priority</label>
+            <select id="fb-priority" name="priority" class="form-control">
+              <option value="Low — General suggestion / cosmetic polish">Low — General suggestion / cosmetic polish</option>
+              <option value="Medium — Standard workflow issue" selected>Medium — Standard workflow issue</option>
+              <option value="High — Blocking statutory filing">High — Blocking statutory filing</option>
+              <option value="Critical — Application crash or data loss">Critical — Application crash or data loss</option>
+            </select>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-glow" style="width: 100%; margin-top: 12px;">
+            Submit Feedback Package →
+          </button>
+        </form>
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-col">
+          <div class="brand-logo" style="margin-bottom: 16px;">
+            <img src="assets/henu_business.png" alt="HENU OS Logo">
+            <div class="brand-title">
+              <span class="brand-name">HENU <span>OS</span></span>
+              <span class="brand-sub">Records Management</span>
+            </div>
+          </div>
+          <p style="font-size: 0.88rem;">Modern Records Management & Automatic Filing System.</p>
+        </div>
+        <div class="footer-col">
+          <h4>Navigation</h4>
+          <ul>
+            <li><a href="index.html">Home</a></li>
+            <li><a href="documentation.html">Documentation</a></li>
+            <li><a href="download.html">Download</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <h4>Support</h4>
+          <ul>
+            <li><a href="feedback.html">Feedback Portal</a></li>
+            <li><a href="contact.html">Contact Us</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <h4>Legal</h4>
+          <ul>
+            <li><a href="privacy-policy.html">Privacy Policy</a></li>
+            <li><a href="terms-of-use.html">Terms of Use</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 HENU OS Records Management. All rights reserved.</span>
+      </div>
+    </div>
+  </footer>
+
+  <script src="data/knowledge-base.js"></script>
+  <script src="js/main.js"></script>
+  <script src="js/forms.js"></script>
+  <script src="js/chatbot.js"></script>
+</body>
+</html>

@@ -107,4 +107,26 @@ contextBridge.exposeInMainWorld('api', {
     openFileDialog: (options: any): Promise<string | null> => ipcRenderer.invoke('system:openFileDialog', options),
     showSaveDialog: (options: any): Promise<string | null> => ipcRenderer.invoke('system:showSaveDialog', options),
   },
+  henuAi: {
+    getStatus: (): Promise<any> => ipcRenderer.invoke('henuAi:getStatus'),
+    setPower: (powerOn: boolean): Promise<any> => ipcRenderer.invoke('henuAi:setPower', powerOn),
+    detectUsb: (): Promise<any> => ipcRenderer.invoke('henuAi:detectUsb'),
+    processVoucher: (payload: { base64Image: string; fileName?: string }): Promise<any> => ipcRenderer.invoke('henuAi:processVoucher', payload),
+  },
+  voucherParser: {
+    processImage: (payload: { base64Image: string; fileName?: string; languages?: string[] }): Promise<any> => ipcRenderer.invoke('voucherParser:processImage', payload),
+    getColumnHeaders: (): Promise<string[]> => ipcRenderer.invoke('voucherParser:getColumnHeaders'),
+    getEngineStatus: (): Promise<any> => ipcRenderer.invoke('voucherParser:getEngineStatus'),
+  },
+  ocrApi: {
+    getConfig: (): Promise<any> => ipcRenderer.invoke('ocrApi:getConfig'),
+    setMode: (mode: string): Promise<any> => ipcRenderer.invoke('ocrApi:setMode', mode),
+    setActiveProvider: (providerId: string): Promise<any> => ipcRenderer.invoke('ocrApi:setActiveProvider', providerId),
+    saveProviderConfig: (providerId: string, model: string, apiKey?: string): Promise<any> => ipcRenderer.invoke('ocrApi:saveProviderConfig', providerId, model, apiKey),
+    testConnection: (providerId: string, apiKey?: string, model?: string): Promise<any> => ipcRenderer.invoke('ocrApi:testConnection', providerId, apiKey, model),
+    processVoucher: (imageBase64: string, mimeType?: string, jobId?: string): Promise<any> => ipcRenderer.invoke('ocrApi:processVoucher', imageBase64, mimeType, jobId),
+    processCheck: (imageBase64: string, mimeType?: string, jobId?: string): Promise<any> => ipcRenderer.invoke('ocrApi:processCheck', imageBase64, mimeType, jobId),
+  },
 });
+
+

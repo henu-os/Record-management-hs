@@ -285,20 +285,44 @@ export class PdfEngine {
 
       case 'FORM_VOUCHER': {
         const rawVouchers = workbook.voucherData || [];
-        const voucherMap = new Map<string, VoucherRecord>();
-        rawVouchers.forEach((v, idx) => {
-          const vNum = v.voucherNo || v.srNo || String(idx + 1);
-          voucherMap.set(normalizeSerialKey(vNum), v);
-        });
 
         let vouchers: VoucherRecord[] = [];
         if (serialRange.length > 0) {
+          const usedRecordIndices = new Set<number>();
           vouchers = serialRange.map((rawSerial, idx) => {
             const key = normalizeSerialKey(rawSerial);
-            const found = voucherMap.get(key) || (rawVouchers[idx] ? rawVouchers[idx] : null);
+            let foundIndex = -1;
+
+            // 1. Try exact match by key on voucherNo or srNo
+            for (let i = 0; i < rawVouchers.length; i++) {
+              if (usedRecordIndices.has(i)) continue;
+              const v = rawVouchers[i];
+              const vNum = v.voucherNo || v.srNo;
+              if (vNum && normalizeSerialKey(vNum) === key) {
+                foundIndex = i;
+                break;
+              }
+            }
+
+            // 2. Fallback to sequential index if not already used
+            if (foundIndex === -1 && rawVouchers[idx] && !usedRecordIndices.has(idx)) {
+              foundIndex = idx;
+            }
+
+            // 3. Fallback to next available unused record in rawVouchers
+            if (foundIndex === -1) {
+              for (let i = 0; i < rawVouchers.length; i++) {
+                if (!usedRecordIndices.has(i)) {
+                  foundIndex = i;
+                  break;
+                }
+              }
+            }
+
             const displayVoucherNo = pfx ? `${pfx}${sep}${rawSerial}` : rawSerial;
-            if (found) {
-              return { ...found, voucherNo: displayVoucherNo };
+            if (foundIndex !== -1) {
+              usedRecordIndices.add(foundIndex);
+              return { ...rawVouchers[foundIndex], voucherNo: displayVoucherNo };
             }
             return {
               voucherNo: displayVoucherNo,

@@ -41,7 +41,7 @@ import { MasterDataService, synchronizeMasterWorkbook, sanitizeAndCalculateVouch
 import { PdfEngine } from './services/PdfEngine';
 import { ZipService } from './services/ZipService';
 import { ValidationEngine } from './services/ValidationEngine';
-import { generateRange, normalizeSerial } from './services/SerialRangeEngine';
+import { generateRange, normalizeSerial, normalizeSerialKey } from './services/SerialRangeEngine';
 import { FormDesignSettingsService } from './services/FormDesignSettingsService';
 import {
   MasterWorkbook,
@@ -151,10 +151,23 @@ app.whenReady().then(() => {
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
+
+  // Start VoucherParser local HTTP API for external automation
+  import('./services/VoucherParserService')
+    .then(({ startVoucherParserApiServer }) => {
+      startVoucherParserApiServer(8090)
+        .then((port) => debugLog(`VoucherParser API started on port ${port}`))
+        .catch((err) => debugLog(`VoucherParser API failed to start: ${err.message}`));
+    })
+    .catch((err) => debugLog(`VoucherParser API module import failed: ${err.message}`));
 });
 
 app.on('window-all-closed', () => {
   debugLog('app window-all-closed');
+  // Stop VoucherParser API server
+  import('./services/VoucherParserService')
+    .then(({ stopVoucherParserApiServer }) => stopVoucherParserApiServer())
+    .catch(() => {});
   if (process.platform !== 'darwin') app.quit();
 });
 
@@ -1011,13 +1024,44 @@ ipcMain.handle('generate:preview', (_e, arg1: any, arg2?: any, arg3?: any, arg4?
   if (!rangeValidation.isValid) return { error: rangeValidation.errors.join(' ') };
   const serialRange = (fromSerial || toSerial) ? generateRange(fromSerial, toSerial, true) : [];
   const isVoucher = formId === 'FORM_VOUCHER';
-  const commonSerials = new Set(
-    isVoucher
-      ? (wb.voucherData || []).map(r => normalizeSerial(r.voucherNo || r.srNo))
-      : (wb.commonFile || []).map(r => normalizeSerial(r.srNo))
-  );
   let found = 0; let blank = 0;
-  for (const s of serialRange) { if (commonSerials.has(normalizeSerial(s))) found++; else blank++; }
+  if (isVoucher) {
+    const rawVchs = wb.voucherData || [];
+    const usedIndices = new Set<number>();
+    for (let idx = 0; idx < serialRange.length; idx++) {
+      const s = serialRange[idx];
+      const key = normalizeSerialKey(s);
+      let fIdx = -1;
+      for (let i = 0; i < rawVchs.length; i++) {
+        if (usedIndices.has(i)) continue;
+        const vNum = rawVchs[i].voucherNo || rawVchs[i].srNo;
+        if (vNum && normalizeSerialKey(vNum) === key) {
+          fIdx = i;
+          break;
+        }
+      }
+      if (fIdx === -1 && rawVchs[idx] && !usedIndices.has(idx)) {
+        fIdx = idx;
+      }
+      if (fIdx === -1) {
+        for (let i = 0; i < rawVchs.length; i++) {
+          if (!usedIndices.has(i)) {
+            fIdx = i;
+            break;
+          }
+        }
+      }
+      if (fIdx !== -1) {
+        usedIndices.add(fIdx);
+        found++;
+      } else {
+        blank++;
+      }
+    }
+  } else {
+    const commonSerials = new Set((wb.commonFile || []).map(r => normalizeSerial(r.srNo)));
+    for (const s of serialRange) { if (commonSerials.has(normalizeSerial(s))) found++; else blank++; }
+  }
 
   const totalAvailableInMaster = isVoucher ? (wb.voucherData || []).length : (wb.commonFile || []).length;
   let warningMessage = '';
@@ -1377,3 +1421,158 @@ ipcMain.handle('tests:run', async () => {
     return { error: err.message, results: [] };
   }
 });
+
+// ══════════════════════════════════════════════════════════════
+// HENU AI ENGINE & USB CONTRACT
+// ══════════════════════════════════════════════════════════════
+ipcMain.handle('henuAi:getStatus', async () => {
+  try {
+    const { HenuAiEngineManager } = await import('./services/HenuAiEngineManager');
+    return HenuAiEngineManager.getInstance().getStatusReport();
+  } catch (err: any) {
+    return { state: 'ENGINE_ERROR', error: err.message };
+  }
+});
+
+ipcMain.handle('henuAi:setPower', async (_e, powerOn: boolean) => {
+  try {
+    const { HenuAiEngineManager } = await import('./services/HenuAiEngineManager');
+    return HenuAiEngineManager.getInstance().setEnginePower(powerOn);
+  } catch (err: any) {
+    return { state: 'ENGINE_ERROR', error: err.message };
+  }
+});
+
+ipcMain.handle('henuAi:detectUsb', async () => {
+  try {
+    const { HenuAiEngineManager } = await import('./services/HenuAiEngineManager');
+    return HenuAiEngineManager.getInstance().detectAndValidate();
+  } catch (err: any) {
+    return { state: 'ENGINE_ERROR', error: err.message };
+  }
+});
+
+ipcMain.handle('henuAi:processVoucher', async (_e, payload: { base64Image: string; fileName?: string }) => {
+  try {
+    const { HenuAiEngineManager } = await import('./services/HenuAiEngineManager');
+    return HenuAiEngineManager.getInstance().processVoucher(payload);
+  } catch (err: any) {
+    return { status: 'FAILED', error: err.message };
+  }
+});
+
+// ══════════════════════════════════════════════════════════════
+// VOUCHER PARSER AUTOMATION ENDPOINT
+// ══════════════════════════════════════════════════════════════
+ipcMain.handle('voucherParser:processImage', async (_e, payload: { base64Image: string; fileName?: string; languages?: string[] }) => {
+  try {
+    const { VoucherParserService } = await import('./services/VoucherParserService');
+    return VoucherParserService.processImage(payload);
+  } catch (err: any) {
+    return { success: false, error: err.message, errorCategory: 'PROCESSING_ERROR' };
+  }
+});
+
+ipcMain.handle('voucherParser:getColumnHeaders', async () => {
+  try {
+    const { VoucherParserService } = await import('./services/VoucherParserService');
+    return VoucherParserService.getColumnHeaders();
+  } catch (err: any) {
+    return [];
+  }
+});
+
+ipcMain.handle('voucherParser:getEngineStatus', async () => {
+  try {
+    const { VoucherParserService } = await import('./services/VoucherParserService');
+    return VoucherParserService.getEngineStatus();
+  } catch (err: any) {
+    return { state: 'ENGINE_ERROR', error: err.message };
+  }
+});
+
+// ══════════════════════════════════════════════════════════════
+// OCR API & EXTERNAL AI ROUTER
+// ══════════════════════════════════════════════════════════════
+ipcMain.handle('ocrApi:getConfig', async () => {
+  try {
+    const { OcrApiManager } = await import('./services/ocr-api/OcrApiManager');
+    return OcrApiManager.getInstance().getGlobalConfig();
+  } catch (err: any) {
+    return { error: err.message };
+  }
+});
+
+ipcMain.handle('ocrApi:setMode', async (_e, mode: 'HENU_AI' | 'APIS') => {
+  try {
+    const { OcrApiManager } = await import('./services/ocr-api/OcrApiManager');
+    return OcrApiManager.getInstance().setMode(mode);
+  } catch (err: any) {
+    return { error: err.message };
+  }
+});
+
+ipcMain.handle('ocrApi:setActiveProvider', async (_e, providerId: any) => {
+  try {
+    const { OcrApiManager } = await import('./services/ocr-api/OcrApiManager');
+    return OcrApiManager.getInstance().setActiveProvider(providerId);
+  } catch (err: any) {
+    return { error: err.message };
+  }
+});
+
+ipcMain.handle('ocrApi:saveProviderConfig', async (_e, providerId: any, modelOrConfig: any, apiKey?: string) => {
+  try {
+    const { OcrApiManager } = await import('./services/ocr-api/OcrApiManager');
+    return OcrApiManager.getInstance().saveProviderConfig(providerId, modelOrConfig, apiKey);
+  } catch (err: any) {
+    return { error: err.message };
+  }
+});
+
+ipcMain.handle('ocrApi:testConnection', async (_e, providerId: any, apiKey?: string, model?: string) => {
+  try {
+    const { OcrApiManager } = await import('./services/ocr-api/OcrApiManager');
+    if (apiKey && apiKey.trim()) {
+      OcrApiManager.getInstance().saveProviderConfig(providerId, model || '', apiKey);
+    }
+    return await OcrApiManager.getInstance().testConnection(providerId);
+  } catch (err: any) {
+    return { success: false, errorCategory: 'SERVER_ERROR', errorMessage: err.message, timestamp: new Date().toISOString() };
+  }
+});
+
+ipcMain.handle('ocrApi:processVoucher', async (_e, imageBase64OrBuffer: string, mimeType: string = 'image/jpeg', jobId?: string) => {
+  try {
+    const { OcrApiManager } = await import('./services/ocr-api/OcrApiManager');
+    let buffer: Buffer;
+    if (typeof imageBase64OrBuffer === 'string') {
+      const cleanBase64 = imageBase64OrBuffer.replace(/^data:image\/[a-zA-Z+]+;base64,/, '');
+      buffer = Buffer.from(cleanBase64, 'base64');
+    } else {
+      buffer = Buffer.from(imageBase64OrBuffer);
+    }
+    return await OcrApiManager.getInstance().processVoucher(buffer, mimeType, jobId);
+  } catch (err: any) {
+    return { success: false, errorCategory: 'SERVER_ERROR', errorMessage: err.message };
+  }
+});
+
+ipcMain.handle('ocrApi:processCheck', async (_e, imageBase64OrBuffer: string, mimeType: string = 'image/jpeg', jobId?: string) => {
+  try {
+    const { OcrApiManager } = await import('./services/ocr-api/OcrApiManager');
+    let buffer: Buffer;
+    if (typeof imageBase64OrBuffer === 'string') {
+      const cleanBase64 = imageBase64OrBuffer.replace(/^data:image\/[a-zA-Z+]+;base64,/, '');
+      buffer = Buffer.from(cleanBase64, 'base64');
+    } else {
+      buffer = Buffer.from(imageBase64OrBuffer);
+    }
+    return await OcrApiManager.getInstance().processCheck(buffer, mimeType, jobId);
+  } catch (err: any) {
+    return { success: false, errorCategory: 'SERVER_ERROR', errorMessage: err.message };
+  }
+});
+
+
+

@@ -1703,4 +1703,570 @@ export const browserMockApi = {
     openFileDialog: async () => 'mock-file.xlsx',
     showSaveDialog: async () => 'HENU_OS_Output.zip',
   },
+
+  henuAi: (() => {
+    let mockIsEngineOn = true;
+    let mockIsUsbConnected = true;
+    return {
+      getStatus: async () => ({
+        state: !mockIsUsbConnected ? 'USB_NOT_DETECTED' : mockIsEngineOn ? 'ENGINE_READY' : 'ENGINE_OFF',
+        isEngineOn: mockIsEngineOn,
+        isUsbConnected: mockIsUsbConnected,
+        usbDriveLetter: mockIsUsbConnected ? 'D:' : '',
+        engineRootPath: mockIsUsbConnected ? 'D:\\HENU AI' : '',
+        modelsDirectory: mockIsUsbConnected ? 'D:\\HENU AI\\models' : '',
+        tempDirectory: mockIsUsbConnected ? 'D:\\HENU AI\\temp' : '',
+        runtimeStatus: mockIsUsbConnected && mockIsEngineOn ? 'OPERATIONAL' : 'STANDBY',
+        statusMessage: !mockIsUsbConnected
+          ? 'HENU AI is unavailable. Please connect the Secure HENU AI Model USB.'
+          : mockIsEngineOn
+          ? 'HENU AI Engine is fully operational and ready.'
+          : 'HENU AI Engine is manually switched OFF. OCR extraction paused.',
+        lastHealthCheck: new Date().toISOString(),
+        models: {
+          tesseract: { name: 'Tesseract.js Multilingual Local Engine', key: 'tesseract', status: 'READY', modelPath: 'tessdata (eng, hin, mar)', lastChecked: new Date().toISOString(), isAvailable: true },
+          glmOcr: { name: 'GLM-OCR Local Sequential Adapter', key: 'glmOcr', status: 'READY', modelPath: 'D:/HENU AI/models/glm-ocr', lastChecked: new Date().toISOString(), isAvailable: true },
+          fireRedOcr: { name: 'FireRed-OCR Consensus Adapter', key: 'fireRedOcr', status: 'READY', modelPath: 'D:/HENU AI/models/firered-ocr', lastChecked: new Date().toISOString(), isAvailable: true },
+          kraken: { name: 'Kraken Document Layout & Handwriting Engine', key: 'kraken', status: 'READY', modelPath: 'D:/HENU AI/models/handwriting/kraken-main', lastChecked: new Date().toISOString(), isAvailable: true },
+        },
+        diagnostics: {
+          offlineMode: true,
+          zeroCloudTelemetry: true,
+          activeJobsCount: 0,
+          memoryCleanupEnabled: true,
+          sequentialExecution: true,
+        },
+      }),
+      setPower: async (powerOn: boolean) => {
+        mockIsEngineOn = powerOn;
+        return {
+          state: !mockIsUsbConnected ? 'USB_NOT_DETECTED' : mockIsEngineOn ? 'ENGINE_READY' : 'ENGINE_OFF',
+          isEngineOn: mockIsEngineOn,
+          isUsbConnected: mockIsUsbConnected,
+          usbDriveLetter: mockIsUsbConnected ? 'D:' : '',
+          statusMessage: !mockIsUsbConnected
+            ? 'HENU AI is unavailable. Please connect the Secure HENU AI Model USB.'
+            : mockIsEngineOn
+            ? 'HENU AI Engine is fully operational and ready.'
+            : 'HENU AI Engine is manually switched OFF. OCR extraction paused.',
+        };
+      },
+      setUsbConnected: async (connected: boolean) => {
+        mockIsUsbConnected = connected;
+        return {
+          state: !mockIsUsbConnected ? 'USB_NOT_DETECTED' : mockIsEngineOn ? 'ENGINE_READY' : 'ENGINE_OFF',
+          isEngineOn: mockIsEngineOn,
+          isUsbConnected: mockIsUsbConnected,
+          usbDriveLetter: mockIsUsbConnected ? 'D:' : '',
+          statusMessage: !mockIsUsbConnected
+            ? 'HENU AI is unavailable. Please connect the Secure HENU AI Model USB.'
+            : 'HENU AI Engine is fully operational and ready.',
+        };
+      },
+      detectUsb: async () => ({
+        rootPath: mockIsUsbConnected ? 'D:\\HENU AI' : '',
+        driveLetter: mockIsUsbConnected ? 'D:' : '',
+        isValid: mockIsUsbConnected,
+      }),
+      processVoucher: async (payload: { base64Image: string; fileName?: string }) => {
+        if (!mockIsUsbConnected) {
+          throw new Error('HENU AI is unavailable. Please connect the Secure HENU AI Model USB.');
+        }
+        try {
+          const res = await fetch('http://127.0.0.1:8080/ocr', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filename: payload.fileName || 'voucher.jpg', image_base64: payload.base64Image }),
+          });
+          if (res.ok) {
+            return await res.json();
+          }
+        } catch (e) {
+          console.warn('Browser direct USB OCR fetch failed:', e);
+        }
+        return null;
+      },
+    };
+  })(),
+  ocrApi: (() => {
+    const CONFIG_KEY = 'henu_ocr_api_config';
+    const SECRETS_KEY = 'henu_ocr_api_secrets';
+
+    const getStoredConfig = () => {
+      try {
+        const raw = localStorage.getItem(CONFIG_KEY);
+        if (raw) return JSON.parse(raw);
+      } catch {}
+      return {
+        mode: 'HENU_AI',
+        activeProvider: 'gemini',
+        providers: {
+          gemini: { provider: 'gemini', model: 'gemini-1.5-flash', hasApiKey: false, visionSupported: 'SUPPORTED', connectionStatus: 'NOT_TESTED' },
+          grok: { provider: 'grok', model: 'grok-2-vision-1212', hasApiKey: false, visionSupported: 'SUPPORTED', connectionStatus: 'NOT_TESTED' },
+          deepseek: { provider: 'deepseek', model: 'deepseek-chat', hasApiKey: false, visionSupported: 'UNSUPPORTED', connectionStatus: 'NOT_TESTED' },
+          openrouter: { provider: 'openrouter', model: 'google/gemini-flash-1.5', hasApiKey: false, visionSupported: 'SUPPORTED', connectionStatus: 'NOT_TESTED' },
+        },
+      };
+    };
+
+    const getStoredSecrets = (): Record<string, string> => {
+      try {
+        const raw = localStorage.getItem(SECRETS_KEY);
+        if (raw) return JSON.parse(raw);
+      } catch {}
+      return {};
+    };
+
+    return {
+      getConfig: async () => {
+        const config = getStoredConfig();
+        const secrets = getStoredSecrets();
+        for (const p of Object.keys(config.providers)) {
+          config.providers[p].hasApiKey = !!(secrets[p] && secrets[p].trim().length > 0);
+        }
+        return config;
+      },
+
+      setMode: async (mode: 'HENU_AI' | 'APIS') => {
+        const config = getStoredConfig();
+        config.mode = mode;
+        localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
+        return config;
+      },
+
+      setActiveProvider: async (providerId: string) => {
+        const config = getStoredConfig();
+        config.activeProvider = providerId;
+        localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
+        return config;
+      },
+
+      saveProviderConfig: async (providerId: string, modelOrConfig: any, optionalApiKey?: string) => {
+        const config = getStoredConfig();
+        const secrets = getStoredSecrets();
+
+        let model = 'gemini-1.5-flash';
+        let apiKey = optionalApiKey;
+
+        if (typeof modelOrConfig === 'object' && modelOrConfig !== null) {
+          model = modelOrConfig.model || config.providers[providerId]?.model || model;
+          if (modelOrConfig.apiKey !== undefined) {
+            apiKey = modelOrConfig.apiKey;
+          }
+        } else if (typeof modelOrConfig === 'string') {
+          model = modelOrConfig;
+        }
+
+        if (!config.providers[providerId]) {
+          config.providers[providerId] = {
+            provider: providerId,
+            model,
+            hasApiKey: false,
+            visionSupported: providerId === 'deepseek' && model.includes('chat') ? 'UNSUPPORTED' : 'SUPPORTED',
+            connectionStatus: 'NOT_TESTED',
+          };
+        } else {
+          config.providers[providerId].model = model;
+          config.providers[providerId].visionSupported = providerId === 'deepseek' && model.includes('chat') ? 'UNSUPPORTED' : 'SUPPORTED';
+        }
+
+        if (apiKey !== undefined && apiKey !== null) {
+          const trimmed = apiKey.trim();
+          if (trimmed.length > 0) {
+            secrets[providerId] = trimmed;
+            config.providers[providerId].hasApiKey = true;
+          } else {
+            delete secrets[providerId];
+            config.providers[providerId].hasApiKey = false;
+            config.providers[providerId].connectionStatus = 'NOT_TESTED';
+          }
+          localStorage.setItem(SECRETS_KEY, JSON.stringify(secrets));
+        }
+
+        localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
+        return config;
+      },
+
+      testConnection: async (providerId: string) => {
+        const config = getStoredConfig();
+        const secrets = getStoredSecrets();
+        const apiKey = secrets[providerId];
+        const prov = config.providers[providerId];
+        const model = prov?.model || 'default';
+        const start = Date.now();
+
+        if (!apiKey) {
+          const res = {
+            success: false,
+            provider: providerId,
+            model,
+            latencyMs: 0,
+            visionSupported: prov?.visionSupported === 'SUPPORTED',
+            errorCategory: 'INVALID_API_KEY',
+            errorMessage: `No API key saved for provider "${providerId}". Please enter and save an API key first.`,
+            timestamp: new Date().toISOString(),
+          };
+          if (prov) {
+            prov.connectionStatus = 'FAILED';
+            prov.lastTestedAt = res.timestamp;
+            prov.lastError = res.errorMessage;
+            localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
+          }
+          return res;
+        }
+
+        try {
+          if (providerId === 'gemini') {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+            const response = await fetch(url, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [{ parts: [{ text: 'Respond with OK for connectivity check' }] }],
+                generationConfig: { maxOutputTokens: 5 },
+              }),
+            });
+
+            const latencyMs = Date.now() - start;
+            if (!response.ok) {
+              const errBody = await response.json().catch(() => ({}));
+              throw new Error(errBody?.error?.message || `HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const res = {
+              success: true,
+              provider: providerId,
+              model,
+              latencyMs,
+              visionSupported: true,
+              httpStatus: response.status,
+              timestamp: new Date().toISOString(),
+            };
+            prov.connectionStatus = 'PASSED';
+            prov.lastTestedAt = res.timestamp;
+            prov.lastLatencyMs = latencyMs;
+            localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
+            return res;
+          } else if (providerId === 'grok') {
+            const response = await fetch('https://api.x.ai/v1/chat/completions', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`,
+              },
+              body: JSON.stringify({
+                model,
+                messages: [{ role: 'user', content: 'Ping' }],
+                max_tokens: 5,
+              }),
+            });
+
+            const latencyMs = Date.now() - start;
+            if (!response.ok) {
+              const errBody = await response.json().catch(() => ({}));
+              throw new Error(errBody?.error?.message || `HTTP ${response.status}`);
+            }
+
+            const res = {
+              success: true,
+              provider: providerId,
+              model,
+              latencyMs,
+              visionSupported: true,
+              httpStatus: response.status,
+              timestamp: new Date().toISOString(),
+            };
+            prov.connectionStatus = 'PASSED';
+            prov.lastTestedAt = res.timestamp;
+            prov.lastLatencyMs = latencyMs;
+            localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
+            return res;
+          } else if (providerId === 'deepseek') {
+            const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`,
+              },
+              body: JSON.stringify({
+                model,
+                messages: [{ role: 'user', content: 'Ping' }],
+                max_tokens: 5,
+              }),
+            });
+
+            const latencyMs = Date.now() - start;
+            if (!response.ok) {
+              const errBody = await response.json().catch(() => ({}));
+              throw new Error(errBody?.error?.message || `HTTP ${response.status}`);
+            }
+
+            const res = {
+              success: true,
+              provider: providerId,
+              model,
+              latencyMs,
+              visionSupported: !model.includes('chat'),
+              httpStatus: response.status,
+              timestamp: new Date().toISOString(),
+            };
+            prov.connectionStatus = 'PASSED';
+            prov.lastTestedAt = res.timestamp;
+            prov.lastLatencyMs = latencyMs;
+            localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
+            return res;
+          } else if (providerId === 'openrouter') {
+            const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`,
+              },
+              body: JSON.stringify({
+                model,
+                messages: [{ role: 'user', content: 'Ping' }],
+                max_tokens: 5,
+              }),
+            });
+
+            const latencyMs = Date.now() - start;
+            if (!response.ok) {
+              const errBody = await response.json().catch(() => ({}));
+              throw new Error(errBody?.error?.message || `HTTP ${response.status}`);
+            }
+
+            const res = {
+              success: true,
+              provider: providerId,
+              model,
+              latencyMs,
+              visionSupported: true,
+              httpStatus: response.status,
+              timestamp: new Date().toISOString(),
+            };
+            prov.connectionStatus = 'PASSED';
+            prov.lastTestedAt = res.timestamp;
+            prov.lastLatencyMs = latencyMs;
+            localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
+            return res;
+          } else {
+            throw new Error(`Unsupported provider: ${providerId}`);
+          }
+        } catch (err: any) {
+          const latencyMs = Date.now() - start;
+          const res = {
+            success: false,
+            provider: providerId,
+            model,
+            latencyMs,
+            visionSupported: prov?.visionSupported === 'SUPPORTED',
+            errorCategory: 'CONNECTION_FAILED',
+            errorMessage: err?.message || 'Connection failed',
+            timestamp: new Date().toISOString(),
+          };
+          if (prov) {
+            prov.connectionStatus = 'FAILED';
+            prov.lastTestedAt = res.timestamp;
+            prov.lastError = res.errorMessage;
+            localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
+          }
+          return res;
+        }
+      },
+
+      processVoucher: async (reqOrBase64: any, optionalMime?: string) => {
+        const config = getStoredConfig();
+        const secrets = getStoredSecrets();
+        const activeProv = config.activeProvider || 'gemini';
+        const provSetting = config.providers[activeProv];
+        const apiKey = secrets[activeProv];
+        const model = provSetting?.model || 'gemini-1.5-flash';
+
+        if (!apiKey) {
+          return {
+            success: false,
+            sourceEngine: `API_${activeProv.toUpperCase()}`,
+            provider: activeProv,
+            model,
+            latencyMs: 0,
+            rawText: '',
+            errorCategory: 'INVALID_API_KEY',
+            errorMessage: `No API key configured for active provider "${activeProv}". Please configure in Settings -> OCR.`,
+          };
+        }
+
+        let base64Image: string;
+        let mimeType: string = optionalMime || 'image/png';
+
+        if (typeof reqOrBase64 === 'object' && reqOrBase64 !== null) {
+          base64Image = reqOrBase64.base64Image || '';
+          mimeType = reqOrBase64.mimeType || mimeType;
+        } else {
+          base64Image = reqOrBase64;
+        }
+
+        base64Image = base64Image.replace(/^data:image\/[a-zA-Z+.-]+;base64,/, '');
+
+        const systemPrompt = `You are a specialized accounting document OCR engine for Co-operative Housing Society payment vouchers.
+Analyze the provided voucher image and extract all fields into valid JSON:
+{
+  "society_name": string | null,
+  "registration_no": string | null,
+  "society_address": string | null,
+  "voucher_no": string | null,
+  "voucher_date": string | null (DD/MM/YYYY),
+  "pay_to": string | null,
+  "charge_to": string | null,
+  "particulars": string | null,
+  "bill_amount_1": number | null,
+  "bill_amount_2": number | null,
+  "advance_paid": number | null,
+  "total_1": number | null,
+  "tds_percentage": number | null,
+  "tds_amount": number | null,
+  "total_2": number | null,
+  "cgst_percentage": number | null,
+  "cgst_amount": number | null,
+  "sgst_percentage": number | null,
+  "sgst_amount": number | null,
+  "round_off": number | null,
+  "bill_no": string | null,
+  "bank_name": string | null,
+  "cheque_no": string | null,
+  "cheque_date": string | null (DD/MM/YYYY),
+  "rupees": string | null,
+  "net_paid": number | null
+}
+CRITICAL: If a field is blank or missing, set its value to null. Never invent or concatenate numbers across rows. Return ONLY the raw JSON object.`;
+
+        const start = Date.now();
+        try {
+          if (activeProv === 'gemini') {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+            const response = await fetch(url, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [
+                  {
+                    parts: [
+                      { text: systemPrompt },
+                      { inlineData: { mimeType, data: base64Image } },
+                    ],
+                  },
+                ],
+                generationConfig: {
+                  responseMimeType: 'application/json',
+                },
+              }),
+            });
+
+            const latencyMs = Date.now() - start;
+            if (!response.ok) {
+              const err = await response.json().catch(() => ({}));
+              throw new Error(err?.error?.message || `HTTP ${response.status}`);
+            }
+
+            const data = await response.json();
+            const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+            const parsed = JSON.parse(text);
+
+            const structuredFields: Record<string, any> = {};
+            for (const [k, v] of Object.entries(parsed)) {
+              if (k !== 'confidence_scores') {
+                structuredFields[k] = {
+                  rawValue: v !== null && v !== undefined ? String(v) : '',
+                  normalizedValue: v,
+                  confidence: 90,
+                };
+              }
+            }
+
+            return {
+              success: true,
+              sourceEngine: `API_GEMINI`,
+              provider: 'gemini',
+              model,
+              latencyMs,
+              rawText: text,
+              rawResponseJson: parsed,
+              structuredFields,
+            };
+          } else {
+            // Grok / DeepSeek / OpenRouter OpenAI compatible
+            const endpoint = activeProv === 'grok'
+              ? 'https://api.x.ai/v1/chat/completions'
+              : activeProv === 'openrouter'
+              ? 'https://openrouter.ai/api/v1/chat/completions'
+              : 'https://api.deepseek.com/v1/chat/completions';
+
+            const response = await fetch(endpoint, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`,
+              },
+              body: JSON.stringify({
+                model,
+                messages: [
+                  { role: 'system', content: systemPrompt },
+                  {
+                    role: 'user',
+                    content: [
+                      { type: 'text', text: 'Extract voucher fields into JSON' },
+                      { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64Image}` } },
+                    ],
+                  },
+                ],
+                response_format: { type: 'json_object' },
+              }),
+            });
+
+            const latencyMs = Date.now() - start;
+            if (!response.ok) {
+              const err = await response.json().catch(() => ({}));
+              throw new Error(err?.error?.message || `HTTP ${response.status}`);
+            }
+
+            const data = await response.json();
+            const text = data?.choices?.[0]?.message?.content || '{}';
+            const parsed = JSON.parse(text);
+
+            const structuredFields: Record<string, any> = {};
+            for (const [k, v] of Object.entries(parsed)) {
+              structuredFields[k] = {
+                rawValue: v !== null && v !== undefined ? String(v) : '',
+                normalizedValue: v,
+                confidence: 90,
+              };
+            }
+
+            return {
+              success: true,
+              sourceEngine: `API_${activeProv.toUpperCase()}`,
+              provider: activeProv,
+              model,
+              latencyMs,
+              rawText: text,
+              rawResponseJson: parsed,
+              structuredFields,
+            };
+          }
+        } catch (err: any) {
+          return {
+            success: false,
+            sourceEngine: `API_${activeProv.toUpperCase()}`,
+            provider: activeProv,
+            model,
+            latencyMs: Date.now() - start,
+            rawText: '',
+            errorCategory: 'API_ERROR',
+            errorMessage: err?.message || 'API extraction failed',
+          };
+        }
+      },
+    };
+  })(),
 };
+
+

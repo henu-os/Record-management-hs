@@ -27,280 +27,731 @@ function splitRupeesPaise(valStr: string | undefined): { rs: string; ps: string 
   return { rs: `${prefix}${formatted}`, ps: psPart };
 }
 
+function splitTwoLinesByCharCount(text: string | undefined, line1MaxChars: number): { line1: string; line2: string } {
+  if (!text) return { line1: '', line2: '' };
+  const str = text.trim();
+  if (str.length <= line1MaxChars) return { line1: str, line2: '' };
+
+  const words = str.split(/\s+/);
+  let l1 = '';
+  let wordIdx = 0;
+  for (; wordIdx < words.length; wordIdx++) {
+    const test = l1 ? `${l1} ${words[wordIdx]}` : words[wordIdx];
+    if (test.length <= line1MaxChars) {
+      l1 = test;
+    } else {
+      break;
+    }
+  }
+  if (!l1 && words.length > 0) {
+    l1 = str.substring(0, line1MaxChars);
+    return { line1: l1, line2: str.substring(line1MaxChars).trim() };
+  }
+  return { line1: l1, line2: words.slice(wordIdx).join(' ').trim() };
+}
+
 export const SingleVoucherCard: React.FC<{
   voucher: VoucherRecord;
   society: SocietyMaster | null;
   templateId?: 'TEMPLATE_1' | 'TEMPLATE_2' | string;
   logoBase64?: string;
-}> = ({ voucher, society, logoBase64 }) => {
-  const socName = voucher.societyName || society?.societyName || 'Aishwarya Heights Co-op. Housing Society Ltd.';
-  const socNo = voucher.socNumber || society?.registrationNo || 'M.U.M./S.R.A./H.S.G./(T.C.)/13372/YEAR-2023';
-  const regDate = society?.registrationDate || '02.01.2023';
-  const socAddress = voucher.societyAddress || society?.address || 'CTS No. 1020 (Part), Mithagar Road, Near L.I.C. Colony, Mulund (East), Mumbai - 400 081.';
+}> = ({ voucher, society, templateId, logoBase64 }) => {
+  const isTemplate2 = templateId === 'TEMPLATE_2';
+  const socName = voucher.societyName || society?.societyName || (isTemplate2 ? 'SAI RACHNA CO-OP. HOUSING SOCIETY LTD.' : 'Aishwarya Heights Co-op. Housing Society Ltd.');
+  const socNo = voucher.socNumber || society?.registrationNo || '';
+  const regDate = society?.registrationDate || '';
+  const socAddress = voucher.societyAddress || society?.address || '';
 
   const activeLogo = logoBase64 || society?.logoBase64;
+
+  const paySplit = splitTwoLinesByCharCount(voucher.toPayee, 38);
+  const chgSplit = splitTwoLinesByCharCount(voucher.chargeTo, 26);
 
   const finRows = [
     { label: 'Bill Amount', percent: '', val: voucher.billAmount, bold: false },
     { label: 'Bill Amount', percent: '', val: voucher.billAmount2 || '', bold: false },
     { label: 'Adv. Less or Paid', percent: '', val: voucher.advLessPaid, bold: false },
     { label: 'Total', percent: '', val: voucher.subTotal1, bold: true },
-    { label: 'Less TDS @', percent: voucher.tdsPercent ? `${voucher.tdsPercent}%` : '  %', val: voucher.tdsAmount, bold: false },
+    { label: 'Less TDS @', percent: voucher.tdsPercent ? `${voucher.tdsPercent} %` : '    %', val: voucher.tdsAmount, bold: false },
     { label: 'Total', percent: '', val: voucher.subTotal2, bold: true },
-    { label: 'Add CGST @', percent: voucher.cgstPercent ? `${voucher.cgstPercent}%` : '  %', val: voucher.cgstAmount, bold: false },
-    { label: 'Add SGST @', percent: voucher.sgstPercent ? `${voucher.sgstPercent}%` : '  %', val: voucher.sgstAmount, bold: false },
+    { label: 'Add CGST @', percent: voucher.cgstPercent ? `${voucher.cgstPercent} %` : '    %', val: voucher.cgstAmount, bold: false },
+    { label: 'Add SGST @', percent: voucher.sgstPercent ? `${voucher.sgstPercent} %` : '    %', val: voucher.sgstAmount, bold: false },
     { label: 'Round off (+/-)', percent: '', val: voucher.roundOff, bold: false },
     { label: 'Net Paid =', percent: '', val: voucher.netPaid, bold: true, highlight: true },
   ];
 
+  const totalAmount = voucher.netPaid || voucher.billAmount || '';
+  const { rs: t2Rs, ps: t2Ps } = splitRupeesPaise(totalAmount);
+
   return (
     <div style={{
       width: '100%',
-      height: '350px',
+      height: '356px',
       boxSizing: 'border-box',
-      padding: '10px 14px 10px 24px',
-      fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-      color: '#000',
-      background: '#fff',
+      border: 'none',
+      padding: '6px 4px',
+      fontFamily: isTemplate2 ? 'Arial, Helvetica, sans-serif' : '"Times New Roman", Times, serif',
+      color: '#000000',
+      background: '#ffffff',
       display: 'flex',
       flexDirection: 'column',
       justifyContent: 'space-between',
       position: 'relative',
     }}>
-      {/* 1. Header with Society details and Voucher No / Date */}
+      {/* ─── 1. Header Section ─── */}
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div style={{ flex: 1, paddingRight: 10, display: 'flex', gap: '8px', alignItems: 'center' }}>
-            {activeLogo && (
-              <img
-                src={activeLogo}
-                alt="Logo"
-                style={{ width: '32px', height: '32px', objectFit: 'contain', flexShrink: 0 }}
-              />
-            )}
-            <div style={{ flex: 1, textAlign: 'center' }}>
-              <div style={{ fontSize: '15px', fontWeight: 800, fontStyle: 'italic', fontFamily: 'Georgia, Cambria, "Times New Roman", serif', lineHeight: 1.15 }}>
-                {socName}
-              </div>
-              <div style={{ fontSize: '8.5px', fontWeight: 700, marginTop: '2px' }}>
-                Reg. No. : {socNo} Dated {regDate}
-              </div>
-              <div style={{ fontSize: '8px', fontWeight: 500, marginTop: '1px', color: '#111' }}>
-                {socAddress}
-              </div>
+          {/* Society Details (Left: Line 1 left-aligned, Lines 2-3 centered under title) */}
+          <div style={{
+            flex: 1,
+            paddingRight: '16px',
+            display: 'flex',
+            flexDirection: 'column',
+          }}>
+            <h1 style={{
+              margin: '0 0 2px 0',
+              fontFamily: isTemplate2 ? 'Arial, Helvetica, sans-serif' : '"Times New Roman", Times, serif',
+              fontStyle: isTemplate2 ? 'normal' : 'italic',
+              fontWeight: isTemplate2 ? 900 : 'bold',
+              fontSize: isTemplate2 ? '15.5px' : '16px',
+              letterSpacing: isTemplate2 ? '0.6px' : '0.2px',
+              textTransform: isTemplate2 ? 'uppercase' : 'none',
+              lineHeight: 1.15,
+              textAlign: isTemplate2 ? 'center' : 'left',
+            }}>
+              {socName}
+            </h1>
+            <div style={{
+              fontSize: '9px',
+              fontWeight: 'bold',
+              lineHeight: '1.3',
+              textAlign: 'center',
+            }}>
+              {isTemplate2
+                ? (socNo ? `Reg. No. MUM / SRA / HSG / (TC) / ${socNo}${regDate ? ' Dated-' + regDate : ''}` : 'Reg. No. MUM / SRA / HSG / (TC) / 13334 / Year-2022-23 Dated-05 / 08 / 2022')
+                : (socNo ? `Reg. No. : ${socNo}${regDate ? ' Dated ' + regDate : ''}` : 'Reg. No. : M.U.M./S.R.A./H.S.G./(T.C.)/13372/YEAR-2023 Dated 02.01.2023')}
+            </div>
+            <div style={{
+              fontSize: '8px',
+              fontWeight: 'bold',
+              lineHeight: '1.25',
+              color: '#111',
+              textAlign: 'center',
+            }}>
+              {isTemplate2
+                ? (socAddress || 'CTS No.747(P) of Village Mulund, Dumping Road, P. D. Road, Opp. Babu Jagjivan Ram Nagar,\nMulund (West), Mumbai – 400 080.')
+                : (socAddress || 'CTS No. 1020 (Part), Mithagar Road, Near L.I.C. Colony, Mulund (East), Mumbai - 400 081.')}
             </div>
           </div>
 
-          <div style={{ width: '145px', textAlign: 'right', flexShrink: 0 }}>
+          {/* Voucher No & Date (Right Column) */}
+          <div style={{
+            width: '155px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'stretch',
+            flexShrink: 0
+          }}>
+            {/* Voucher No Box */}
             <div style={{
-              border: '1.2px solid #000',
-              padding: '3px 8px',
-              fontSize: '9.5px',
-              fontWeight: 700,
+              border: '1.5px solid #000000',
+              width: '100%',
+              height: '26px',
+              boxSizing: 'border-box',
               display: 'flex',
-              justifyContent: 'space-between',
               alignItems: 'center',
-              marginBottom: '6px'
+              padding: '0 6px',
+              fontSize: '10px',
+              fontWeight: 'bold',
+              justifyContent: 'space-between',
             }}>
               <span>Voucher No.</span>
-              <span style={{ fontSize: '10px', fontWeight: 700 }}>{voucher.voucherNo || ''}</span>
+              <span style={{ fontWeight: 'normal', fontFamily: 'sans-serif', fontSize: '10.5px' }}>
+                {voucher.voucherNo || ''}
+              </span>
             </div>
-            <div style={{ fontSize: '9px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>
+
+            {/* Date Line with Double Underline */}
+            <div style={{
+              marginTop: '8px',
+              fontSize: '9.5px',
+              fontWeight: 'bold',
+              display: 'flex',
+              alignItems: 'flex-end',
+              width: '100%',
+              justifyContent: 'space-between',
+              paddingBottom: '2px',
+            }}>
               <span>Date :</span>
-              <span style={{ borderBottom: '3px double #000', minWidth: '95px', textAlign: 'center', display: 'inline-block', letterSpacing: '1px' }}>
-                {voucher.voucherDate || '      /      /            '}
+              <span style={{
+                display: 'inline-block',
+                borderBottom: '1.5px double #000000',
+                minWidth: '95px',
+                textAlign: 'center',
+                fontSize: '9.5px',
+                lineHeight: '1.1',
+              }}>
+                {voucher.voucherDate || '\u00A0\u00A0\u00A0/\u00A0\u00A0\u00A0/\u00A0\u00A0\u00A0'}
               </span>
             </div>
           </div>
         </div>
 
-        {/* Continuous Horizontal Rule directly below Address Line */}
-        <div style={{ borderBottom: '1px solid #000', marginTop: '6px', width: '100%' }} />
+        {/* Top Separator Line */}
+        <div style={{ borderBottom: '1.5px solid #000000', marginTop: '6px' }} />
       </div>
 
-      {/* 2. PAY To / CHARGE To Container with continuous border-right & double border */}
+      {/* ─── 2. Pay To / Charge To Section ─── */}
       <div style={{
-        borderTop: '1px solid #000',
-        borderBottom: '3px double #000',
-        padding: '3px 0',
-        marginTop: '2px'
-      }}>
-        <div style={{ display: 'flex', fontSize: '9.5px', fontWeight: 700 }}>
-          {/* Left Column: PAY To */}
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '4px', paddingRight: '6px', borderRight: '1px solid #000' }}>
-            <span style={{ whiteSpace: 'nowrap' }}>PAY To,</span>
-            <span style={{ borderBottom: '1px solid #000', flex: 1, paddingLeft: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {voucher.toPayee || ''}
-            </span>
-          </div>
-          {/* Right Column: CHARGE To */}
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '4px', paddingLeft: '6px' }}>
-            <span style={{ whiteSpace: 'nowrap' }}>CHARGE To,</span>
-            <span style={{ borderBottom: '1px solid #000', flex: 1, paddingLeft: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {voucher.chargeTo || ''}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* 3. Main Data Table with Dedicated "%" Column */}
-      <div style={{
-        border: '1.2px solid #000',
-        flex: 1,
-        margin: '2px 0',
         display: 'flex',
-        flexDirection: 'column',
-        position: 'relative'
+        borderBottom: '2.5px double #000000',
+        padding: '2px 0 4px 0',
       }}>
-        {/* Table Header */}
+        {/* Left Column: PAY To (57%) */}
         <div style={{
-          display: 'flex',
-          borderBottom: '1.2px solid #000',
-          fontSize: '9.5px',
-          fontWeight: 800,
-          textAlign: 'center',
-          background: '#fff'
+          flex: '0 0 57%',
+          paddingRight: '8px',
+          borderRight: '1.5px solid #000000',
         }}>
-          <div style={{ flex: 1, borderRight: '1.2px solid #000', padding: '2px 0', letterSpacing: '0.35em' }}>P a r t i c u l a r s</div>
-          <div style={{ width: '104px', borderRight: '1px solid #000' }} />
-          <div style={{ width: '22px', borderRight: '1px solid #000', padding: '2px 0', fontSize: '8px' }}>%</div>
-          <div style={{ width: '58px', borderRight: '1px solid #000', padding: '2px 0' }}>₹</div>
-          <div style={{ width: '34px', padding: '2px 0' }}>Ps.</div>
+          <div style={{ display: 'flex', alignItems: 'flex-end', marginBottom: '2px' }}>
+            <span style={{ fontWeight: 'bold', fontSize: '9.5px', whiteSpace: 'nowrap' }}>PAY To,</span>
+            <span style={{
+              flex: 1,
+              borderBottom: '1px solid #000000',
+              marginLeft: '4px',
+              paddingLeft: '4px',
+              fontSize: '9px',
+              fontWeight: 'bold',
+              minHeight: '13px',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}>
+              {paySplit.line1}
+            </span>
+          </div>
+          <div style={{
+            borderBottom: '1px solid #000000',
+            height: '12px',
+            marginLeft: '0',
+            paddingLeft: '2px',
+            fontSize: '9px',
+            fontWeight: 'bold',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            display: 'flex',
+            alignItems: 'flex-end',
+          }}>
+            {paySplit.line2}
+          </div>
         </div>
 
-        {/* Table Body */}
-        <div style={{ flex: 1, display: 'flex' }}>
-          {/* Particulars Left Column with 3 Matched Ruled Lines */}
-          <div style={{ flex: 1, borderRight: '1.2px solid #000', display: 'flex', flexDirection: 'column', position: 'relative' }}>
-            {/* Top 3 lines matching row height */}
-            <div style={{ height: '17px', borderBottom: '0.6px solid #000', padding: '0 6px', fontSize: '8.5px', display: 'flex', alignItems: 'center' }}>
-              {voucher.particulars ? voucher.particulars.substring(0, 45) : ''}
-            </div>
-            <div style={{ height: '17px', borderBottom: '0.6px solid #000', padding: '0 6px', fontSize: '8.5px', display: 'flex', alignItems: 'center' }}>
-              {voucher.particulars && voucher.particulars.length > 45 ? voucher.particulars.substring(45, 90) : ''}
-            </div>
-            <div style={{ height: '17px', borderBottom: '0.6px solid #000', padding: '0 6px', fontSize: '8.5px', display: 'flex', alignItems: 'center' }}>
-              {voucher.particulars && voucher.particulars.length > 90 ? voucher.particulars.substring(90, 135) : ''}
-            </div>
+        {/* Right Column: CHARGE To (43%) */}
+        <div style={{
+          flex: '0 0 43%',
+          paddingLeft: '8px',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'flex-end', marginBottom: '2px' }}>
+            <span style={{ fontWeight: 'bold', fontSize: '9.5px', whiteSpace: 'nowrap' }}>CHARGE To,</span>
+            <span style={{
+              flex: 1,
+              borderBottom: '1px solid #000000',
+              marginLeft: '4px',
+              paddingLeft: '4px',
+              fontSize: '9px',
+              fontWeight: 'bold',
+              minHeight: '13px',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}>
+              {chgSplit.line1}
+            </span>
+          </div>
+          <div style={{
+            borderBottom: '1px solid #000000',
+            height: '12px',
+            marginLeft: '0',
+            paddingLeft: '2px',
+            fontSize: '9px',
+            fontWeight: 'bold',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            display: 'flex',
+            alignItems: 'flex-end',
+          }}>
+            {chgSplit.line2}
+          </div>
+        </div>
+      </div>
 
-            {/* Middle open space */}
-            <div style={{ flex: 1 }} />
-
-            {/* Bottom Particulars info & Cheque Details */}
-            <div style={{ fontSize: '8.5px', padding: '0 6px 2px 6px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-              <div style={{ display: 'flex', gap: '4px' }}>
-                <span style={{ fontWeight: 700 }}>Bill No.:</span>
-                <span>{voucher.billNo || ''}</span>
-              </div>
-              <div style={{ display: 'flex', gap: '4px' }}>
-                <span style={{ fontWeight: 700 }}>Bank Name :</span>
-                <span style={{ fontWeight: 600 }}>{voucher.bankName || ''}</span>
-              </div>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <div style={{ display: 'flex', gap: '4px', flex: 1.2 }}>
-                  <span style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>Cheque No.</span>
-                  <span style={{ borderBottom: '1px solid #000', flex: 1 }}>{voucher.chequeNo || ''}</span>
-                </div>
-                <div style={{ display: 'flex', gap: '4px', flex: 1 }}>
-                  <span style={{ fontWeight: 700 }}>Date</span>
-                  <span style={{ borderBottom: '1px solid #000', flex: 1, textAlign: 'center' }}>{voucher.voucherDate || ''}</span>
-                </div>
-              </div>
+      {/* ─── 3. Main Ledger Table ─── */}
+      {isTemplate2 ? (
+        /* TEMPLATE 2: 3-COLUMN LEDGER TABLE (76.5% | 16% | 7.5%) */
+        <div style={{
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          borderLeft: '1.5px solid #000000',
+          borderRight: '1.5px solid #000000',
+          borderBottom: '2px solid #000000',
+          fontFamily: 'Arial, Helvetica, sans-serif',
+        }}>
+          {/* Header Row */}
+          <div style={{
+            display: 'flex',
+            borderBottom: '1.5px solid #000000',
+            fontWeight: 'bold',
+            textAlign: 'center',
+            fontSize: '9.5px',
+            alignItems: 'stretch',
+          }}>
+            <div style={{ flex: '0 0 76.5%', letterSpacing: '4px', borderRight: '1.5px solid #000000', padding: '2px 0' }}>
+              Particulars
             </div>
-
-            {/* Full-width horizontal rule separating cheque details from bottom Amount line */}
-            <div style={{ borderBottom: '1px solid #000', width: '100%' }} />
-
-            {/* Bottom Amount Line with continuous underline */}
-            <div style={{ padding: '3px 6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ fontWeight: 800, fontSize: '13px' }}>₹.</span>
-              <span style={{ borderBottom: '1px solid #000', flex: 1, fontWeight: 700, fontSize: '11px', paddingLeft: '4px' }}>
-                {voucher.netPaid ? `${splitRupeesPaise(voucher.netPaid).rs}/-` : ''}
-              </span>
+            <div style={{ flex: '0 0 16%', borderRight: '1.5px solid #000000', padding: '2px 0', fontSize: '10px' }}>
+              ₹
+            </div>
+            <div style={{ flex: '0 0 7.5%', borderRight: '1.5px solid #000000', padding: '2px 0' }}>
+              Ps.
             </div>
           </div>
 
-          {/* Financial Breakdown Rows Right Column */}
-          <div style={{ width: '218px', display: 'flex', flexDirection: 'column' }}>
-            {finRows.map((fr, idx) => {
-              const { rs, ps } = splitRupeesPaise(fr.val);
-              return (
-                <div
-                  key={idx}
-                  style={{
-                    display: 'flex',
-                    flex: 1,
-                    alignItems: 'center',
-                    borderBottom: idx < finRows.length - 1 ? (fr.bold ? '1px solid #000' : '0.6px solid #000') : 'none',
-                    fontSize: '8px',
-                    lineHeight: 1
-                  }}
-                >
-                  {/* Description */}
-                  <div style={{
-                    width: '104px',
-                    padding: '0 4px',
-                    fontWeight: fr.bold ? 700 : 400,
-                    color: '#000',
-                    borderRight: '1px solid #000',
-                    height: '100%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: fr.highlight || fr.label === 'Total' ? 'flex-end' : 'flex-start',
-                  }}>
-                    {fr.label}
+          {/* Table Body: 11 Rows */}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+            {/* 8 Open Entry Rows */}
+            {(() => {
+              const t2FinValues = [
+                voucher.billAmount,
+                voucher.billAmount2,
+                voucher.advLessPaid,
+                voucher.subTotal1,
+                voucher.tdsAmount,
+                voucher.subTotal2,
+                voucher.cgstAmount,
+                voucher.sgstAmount,
+              ];
+              return Array.from({ length: 8 }).map((_, idx) => {
+                const val = t2FinValues[idx];
+                const { rs: rRs, ps: rPs } = (val && String(val).trim() !== '' && String(val).trim() !== '0')
+                  ? splitRupeesPaise(String(val))
+                  : { rs: '', ps: '' };
+                return (
+                  <div
+                    key={idx}
+                    style={{
+                      display: 'flex',
+                      flex: 1,
+                      borderBottom: '1px solid #000000',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <div style={{
+                      flex: '0 0 76.5%',
+                      height: '100%',
+                      borderRight: '1.5px solid #000000',
+                      padding: '0 6px',
+                      boxSizing: 'border-box',
+                      fontSize: '8.5px',
+                      display: 'flex',
+                      alignItems: 'center',
+                    }}>
+                      {idx === 0 ? (voucher.particulars ? voucher.particulars.substring(0, 60) : '') :
+                       idx === 1 ? (voucher.particulars && voucher.particulars.length > 60 ? voucher.particulars.substring(60, 120) : '') : ''}
+                    </div>
+                    <div style={{
+                      flex: '0 0 16%',
+                      height: '100%',
+                      borderRight: '1.5px solid #000000',
+                      textAlign: 'right',
+                      padding: '0 4px',
+                      boxSizing: 'border-box',
+                      fontSize: '8px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'flex-end',
+                      fontWeight: 'bold',
+                    }}>
+                      {rRs}
+                    </div>
+                    <div style={{
+                      flex: '0 0 7.5%',
+                      height: '100%',
+                      borderRight: '1.5px solid #000000',
+                      textAlign: 'center',
+                      boxSizing: 'border-box',
+                      fontSize: '7.5px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontWeight: 'bold',
+                    }}>
+                      {rPs}
+                    </div>
                   </div>
-                  {/* Dedicated % Column */}
+                );
+              });
+            })()}
+
+            {/* Row 9: Bank Name Row */}
+            {(() => {
+              const { rs: roRs, ps: roPs } = (voucher.roundOff && String(voucher.roundOff).trim() !== '' && String(voucher.roundOff).trim() !== '0')
+                ? splitRupeesPaise(String(voucher.roundOff))
+                : { rs: '', ps: '' };
+              return (
+                <div style={{
+                  display: 'flex',
+                  flex: 1,
+                  borderBottom: '1px solid #000000',
+                  alignItems: 'center',
+                }}>
                   <div style={{
-                    width: '22px',
-                    borderRight: '1px solid #000',
+                    flex: '0 0 76.5%',
                     height: '100%',
+                    borderRight: '1.5px solid #000000',
+                    padding: '0 6px',
+                    boxSizing: 'border-box',
+                    fontSize: '8.5px',
+                    display: 'flex',
+                    alignItems: 'center',
+                  }}>
+                    <span style={{ fontWeight: 'bold' }}>Bank Name</span>
+                    <span style={{ marginLeft: '8px', fontWeight: 'bold' }}>{voucher.bankName || ''}</span>
+                  </div>
+                  <div style={{
+                    flex: '0 0 16%',
+                    height: '100%',
+                    borderRight: '1.5px solid #000000',
+                    textAlign: 'right',
+                    padding: '0 4px',
+                    boxSizing: 'border-box',
+                    fontSize: '8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'flex-end',
+                    fontWeight: 'bold',
+                  }}>
+                    {roRs}
+                  </div>
+                  <div style={{
+                    flex: '0 0 7.5%',
+                    height: '100%',
+                    borderRight: '1.5px solid #000000',
+                    textAlign: 'center',
+                    boxSizing: 'border-box',
+                    fontSize: '7.5px',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    fontSize: '7.5px',
-                    color: '#000'
+                    fontWeight: 'bold',
                   }}>
-                    {fr.percent}
-                  </div>
-                  {/* Rupees Column */}
-                  <div style={{
-                    width: '58px',
-                    borderRight: '1px solid #000',
-                    padding: '0 3px',
-                    textAlign: 'right',
-                    fontWeight: fr.bold ? 700 : 400,
-                    height: '100%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'flex-end'
-                  }}>
-                    {rs}
-                  </div>
-                  {/* Paise Column */}
-                  <div style={{
-                    width: '34px',
-                    textAlign: 'center',
-                    fontWeight: fr.bold ? 700 : 400,
-                    fontSize: '7.5px'
-                  }}>
-                    {ps}
+                    {roPs}
                   </div>
                 </div>
               );
-            })}
+            })()}
+
+            {/* Row 10: Che. No. / Date Row */}
+            <div style={{
+              display: 'flex',
+              flex: 1,
+              borderBottom: '1px solid #000000',
+              alignItems: 'center',
+            }}>
+              <div style={{
+                flex: '0 0 76.5%',
+                height: '100%',
+                borderRight: '1.5px solid #000000',
+                padding: '0 6px',
+                boxSizing: 'border-box',
+                fontSize: '8.5px',
+                display: 'flex',
+                alignItems: 'center',
+              }}>
+                <span style={{ fontWeight: 'bold' }}>Che. No.</span>
+                <span style={{
+                  borderBottom: '1px solid #000000',
+                  minWidth: '100px',
+                  margin: '0 8px 0 4px',
+                  paddingLeft: '4px',
+                  fontWeight: 'bold',
+                }}>
+                  {voucher.chequeNo || ''}
+                </span>
+                <span style={{ fontWeight: 'bold' }}>Date</span>
+                <span style={{
+                  borderBottom: '1.5px double #000000',
+                  minWidth: '95px',
+                  textAlign: 'center',
+                  marginLeft: '4px',
+                  fontWeight: 'bold',
+                }}>
+                  {voucher.voucherDate || '\u00A0\u00A0/\u00A0\u00A0/\u00A0\u00A0'}
+                </span>
+              </div>
+              <div style={{
+                flex: '0 0 16%',
+                height: '100%',
+                borderRight: '1.5px solid #000000',
+                textAlign: 'right',
+                padding: '0 4px',
+                boxSizing: 'border-box',
+                fontSize: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'flex-end',
+              }} />
+              <div style={{
+                flex: '0 0 7.5%',
+                height: '100%',
+                borderRight: '1.5px solid #000000',
+                textAlign: 'center',
+                boxSizing: 'border-box',
+                fontSize: '7.5px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }} />
+            </div>
+
+            {/* Row 11: ₹. (Total / Final Amount) Row */}
+            <div style={{
+              display: 'flex',
+              flex: 1,
+              alignItems: 'center',
+            }}>
+              <div style={{
+                flex: '0 0 76.5%',
+                height: '100%',
+                borderRight: '1.5px solid #000000',
+                padding: '0 6px',
+                boxSizing: 'border-box',
+                fontSize: '9.5px',
+                display: 'flex',
+                alignItems: 'center',
+              }}>
+                <span style={{ fontWeight: 'bold', fontSize: '11px' }}>₹.</span>
+                <span style={{ marginLeft: '6px', fontSize: '9px', fontWeight: 'bold' }}>
+                  {totalAmount ? `${t2Rs}/-` : ''}
+                </span>
+              </div>
+              <div style={{
+                flex: '0 0 16%',
+                height: '100%',
+                borderRight: '1.5px solid #000000',
+                textAlign: 'right',
+                padding: '0 4px',
+                boxSizing: 'border-box',
+                fontWeight: 'bold',
+                fontSize: '8.5px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'flex-end',
+              }}>
+                {t2Rs}
+              </div>
+              <div style={{
+                flex: '0 0 7.5%',
+                height: '100%',
+                borderRight: '1.5px solid #000000',
+                textAlign: 'center',
+                boxSizing: 'border-box',
+                fontWeight: 'bold',
+                fontSize: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+                {t2Ps}
+              </div>
+            </div>
           </div>
         </div>
-      </div>
+      ) : (
+        /* TEMPLATE 1: 4-COLUMN DETAILED LEDGER TABLE (57% | 20% | 16% | 7%) */
+        <div style={{
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          borderLeft: '1.5px solid #000000',
+          borderRight: '1.5px solid #000000',
+          borderBottom: '2px solid #000000',
+          fontFamily: '"Times New Roman", Times, serif',
+        }}>
+          {/* Table Header */}
+          <div style={{
+            display: 'flex',
+            borderBottom: '1.5px solid #000000',
+            fontSize: '9.5px',
+            fontWeight: 'bold',
+            textAlign: 'center',
+            alignItems: 'stretch',
+          }}>
+            <div style={{ flex: '0 0 57%', borderRight: '1.5px solid #000000', padding: '2px 0', letterSpacing: '4px' }}>
+              Particulars
+            </div>
+            <div style={{ flex: '0 0 20%', borderRight: '1.5px solid #000000' }} />
+            <div style={{ flex: '0 0 16%', borderRight: '1.5px solid #000000', padding: '2px 0', fontSize: '10px' }}>
+              ₹
+            </div>
+            <div style={{ flex: '0 0 7%', padding: '2px 0' }}>Ps.</div>
+          </div>
 
-      {/* 4. Signatures Footer with Centered Stamp Box */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', fontSize: '9px', fontWeight: 700, marginTop: '4px' }}>
-        <div>Chairman</div>
-        <div>Secretary</div>
-        <div>Treasurer</div>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <div style={{ border: '1px solid #000', width: '38px', height: '20px', marginBottom: '2px' }} />
-          <div>Receiver's Signature</div>
+          {/* Table Body - 10 Rows */}
+          <div style={{ flex: 1, display: 'flex' }}>
+            {/* Particulars Left Column (57% Width) */}
+            <div style={{ flex: '0 0 57%', borderRight: '1.5px solid #000000', display: 'flex', flexDirection: 'column' }}>
+              {/* Rows 0 to 4: Narration */}
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} style={{ flex: 1, borderBottom: '1px solid #000000', padding: '0 6px', fontSize: '8.5px', display: 'flex', alignItems: 'center' }}>
+                  {i === 0 ? (voucher.particulars ? voucher.particulars.substring(0, 50) : '') :
+                   i === 1 ? (voucher.particulars && voucher.particulars.length > 50 ? voucher.particulars.substring(50, 100) : '') :
+                   i === 2 ? (voucher.particulars && voucher.particulars.length > 100 ? voucher.particulars.substring(100, 150) : '') : ''}
+                </div>
+              ))}
+
+              {/* Row 5: Bill No. */}
+              <div style={{ flex: 1, borderBottom: '1px solid #000000', padding: '0 6px', fontSize: '8.5px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ fontWeight: 'bold' }}>Bill No.:</span>
+                <span style={{ fontWeight: 'bold' }}>{voucher.billNo || ''}</span>
+              </div>
+
+              {/* Row 6: Bank Name : */}
+              <div style={{ flex: 1, borderBottom: '1px solid #000000', padding: '0 6px', fontSize: '8.5px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontWeight: 'bold' }}>Bank Name :</span>
+                <span style={{ fontWeight: 'bold' }}>{voucher.bankName || ''}</span>
+              </div>
+
+              {/* Row 7: Cheque No. + Date */}
+              <div style={{ flex: 1, borderBottom: '1px solid #000000', padding: '0 6px', fontSize: '8.5px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}>Cheque No.</span>
+                <span style={{ borderBottom: '1px solid #000000', flex: 1, fontWeight: 'bold', paddingLeft: '4px' }}>
+                  {voucher.chequeNo || ''}
+                </span>
+                <span style={{ fontWeight: 'bold' }}>Date</span>
+                <span style={{ borderBottom: '1.5px double #000000', minWidth: '70px', textAlign: 'center', fontWeight: 'bold' }}>
+                  {voucher.voucherDate || ''}
+                </span>
+              </div>
+
+              {/* Row 8: Rupee Line */}
+              <div style={{ flex: 1, borderBottom: '1px solid #000000', padding: '0 6px', fontSize: '8.5px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontWeight: 'bold', fontSize: '11px' }}>₹.</span>
+                <span style={{ borderBottom: '1px solid #000000', flex: 1, fontWeight: 'bold', fontSize: '9px', paddingLeft: '4px' }}>
+                  {voucher.netPaid ? `${splitRupeesPaise(voucher.netPaid).rs}/-` : (totalAmount ? `${splitRupeesPaise(totalAmount).rs}/-` : '')}
+                </span>
+              </div>
+
+              {/* Row 9: Open Space */}
+              <div style={{ flex: 1, padding: '0 6px' }} />
+            </div>
+
+            {/* Financial Breakdown Rows (43% Total Width: 20% Desc + 16% Rs + 7% Ps) */}
+            <div style={{ flex: '0 0 43%', display: 'flex', flexDirection: 'column' }}>
+              {finRows.map((fr, idx) => {
+                const { rs, ps } = splitRupeesPaise(fr.val);
+                const isTdsRow = fr.label.includes('TDS');
+                const isCgstRow = fr.label.includes('CGST');
+                const isSgstRow = fr.label.includes('SGST');
+                const hasPercent = isTdsRow || isCgstRow || isSgstRow;
+
+                return (
+                  <div
+                    key={idx}
+                    style={{
+                      display: 'flex',
+                      flex: 1,
+                      alignItems: 'center',
+                      borderBottom: idx < finRows.length - 1 ? '1px solid #000000' : 'none',
+                      fontSize: '8px',
+                      lineHeight: 1
+                    }}
+                  >
+                    {/* Description Column (20/43 = 46.5%) */}
+                    <div style={{
+                      flex: '0 0 46.5%',
+                      padding: '0 5px',
+                      fontWeight: fr.bold ? 'bold' : 'normal',
+                      color: '#000',
+                      borderRight: '1.5px solid #000000',
+                      height: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: hasPercent ? 'space-between' : (fr.highlight || fr.label === 'Total' ? 'flex-end' : 'flex-start'),
+                      fontSize: '8px',
+                    }}>
+                      <span>{fr.label}</span>
+                      {hasPercent && (
+                        <span>{fr.percent}</span>
+                      )}
+                    </div>
+                    {/* Rupees Column (16/43 = 37.2%) */}
+                    <div style={{
+                      flex: '0 0 37.2%',
+                      borderRight: '1.5px solid #000000',
+                      padding: '0 4px',
+                      textAlign: 'right',
+                      fontWeight: fr.bold ? 'bold' : 'normal',
+                      height: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'flex-end',
+                      fontSize: '8px',
+                    }}>
+                      {rs}
+                    </div>
+                    {/* Paise Column (7/43 = 16.3%) */}
+                    <div style={{
+                      flex: '0 0 16.3%',
+                      textAlign: 'center',
+                      fontWeight: fr.bold ? 'bold' : 'normal',
+                      fontSize: '7.5px',
+                      height: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}>
+                      {ps}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── 4. Signatures & Revenue Stamp Section ─── */}
+      <div style={{
+        marginTop: '6px',
+        position: 'relative',
+        fontFamily: isTemplate2 ? 'Arial, Helvetica, sans-serif' : '"Times New Roman", Times, serif',
+      }}>
+        {/* Revenue Stamp Box */}
+        <div style={{
+          position: 'absolute',
+          right: '12px',
+          bottom: '16px',
+          width: '42px',
+          height: '24px',
+          border: '1.2px solid #000000',
+        }} />
+
+        {/* Signature Labels */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-end',
+          fontWeight: 'bold',
+          fontSize: isTemplate2 ? '9.5px' : '9px',
+          paddingTop: '36px',
+        }}>
+          <div style={{ width: '18%', textAlign: 'left' }}>Chairman</div>
+          <div style={{ width: '18%', textAlign: 'center' }}>Secretary</div>
+          <div style={{ width: '18%', textAlign: 'center' }}>Treasurer</div>
+          <div style={{ width: '26%', textAlign: 'right' }}>Receiver's Signature</div>
         </div>
       </div>
     </div>

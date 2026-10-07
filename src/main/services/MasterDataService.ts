@@ -132,14 +132,14 @@ function getRows(sheet: XLSX.WorkSheet | null): Record<string, unknown>[] {
     const rawAoa = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: '' });
     if (rawAoa.length === 0) return [];
 
-    // Find the header row (containing 'Sr. No.' or 'Serial No' or 'Serial Number')
+    // Find the header row (containing 'Sr. No.' or 'Serial No' or 'Serial Number' or 'Voucher No')
     let headerRowIdx = -1;
     for (let r = 0; r < Math.min(rawAoa.length, 10); r++) {
       const rowArr = rawAoa[r] as unknown[];
       if (!Array.isArray(rowArr)) continue;
       const hasSr = rowArr.some(cell => {
         const s = String(cell || '').trim().toLowerCase();
-        return s.includes('sr. no') || s.includes('sr no') || s.includes('serial no') || s.includes('serial number') || s.includes('sr_no');
+        return s.includes('sr. no') || s.includes('sr no') || s.includes('serial no') || s.includes('serial number') || s.includes('sr_no') || s.includes('voucher no') || s.includes('voucher number') || s.includes('vch no');
       });
       if (hasSr) {
         headerRowIdx = r;
@@ -150,7 +150,30 @@ function getRows(sheet: XLSX.WorkSheet | null): Record<string, unknown>[] {
     if (headerRowIdx === -1) headerRowIdx = 0;
 
     const topHeader = (rawAoa[headerRowIdx] || []) as unknown[];
-    const subHeader = (headerRowIdx + 1 < rawAoa.length ? rawAoa[headerRowIdx + 1] : []) as unknown[];
+    const candidateSub = (headerRowIdx + 1 < rawAoa.length ? rawAoa[headerRowIdx + 1] : []) as unknown[];
+
+    // Helper to detect visual column-numbering helper rows (e.g., 1, 2, 3, 4, 5... 17)
+    const isHelperNumberingRow = (arr: unknown[]): boolean => {
+      if (!Array.isArray(arr) || arr.length < 3) return false;
+      let matchCount = 0;
+      for (let c = 0; c < Math.min(arr.length, 12); c++) {
+        const v = String(arr[c] || '').trim();
+        if (v === String(c + 1)) matchCount++;
+      }
+      return matchCount >= 3;
+    };
+
+    // A row is a sub-header ONLY if it is not a data row and not a visual helper row.
+    const isLikelyDataRow = (arr: unknown[]): boolean => {
+      if (!Array.isArray(arr) || arr.length === 0) return false;
+      const firstCell = String(arr[0] || '').trim();
+      if (typeof arr[0] === 'number') return true;
+      if (/^(vch|sr|m)?[-\s_]*\d+$/i.test(firstCell)) return true;
+      return false;
+    };
+
+    const isSubHeader = candidateSub.length > 0 && !isLikelyDataRow(candidateSub) && !isHelperNumberingRow(candidateSub);
+    const subHeader = isSubHeader ? candidateSub : [];
 
     // Determine column keys
     const colKeys: string[] = [];
@@ -171,22 +194,8 @@ function getRows(sheet: XLSX.WorkSheet | null): Record<string, unknown>[] {
       }
     }
 
-    // Helper to detect visual column-numbering helper rows (e.g., 1, 2, 3, 4, 5... 17)
-    const isHelperNumberingRow = (arr: unknown[]): boolean => {
-      if (!Array.isArray(arr) || arr.length < 3) return false;
-      let matchCount = 0;
-      for (let c = 0; c < Math.min(arr.length, 12); c++) {
-        const v = String(arr[c] || '').trim();
-        if (v === String(c + 1)) matchCount++;
-      }
-      return matchCount >= 3;
-    };
-
     // Determine start of data rows
-    let dataStartIdx = headerRowIdx + 1;
-    if (subHeader.length > 0) {
-      dataStartIdx = headerRowIdx + 2;
-    }
+    let dataStartIdx = isSubHeader ? headerRowIdx + 2 : headerRowIdx + 1;
 
     const records: Record<string, unknown>[] = [];
     for (let r = dataStartIdx; r < rawAoa.length; r++) {

@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+
+# Production and build outputs
+dist/
+dist-electron/
+dist-package/
+release/
+build_dist/
+*.exe
+*.zip
+*.7z
+*.asar
+*.blockmap
+*.dll
+*.pak
+
+# Environment & local secrets
+.env
+.env.local
+.env.*.local
+userData/
+*.log
+
+# Logs & temp
+logs/
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+scratch/
+
+# OS files
+.DS_Store
+Thumbs.db

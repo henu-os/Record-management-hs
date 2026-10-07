@@ -13,8 +13,8 @@
     "dev": "npm run build:main && concurrently \"npm run dev:renderer\" \"wait-on http://localhost:5174 && node scripts/launch-electron.js\"",
     "start": "node scripts/launch-electron.js",
     "desktop": "npm run build:main && concurrently \"npm run dev:renderer\" \"wait-on http://localhost:5174 && powershell -Command \\\"$env:ELECTRON_DISABLE_SANDBOX=1; & 'G:\\Astro\\node_modules\\electron\\dist\\electron.exe' 'G:\\Astro' --no-sandbox --disable-gpu --no-crashpad\\\"\"",
-    "build": "npm run build:renderer && npm run build:main",
-    "package": "npm run build && electron-builder"
+    "build": "npm run build:renderer && npm run build:main && node copy-templates.js",
+    "package": "node scripts/build-installer.js"
   },
   "dependencies": {
     "@pdf-lib/fontkit": "^1.1.1",
@@ -24,9 +24,11 @@
     "jszip": "^3.10.1",
     "lucide-react": "^0.427.0",
     "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^3.11.174",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "regenerator-runtime": "^0.14.1",
+    "tesseract.js": "^7.0.0",
     "uuid": "^10.0.0",
     "xlsx": "^0.18.5"
   },
@@ -46,7 +48,8 @@
   },
   "build": {
     "appId": "com.hlabs.henuos.records",
-    "productName": "HENU RECORD",
+    "productName": "HENU OS RECMA",
+    "compression": "normal",
     "npmRebuild": false,
     "nodeGypRebuild": false,
     "directories": {
@@ -61,22 +64,9 @@
       "icon.png"
     ],
     "win": {
-      "target": [
-        {
-          "target": "portable",
-          "arch": ["x64"]
-        },
-        {
-          "target": "nsis",
-          "arch": ["x64"]
-        }
-      ],
+      "target": "nsis",
       "icon": "henu_business.ico",
-      "legalTrademarks": "HENU RECORD",
       "requestedExecutionLevel": "asInvoker"
-    },
-    "portable": {
-      "artifactName": "HENU RECORD.${ext}"
     },
     "nsis": {
       "oneClick": false,
@@ -84,12 +74,12 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": "always",
       "createStartMenuShortcut": true,
-      "shortcutName": "HENU RECORD",
+      "shortcutName": "HENU OS RECMA",
       "installerIcon": "henu_business.ico",
       "uninstallerIcon": "henu_business.ico",
       "installerHeaderIcon": "henu_business.ico",
       "runAfterFinish": true,
-      "artifactName": "HENU RECORD Setup.${ext}"
+      "artifactName": "${productName} Setup.${ext}"
     },
     "asar": true
   }

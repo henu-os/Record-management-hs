@@ -8,7 +8,7 @@ import AddSocietyModal from '../components/AddSocietyModal';
 import { Society, FoundationStatus, GenerationHistoryEntry, MasterDataStatus } from '../../main/types';
 import { Lock, Unlock, ShieldCheck } from 'lucide-react';
 
-type PageId = 'dashboard' | 'masterdata' | 'generate' | 'history' | 'settings';
+type PageId = string;
 
 interface Props {
   onNavigate: (page: PageId) => void;

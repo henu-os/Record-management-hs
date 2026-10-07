@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   LayoutDashboard, Database, FileText,
-  History, Settings, ChevronRight, ChevronDown, FileCheck, Building2, Plus
+  History, Settings, ChevronRight, ChevronDown, FileCheck, Building2, Plus, ScanLine, FileImage, CreditCard
 } from 'lucide-react';
 
 import Dashboard from './pages/Dashboard';
@@ -9,6 +9,9 @@ import MasterData from './pages/MasterData';
 import GenerateForms from './pages/GenerateForms';
 import GeneratedFiles from './pages/GeneratedFiles';
 import SettingsPage from './pages/SettingsPage';
+import HenuVoucherOcrPage from './pages/voucher-ocr/HenuVoucherOcrPage';
+import { HenuCheckOcrPage } from './pages/check-ocr/HenuCheckOcrPage';
+import HenuIdfPage from './pages/henu-idf/HenuIdfPage';
 import AddSocietyModal from './components/AddSocietyModal';
 import { Society } from '../main/types';
 
@@ -25,6 +28,9 @@ export type PageId =
   | 'generate-FORM_BANK'
   | 'generate-FORM_SHARE_CERT'
   | 'generate-FORM_VOUCHER'
+  | 'voucher-ocr'
+  | 'check-ocr'
+  | 'henu-idf'
   | 'history'
   | 'settings';
 
@@ -45,7 +51,9 @@ const REGISTER_SUBITEMS: FormSubItem[] = [
 
 export default function App() {
   const [page, setPage] = useState<PageId>('dashboard');
-  const [generateExpanded, setGenerateExpanded] = useState<boolean>(true);
+  const [generateExpanded, setGenerateExpanded] = useState<boolean>(false);
+  const [ocrExpanded, setOcrExpanded] = useState<boolean>(false);
+  const [convertersExpanded, setConvertersExpanded] = useState<boolean>(false);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
   // Startup Video Animation Overlay (10 seconds)
@@ -148,8 +156,12 @@ export default function App() {
 
   const handleNavigate = (p: string) => {
     setPage(p as PageId);
-    if (p.startsWith('generate')) {
+    if (p.startsWith('generate-FORM_') && p !== 'generate-FORM_SHARE_CERT' && p !== 'generate-FORM_VOUCHER') {
       setGenerateExpanded(true);
+    } else if (p === 'voucher-ocr' || p === 'check-ocr') {
+      setOcrExpanded(true);
+    } else if (p === 'henu-idf') {
+      setConvertersExpanded(true);
     }
   };
 
@@ -284,6 +296,75 @@ export default function App() {
             {page === 'generate-FORM_VOUCHER' && <ChevronRight size={12} style={{ marginLeft: 'auto', opacity: 0.6 }} />}
           </button>
 
+          {/* HENU OCR (Expandable Dropdown) */}
+          <button
+            id="nav-henu-ocr-parent"
+            className={`sidebar-item${(page === 'voucher-ocr' || page === 'check-ocr') ? ' active' : ''}`}
+            onClick={() => setOcrExpanded(!ocrExpanded)}
+          >
+            <ScanLine size={15} />
+            HENU OCR
+            {ocrExpanded ? (
+              <ChevronDown size={12} style={{ marginLeft: 'auto', opacity: 0.6 }} />
+            ) : (
+              <ChevronRight size={12} style={{ marginLeft: 'auto', opacity: 0.6 }} />
+            )}
+          </button>
+
+          {/* Sub-items for HENU OCR */}
+          {ocrExpanded && (
+            <div style={{ paddingLeft: 18, borderLeft: '2px solid var(--border)', marginLeft: 16, marginTop: 4, marginBottom: 8 }}>
+              <button
+                id="nav-voucher-ocr"
+                className={`sidebar-item${page === 'voucher-ocr' ? ' active' : ''}`}
+                onClick={() => handleNavigate('voucher-ocr')}
+                style={{ fontSize: 12, padding: '6px 10px', marginBottom: 2 }}
+              >
+                <ScanLine size={13} style={{ opacity: page === 'voucher-ocr' ? 1 : 0.7 }} />
+                VOUCHER
+              </button>
+              <button
+                id="nav-check-ocr"
+                className={`sidebar-item${page === 'check-ocr' ? ' active' : ''}`}
+                onClick={() => handleNavigate('check-ocr')}
+                style={{ fontSize: 12, padding: '6px 10px', marginBottom: 2 }}
+              >
+                <CreditCard size={13} style={{ opacity: page === 'check-ocr' ? 1 : 0.7 }} />
+                CHECK
+              </button>
+            </div>
+          )}
+
+          {/* HENU CONVERTERS (Expandable Dropdown) */}
+          <button
+            id="nav-henu-converters-parent"
+            className={`sidebar-item${page === 'henu-idf' ? ' active' : ''}`}
+            onClick={() => setConvertersExpanded(!convertersExpanded)}
+          >
+            <FileImage size={15} />
+            HENU CONVERTERS
+            {convertersExpanded ? (
+              <ChevronDown size={12} style={{ marginLeft: 'auto', opacity: 0.6 }} />
+            ) : (
+              <ChevronRight size={12} style={{ marginLeft: 'auto', opacity: 0.6 }} />
+            )}
+          </button>
+
+          {/* Sub-items for HENU CONVERTERS */}
+          {convertersExpanded && (
+            <div style={{ paddingLeft: 18, borderLeft: '2px solid var(--border)', marginLeft: 16, marginTop: 4, marginBottom: 8 }}>
+              <button
+                id="nav-henu-idf"
+                className={`sidebar-item${page === 'henu-idf' ? ' active' : ''}`}
+                onClick={() => handleNavigate('henu-idf')}
+                style={{ fontSize: 12, padding: '6px 10px', marginBottom: 2 }}
+              >
+                <FileImage size={13} style={{ opacity: page === 'henu-idf' ? 1 : 0.7 }} />
+                HENU IDF
+              </button>
+            </div>
+          )}
+
           {/* Generated Files */}
           <button
             id="nav-history"
@@ -416,6 +497,9 @@ export default function App() {
           {page === 'dashboard' && <Dashboard onNavigate={handleNavigate} />}
           {page === 'controlcenter' && <GenerateForms selectedFormId="CONTROL_CENTER" onNavigate={handleNavigate} />}
           {page === 'masterdata' && <MasterData />}
+          {page === 'voucher-ocr' && <HenuVoucherOcrPage onNavigate={handleNavigate} />}
+          {page === 'check-ocr' && <HenuCheckOcrPage onNavigate={handleNavigate} />}
+          {page === 'henu-idf' && <HenuIdfPage onNavigate={handleNavigate} />}
           {isGenerateActive && <GenerateForms selectedFormId={activeGenerateFormId} onNavigate={handleNavigate} />}
           {page === 'history' && <GeneratedFiles />}
           {page === 'settings' && <SettingsPage onNavigate={handleNavigate} />}
@@ -474,9 +558,10 @@ export default function App() {
 
           <video
             ref={videoRef}
-            src="./starting animation.mp4"
+            src="./starting for dark theme.mp4"
             autoPlay
             playsInline
+            preload="auto"
             onEnded={handleFinishSplash}
             onError={handleFinishSplash}
             style={{
@@ -486,7 +571,9 @@ export default function App() {
               backgroundColor: '#000000',
             }}
           >
+            <source src="./starting for dark theme.mp4" type="video/mp4" />
             <source src="./starting animation.mp4" type="video/mp4" />
+            <source src="/starting for dark theme.mp4" type="video/mp4" />
             <source src="/starting animation.mp4" type="video/mp4" />
           </video>
 

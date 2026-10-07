@@ -1,0 +1,254 @@
+/* ============================================================
+   HENU CHECK OCR — MODULE ISOLATED STYLES
+   Scope: .check-ocr-container
+   ============================================================ */
+
+.check-ocr-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  padding: 20px 24px;
+  background-color: var(--bg);
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+.check-ocr-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.check-ocr-title-area {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.check-ocr-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(124, 58, 237, 0.12);
+  color: var(--accent);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border: 1px solid transparent;
+}
+
+.check-ocr-nav-tabs {
+  display: flex;
+  gap: 8px;
+  background: var(--surface-2);
+  padding: 4px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.check-ocr-tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.check-ocr-tab:hover {
+  color: var(--text-primary);
+  background: rgba(124, 58, 237, 0.08);
+}
+
+.check-ocr-tab.active {
+  background: var(--accent);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.35);
+}
+
+/* ── Upload & Drop Zones ── */
+.check-dropzone {
+  border: 2px dashed var(--accent-light);
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 40px 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.check-dropzone:hover, .check-dropzone.drag-active {
+  border-color: var(--accent);
+  background: rgba(124, 58, 237, 0.04);
+  transform: translateY(-2px);
+}
+
+/* ── 3-Column Split Screen Review ── */
+.check-3col-view {
+  display: grid;
+  grid-template-columns: 1.1fr 1.2fr 0.9fr;
+  gap: 16px;
+  flex: 1;
+  min-height: 600px;
+}
+
+@media (max-width: 1200px) {
+  .check-3col-view {
+    grid-template-columns: 1fr;
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+.check-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.check-card-header {
+  padding: 12px 16px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.check-image-viewport {
+  flex: 1;
+  background: #0f172a;
+  overflow: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  position: relative;
+  min-height: 380px;
+}
+
+.check-preview-img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  border-radius: 4px;
+  transition: transform 0.2s ease;
+}
+
+/* ── Form Inputs ── */
+.check-field-group {
+  margin-bottom: 14px;
+}
+
+.check-field-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+  text-transform: none;
+}
+
+.check-input {
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: inherit;
+  transition: border-color 0.15s ease;
+  box-sizing: border-box;
+}
+
+.check-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.2);
+}
+
+.check-input.has-error {
+  border-color: var(--error);
+  background: rgba(239, 68, 68, 0.04);
+}
+
+.check-input.has-warning {
+  border-color: #F59E0B;
+  background: rgba(245, 158, 11, 0.04);
+}
+
+.check-input.is-valid {
+  border-color: #10B981;
+}
+
+/* ── Progress Bar ── */
+.check-progress-bar-bg {
+  width: 100%;
+  height: 8px;
+  background: var(--surface-2);
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.check-progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), #10B981);
+  transition: width 0.3s ease;
+}
+
+/* ── Assistant Drawer ── */
+.check-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 380px;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.25);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.25s ease;
+}
+
+.check-drawer-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--surface-2);
+}
+
+.check-drawer-content {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+}

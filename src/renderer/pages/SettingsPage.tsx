@@ -4,6 +4,7 @@ import {
   FileText, Check, RotateCcw, Sliders, Eye, Grid
 } from 'lucide-react';
 import { FormDesignSettings, DEFAULT_FORM_DESIGN_SETTINGS } from '../../main/types';
+import { VoucherOcrSettingsSection } from './voucher-ocr/components/VoucherOcrSettingsSection';
 
 interface Props {
   onNavigate: (page: string) => void;
@@ -17,6 +18,7 @@ const TABS: { id: string; label: string }[] = [
   { id: 'FORM_NOM', label: 'Nomination Register' },
   { id: 'FORM_PROP', label: 'Property Register' },
   { id: 'FORM_BANK', label: 'Bank Lien Mark' },
+  { id: 'voucher_ocr', label: 'HENU Voucher OCR' },
 ];
 
 export default function SettingsPage({ onNavigate }: Props) {
@@ -35,6 +37,10 @@ export default function SettingsPage({ onNavigate }: Props) {
   }, []);
 
   const loadTabSettings = async (tabId: string) => {
+    if (tabId === 'voucher_ocr') {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const data = await api.settings.getFormSettings(tabId);
@@ -55,6 +61,11 @@ export default function SettingsPage({ onNavigate }: Props) {
   }, [activeTab]);
 
   const handleSave = async () => {
+    if (activeTab === 'voucher_ocr') {
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+      return;
+    }
     // Enforce limits before saving
     const clamped: FormDesignSettings = {
       ...settings,
@@ -160,6 +171,8 @@ export default function SettingsPage({ onNavigate }: Props) {
         <div className="flex items-center justify-center" style={{ padding: 48 }}>
           <div className="spinner" />
         </div>
+      ) : activeTab === 'voucher_ocr' ? (
+        <VoucherOcrSettingsSection />
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: 24 }}>
           {/* Left Column: Form Controls */}

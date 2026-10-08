@@ -11,8 +11,12 @@ if (typeof window !== 'undefined' && !(window as any).api) {
   (window as any).api = browserMockApi as any;
 }
 
+import { SocietyProvider } from './context/SocietyContext';
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <App />
+    <SocietyProvider>
+      <App />
+    </SocietyProvider>
   </React.StrictMode>
 );

@@ -152,6 +152,8 @@ export default function GenerateForms({ selectedFormId, onNavigate }: GenerateFo
   });
 
   // Serial Range & Generation Options
+  const [generationMode, setGenerationMode] = useState<'STANDARD' | 'BLANK_NO_SERIAL' | 'BLANK_WITH_SERIAL'>('STANDARD');
+  const [totalForms, setTotalForms] = useState<number>(10);
   const [fromSerial, setFromSerial] = useState('001');
   const [toSerial, setToSerial] = useState('010');
   const [nonSerialCount, setNonSerialCount] = useState<number>(0);
@@ -163,6 +165,45 @@ export default function GenerateForms({ selectedFormId, onNavigate }: GenerateFo
   const [selectedFont, setSelectedFont] = useState<string>('Times-Roman');
   const [prefix, setPrefix] = useState('');
   const [separator, setSeparator] = useState('-');
+
+  // 2-Way Calculation Handlers for Serial Range (No Infinite Loop)
+  const handleFromSerialChange = (val: string) => {
+    setFromSerial(val);
+    if (generationMode === 'BLANK_WITH_SERIAL') {
+      const fromN = parseInt(val.replace(/\D/g, ''), 10);
+      if (!isNaN(fromN) && totalForms >= 1) {
+        const padLen = val.trim().length || 3;
+        const newTo = fromN + totalForms - 1;
+        setToSerial(String(newTo).padStart(padLen, '0'));
+      }
+    }
+  };
+
+  const handleToSerialChange = (val: string) => {
+    setToSerial(val);
+    if (generationMode === 'BLANK_WITH_SERIAL') {
+      const fromN = parseInt(fromSerial.replace(/\D/g, ''), 10);
+      const toN = parseInt(val.replace(/\D/g, ''), 10);
+      if (!isNaN(fromN) && !isNaN(toN) && toN >= fromN) {
+        setTotalForms(toN - fromN + 1);
+      }
+    }
+  };
+
+  const handleTotalFormsChange = (val: number) => {
+    const t = Math.max(1, val);
+    setTotalForms(t);
+    if (generationMode === 'BLANK_WITH_SERIAL') {
+      const fromN = parseInt(fromSerial.replace(/\D/g, ''), 10);
+      if (!isNaN(fromN)) {
+        const padLen = fromSerial.trim().length || 3;
+        const newTo = fromN + t - 1;
+        setToSerial(String(newTo).padStart(padLen, '0'));
+      }
+    } else if (generationMode === 'BLANK_NO_SERIAL') {
+      setNonSerialCount(t);
+    }
+  };
 
   // Details & Modals
   const [formDetails, setFormDetails] = useState<any | null>(null);
@@ -314,17 +355,23 @@ export default function GenerateForms({ selectedFormId, onNavigate }: GenerateFo
   const toNum = parseInt(toClean.replace(/\D/g, ''), 10);
 
   const isRangeValid = Boolean(
-    (!fromClean && !toClean && nonSerialCount > 0) ||
-    (fromClean && toClean && !isNaN(fromNum) && !isNaN(toNum) && fromNum <= toNum)
+    generationMode === 'BLANK_NO_SERIAL'
+      ? totalForms >= 1
+      : generationMode === 'BLANK_WITH_SERIAL'
+        ? (fromClean && toClean && !isNaN(fromNum) && !isNaN(toNum) && fromNum <= toNum && totalForms >= 1)
+        : ((!fromClean && !toClean && nonSerialCount > 0) ||
+           (fromClean && toClean && !isNaN(fromNum) && !isNaN(toNum) && fromNum <= toNum))
   );
 
-  const rangeErrorText = (fromClean && toClean && !isNaN(fromNum) && !isNaN(toNum) && fromNum > toNum)
-    ? 'From Serial No. cannot be greater than To Serial No.'
-    : ((fromClean && !toClean) || (!fromClean && toClean))
-      ? 'Both From and To Serial No. must be provided.'
-      : (!fromClean && !toClean && nonSerialCount === 0)
-        ? 'Please enter Serial Range (From/To) or Non Serial Count (> 0).'
-        : '';
+  const rangeErrorText = generationMode === 'BLANK_NO_SERIAL'
+    ? (totalForms < 1 ? 'Total forms must be at least 1.' : '')
+    : (fromClean && toClean && !isNaN(fromNum) && !isNaN(toNum) && fromNum > toNum)
+      ? 'From Serial No. cannot be greater than To Serial No.'
+      : ((fromClean && !toClean) || (!fromClean && toClean))
+        ? 'Both From and To Serial No. must be provided.'
+        : (!fromClean && !toClean && (generationMode === 'STANDARD' ? nonSerialCount === 0 : true))
+          ? 'Please enter Serial Range (From/To) or Total Forms (> 0).'
+          : '';
 
   // Update preview range
   const updateRangePreview = useCallback(async () => {
@@ -342,7 +389,11 @@ export default function GenerateForms({ selectedFormId, onNavigate }: GenerateFo
   }, [updateRangePreview, hasMasterData, viewMode]);
 
   const isUnlocked = foundationStatus ? foundationStatus.registersUnlocked : Boolean(hasMasterData);
-  const canGenerate = Boolean(isUnlocked && (hasMasterData || nonSerialCount > 0) && isRangeValid && phase !== 'generating' && !previewLoading);
+  const canGenerate = Boolean(
+    (generationMode !== 'STANDARD' || isUnlocked) &&
+    (hasMasterData || generationMode !== 'STANDARD' || nonSerialCount > 0) &&
+    isRangeValid && phase !== 'generating' && !previewLoading
+  );
   const isGenerating = phase === 'generating' || previewLoading;
   const selectedForm = FORMS_META.find(f => f.id === formId);
 
@@ -365,11 +416,18 @@ export default function GenerateForms({ selectedFormId, onNavigate }: GenerateFo
                   formId === 'FORM_VOUCHER' ? voucherTemplateId : undefined;
 
       const activeWb = await api.masterData.getWorkbook();
+      const blankMode = generationMode === 'BLANK_NO_SERIAL'
+        ? 'without_serial'
+        : generationMode === 'BLANK_WITH_SERIAL'
+          ? 'with_serial'
+          : 'none';
+
       const res = await api.generate.execute({
         formId,
-        fromSerial: fromClean,
-        toSerial: toClean,
-        nonSerialCount,
+        fromSerial: generationMode === 'BLANK_NO_SERIAL' ? '' : fromClean,
+        toSerial: generationMode === 'BLANK_NO_SERIAL' ? '' : toClean,
+        nonSerialCount: generationMode === 'BLANK_NO_SERIAL' ? totalForms : nonSerialCount,
+        blankMode,
         templateId: activeTemplate,
         shareRegisterTemplateId: shareRegTemplateId,
         voucherPaperSize,
@@ -399,7 +457,7 @@ export default function GenerateForms({ selectedFormId, onNavigate }: GenerateFo
       setResult({ success: false, errorMessage: err.message });
       setPhase('error');
     }
-  }, [formId, fromClean, toClean, nonSerialCount, shareCertTemplateId, shareRegTemplateId, formJTemplateId, propRegTemplateId, nomRegTemplateId, voucherTemplateId, voucherPaperSize, shareEmptyRows, shareDataFontSize, shareDataTextColor, orientation, prefix, separator, rowsPerPage, renderMode, gridOn, selectedFont, customHeaderImg, customAckImg, activeSociety, canGenerate, loadDashboardContext]);
+  }, [formId, fromClean, toClean, nonSerialCount, generationMode, totalForms, shareCertTemplateId, shareRegTemplateId, formJTemplateId, propRegTemplateId, nomRegTemplateId, voucherTemplateId, voucherPaperSize, shareEmptyRows, shareDataFontSize, shareDataTextColor, orientation, prefix, separator, rowsPerPage, renderMode, gridOn, selectedFont, customHeaderImg, customAckImg, activeSociety, canGenerate, loadDashboardContext]);
 
   // Live PDF preview
   const handlePreviewOnly = async () => {
@@ -418,26 +476,38 @@ export default function GenerateForms({ selectedFormId, onNavigate }: GenerateFo
 
     try {
       const activeWb = await api.masterData.getWorkbook();
-      const res = await api.generate.previewPdf(formId, fromClean, toClean, {
-        nonSerialCount,
-        templateId: activeTemplate,
-        shareRegisterTemplateId: shareRegTemplateId,
-        voucherPaperSize,
-        voucherTemplateId,
-        emptyRows: shareEmptyRows,
-        dataFontSize: shareDataFontSize,
-        dataTextColor: shareDataTextColor,
-        orientationOverride: orientation,
-        prefix: prefix.trim(),
-        separator,
-        rowsPerPage,
-        renderMode,
-        gridOn,
-        fontFamily: selectedFont,
-        headerImageBase64: (formId === 'FORM_VOUCHER' ? (activeSociety?.logoBase64 || '') : (customHeaderImg || activeSociety?.logoBase64)),
-        ackImageBase64: customAckImg,
-        workbook: activeWb,
-      });
+      const blankMode = generationMode === 'BLANK_NO_SERIAL'
+        ? 'without_serial'
+        : generationMode === 'BLANK_WITH_SERIAL'
+          ? 'with_serial'
+          : 'none';
+
+      const res = await api.generate.previewPdf(
+        formId,
+        generationMode === 'BLANK_NO_SERIAL' ? '' : fromClean,
+        generationMode === 'BLANK_NO_SERIAL' ? '' : toClean,
+        {
+          nonSerialCount: generationMode === 'BLANK_NO_SERIAL' ? totalForms : nonSerialCount,
+          blankMode,
+          templateId: activeTemplate,
+          shareRegisterTemplateId: shareRegTemplateId,
+          voucherPaperSize,
+          voucherTemplateId,
+          emptyRows: shareEmptyRows,
+          dataFontSize: shareDataFontSize,
+          dataTextColor: shareDataTextColor,
+          orientationOverride: orientation,
+          prefix: prefix.trim(),
+          separator,
+          rowsPerPage,
+          renderMode,
+          gridOn,
+          fontFamily: selectedFont,
+          headerImageBase64: (formId === 'FORM_VOUCHER' ? (activeSociety?.logoBase64 || '') : (customHeaderImg || activeSociety?.logoBase64)),
+          ackImageBase64: customAckImg,
+          workbook: activeWb,
+        }
+      );
       if (res.error) {
         setResult({ success: false, errorMessage: res.error });
         setPhase('error');
@@ -1647,91 +1717,251 @@ export default function GenerateForms({ selectedFormId, onNavigate }: GenerateFo
           </div>
         )}
 
-        {/* SERIAL NUMBER RANGE SELECTION */}
+        {/* SERIAL NUMBER & BLANK FORM CONTROLS */}
         <div className="card" style={{ padding: '14px 16px', border: '1px solid var(--border)', background: 'var(--surface-2)', marginTop: 12 }}>
-          <h3 className="text-xs fw-700 text-primary mb-12 flex items-center gap-6" style={{ letterSpacing: '0.4px', textTransform: 'uppercase' }}>
-            <Layers size={14} className="text-accent" /> {formId === 'FORM_VOUCHER' ? 'Voucher Number Range' : 'Serial Number Range'}
-          </h3>
-
-          {/* Row 1: From Serial & To Serial */}
-          <div className="grid-2 gap-10 mb-10">
-            <div>
-              <label className="form-label" style={{ fontSize: 11, marginBottom: 4 }}>
-                {formId === 'FORM_VOUCHER' ? 'From Voucher No.' : 'From Serial No.'}
-              </label>
-              <input
-                type="text"
-                className="input-control text-xs"
-                placeholder="e.g. 001"
-                value={fromSerial}
-                onChange={e => setFromSerial(e.target.value)}
-                style={{ height: 34 }}
-              />
-            </div>
-            <div>
-              <label className="form-label" style={{ fontSize: 11, marginBottom: 4 }}>
-                {formId === 'FORM_VOUCHER' ? 'To Voucher No.' : 'To Serial No.'}
-              </label>
-              <input
-                type="text"
-                className="input-control text-xs"
-                placeholder="e.g. 010"
-                value={toSerial}
-                onChange={e => setToSerial(e.target.value)}
-                style={{ height: 34 }}
-              />
-            </div>
+          <div className="flex items-center justify-between mb-12">
+            <h3 className="text-xs fw-700 text-primary flex items-center gap-6" style={{ letterSpacing: '0.4px', textTransform: 'uppercase', margin: 0 }}>
+              <Layers size={14} className="text-accent" /> {formId === 'FORM_VOUCHER' ? 'Voucher Number Range & Blank Vouchers' : 'Serial Number Range & Blank Forms'}
+            </h3>
           </div>
 
-          {/* Row 2: Non-Serial / Blank Forms, Prefix, Separator (Fixed label heights for perfect alignment) */}
-          <div className="grid-3 gap-8 mb-12">
-            <div>
-              <label className="form-label" style={{ fontSize: 10, height: 22, display: 'flex', alignItems: 'center', marginBottom: 4 }}>
-                {formId === 'FORM_VOUCHER' ? 'Blank Vouchers' : 'Blank Forms'}
+          {/* Mode Selector Tabs */}
+          <div style={{ display: 'flex', gap: 6, marginBottom: 12, background: 'var(--surface-3)', padding: 3, borderRadius: 8 }}>
+            <button
+              type="button"
+              onClick={() => setGenerationMode('STANDARD')}
+              className={`btn btn-sm ${generationMode === 'STANDARD' ? 'btn-primary' : 'btn-ghost'}`}
+              style={{ flex: 1, fontSize: 11, padding: '5px 8px' }}
+            >
+              Master Data
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setGenerationMode('BLANK_NO_SERIAL');
+                setNonSerialCount(totalForms || 10);
+              }}
+              className={`btn btn-sm ${generationMode === 'BLANK_NO_SERIAL' ? 'btn-primary' : 'btn-ghost'}`}
+              style={{ flex: 1, fontSize: 11, padding: '5px 8px' }}
+            >
+              Blank (No Serial)
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setGenerationMode('BLANK_WITH_SERIAL');
+                const fromN = parseInt(fromSerial.replace(/\D/g, ''), 10) || 1;
+                const t = totalForms || 10;
+                setToSerial(String(fromN + t - 1).padStart(fromSerial.length || 3, '0'));
+              }}
+              className={`btn btn-sm ${generationMode === 'BLANK_WITH_SERIAL' ? 'btn-primary' : 'btn-ghost'}`}
+              style={{ flex: 1, fontSize: 11, padding: '5px 8px' }}
+            >
+              Blank (With Serial)
+            </button>
+          </div>
+
+          {/* Mode 1: Without Serial Number */}
+          {generationMode === 'BLANK_NO_SERIAL' && (
+            <div className="mb-12">
+              <label className="form-label" style={{ fontSize: 11, marginBottom: 4 }}>
+                Total Blank Forms to Generate
               </label>
               <input
                 type="number"
-                min="0"
-                max="100"
+                min="1"
+                max="999"
                 className="input-control text-xs"
-                value={nonSerialCount}
-                onChange={e => setNonSerialCount(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                value={totalForms}
+                onChange={e => handleTotalFormsChange(parseInt(e.target.value, 10) || 1)}
                 style={{ height: 34 }}
               />
+              <div className="text-secondary mt-4" style={{ fontSize: 10 }}>
+                Generates continuous blank forms without serial numbers or member data.
+              </div>
             </div>
+          )}
 
-            <div>
-              <label className="form-label" style={{ fontSize: 10, height: 22, display: 'flex', alignItems: 'center', marginBottom: 4 }}>
-                Prefix
-              </label>
-              <input
-                type="text"
-                className="input-control text-xs"
-                placeholder="e.g. HENU"
-                value={prefix}
-                onChange={e => setPrefix(e.target.value)}
-                style={{ height: 34 }}
-              />
-            </div>
+          {/* Mode 2: With Serial Number */}
+          {generationMode === 'BLANK_WITH_SERIAL' && (
+            <>
+              {/* Row: From, To, Total with 2-way sync */}
+              <div className="grid-3 gap-8 mb-10">
+                <div>
+                  <label className="form-label" style={{ fontSize: 11, marginBottom: 4 }}>
+                    From Serial No.
+                  </label>
+                  <input
+                    type="text"
+                    className="input-control text-xs"
+                    placeholder="e.g. 67"
+                    value={fromSerial}
+                    onChange={e => handleFromSerialChange(e.target.value)}
+                    style={{ height: 34 }}
+                  />
+                </div>
+                <div>
+                  <label className="form-label" style={{ fontSize: 11, marginBottom: 4 }}>
+                    To Serial No.
+                  </label>
+                  <input
+                    type="text"
+                    className="input-control text-xs"
+                    placeholder="e.g. 76"
+                    value={toSerial}
+                    onChange={e => handleToSerialChange(e.target.value)}
+                    style={{ height: 34 }}
+                  />
+                </div>
+                <div>
+                  <label className="form-label" style={{ fontSize: 11, marginBottom: 4 }}>
+                    Total Forms
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="999"
+                    className="input-control text-xs"
+                    value={totalForms}
+                    onChange={e => handleTotalFormsChange(parseInt(e.target.value, 10) || 1)}
+                    style={{ height: 34 }}
+                  />
+                </div>
+              </div>
 
-            <div>
-              <label className="form-label" style={{ fontSize: 10, height: 22, display: 'flex', alignItems: 'center', marginBottom: 4 }}>
-                Separator
-              </label>
-              <select
-                className="input-control text-xs"
-                value={separator}
-                onChange={e => setSeparator(e.target.value)}
-                style={{ height: 34 }}
-              >
-                <option value="-">- (Hyphen)</option>
-                <option value="_">_ (Underscore)</option>
-                <option value=":">: (Colon)</option>
-                <option value=".">. (Dot)</option>
-                <option value="/">/ (Slash)</option>
-              </select>
-            </div>
-          </div>
+              {/* Prefix & Separator */}
+              <div className="grid-2 gap-8 mb-10">
+                <div>
+                  <label className="form-label" style={{ fontSize: 10, height: 22, display: 'flex', alignItems: 'center', marginBottom: 4 }}>
+                    Serial Prefix (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    className="input-control text-xs"
+                    placeholder="e.g. SC or FORM"
+                    value={prefix}
+                    onChange={e => setPrefix(e.target.value)}
+                    style={{ height: 34 }}
+                  />
+                </div>
+                <div>
+                  <label className="form-label" style={{ fontSize: 10, height: 22, display: 'flex', alignItems: 'center', marginBottom: 4 }}>
+                    Separator
+                  </label>
+                  <select
+                    className="input-control text-xs"
+                    value={separator}
+                    onChange={e => setSeparator(e.target.value)}
+                    style={{ height: 34 }}
+                  >
+                    <option value="-">- (Hyphen, e.g. SC-67)</option>
+                    <option value="/">/ (Slash, e.g. FORM/67)</option>
+                    <option value=" ">Space (e.g. A 67)</option>
+                    <option value="_">_ (Underscore)</option>
+                    <option value="">None (e.g. SC67)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Live Serial Preview */}
+              <div style={{
+                background: 'var(--surface-3)',
+                padding: '6px 10px',
+                borderRadius: 6,
+                fontSize: 10,
+                color: 'var(--text-secondary)',
+                marginBottom: 10
+              }}>
+                Format Preview: <strong className="text-primary">{prefix ? `${prefix}${separator}${fromSerial}` : fromSerial}</strong> → <strong className="text-primary">{prefix ? `${prefix}${separator}${toSerial}` : toSerial}</strong> ({totalForms} forms)
+              </div>
+            </>
+          )}
+
+          {/* Standard Mode */}
+          {generationMode === 'STANDARD' && (
+            <>
+              {/* Row 1: From Serial & To Serial */}
+              <div className="grid-2 gap-10 mb-10">
+                <div>
+                  <label className="form-label" style={{ fontSize: 11, marginBottom: 4 }}>
+                    {formId === 'FORM_VOUCHER' ? 'From Voucher No.' : 'From Serial No.'}
+                  </label>
+                  <input
+                    type="text"
+                    className="input-control text-xs"
+                    placeholder="e.g. 001"
+                    value={fromSerial}
+                    onChange={e => setFromSerial(e.target.value)}
+                    style={{ height: 34 }}
+                  />
+                </div>
+                <div>
+                  <label className="form-label" style={{ fontSize: 11, marginBottom: 4 }}>
+                    {formId === 'FORM_VOUCHER' ? 'To Voucher No.' : 'To Serial No.'}
+                  </label>
+                  <input
+                    type="text"
+                    className="input-control text-xs"
+                    placeholder="e.g. 010"
+                    value={toSerial}
+                    onChange={e => setToSerial(e.target.value)}
+                    style={{ height: 34 }}
+                  />
+                </div>
+              </div>
+
+              {/* Row 2: Non-Serial / Blank Forms, Prefix, Separator */}
+              <div className="grid-3 gap-8 mb-12">
+                <div>
+                  <label className="form-label" style={{ fontSize: 10, height: 22, display: 'flex', alignItems: 'center', marginBottom: 4 }}>
+                    {formId === 'FORM_VOUCHER' ? 'Blank Extra Vouchers' : 'Blank Extra Forms'}
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    className="input-control text-xs"
+                    value={nonSerialCount}
+                    onChange={e => setNonSerialCount(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                    style={{ height: 34 }}
+                  />
+                </div>
+
+                <div>
+                  <label className="form-label" style={{ fontSize: 10, height: 22, display: 'flex', alignItems: 'center', marginBottom: 4 }}>
+                    Prefix
+                  </label>
+                  <input
+                    type="text"
+                    className="input-control text-xs"
+                    placeholder="e.g. HENU"
+                    value={prefix}
+                    onChange={e => setPrefix(e.target.value)}
+                    style={{ height: 34 }}
+                  />
+                </div>
+
+                <div>
+                  <label className="form-label" style={{ fontSize: 10, height: 22, display: 'flex', alignItems: 'center', marginBottom: 4 }}>
+                    Separator
+                  </label>
+                  <select
+                    className="input-control text-xs"
+                    value={separator}
+                    onChange={e => setSeparator(e.target.value)}
+                    style={{ height: 34 }}
+                  >
+                    <option value="-">- (Hyphen)</option>
+                    <option value="_">_ (Underscore)</option>
+                    <option value=":">: (Colon)</option>
+                    <option value=".">. (Dot)</option>
+                    <option value="/">/ (Slash)</option>
+                    <option value=" ">Space</option>
+                  </select>
+                </div>
+              </div>
+            </>
+          )}
 
           {/* Validation Error Message */}
           {rangeErrorText && (

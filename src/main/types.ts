@@ -514,3 +514,231 @@ export interface MasterDataStatus {
   isValid: boolean;
 }
 
+// ------ HENU CONFIG Database & Architecture Types ------
+export interface DocumentCategory {
+  id: string;
+  name: string;
+  systemRequired: boolean;
+  active: boolean;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DocumentRecord {
+  id: string;
+  societyId: string;
+  societyName?: string;
+  categoryId: string;
+  categoryName?: string;
+  fileName: string;
+  filePath: string;
+  fileType: string;
+  fileSize: number;
+  version: number;
+  checksum?: string;
+  status: 'ACTIVE' | 'ARCHIVED' | 'DELETED';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ApplicationConfig {
+  id: string;
+  rootStoragePath: string;
+  societiesPath: string;
+  backupPath: string;
+  exportPath: string;
+  importPath: string;
+  logsPath: string;
+  systemPath: string;
+  firstRunCompleted: boolean;
+  fileNamingPattern: string;
+  duplicateStrategy: 'VERSION' | 'REPLACE' | 'RENAME_AUTO' | 'CANCEL';
+  backupEnabled: boolean;
+  backupFrequency: 'MANUAL' | 'DAILY' | 'WEEKLY' | 'ON_CLOSE';
+  backupRetentionDays: number;
+  lastBackupAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StorageValidationResult {
+  isValid: boolean;
+  path: string;
+  exists: boolean;
+  isWritable: boolean;
+  isReadable: boolean;
+  dbReady: boolean;
+  fileStorageReady: boolean;
+  availableSpaceBytes?: number;
+  availableSpaceFormatted?: string;
+  isSystemProtected: boolean;
+  errors: string[];
+  warnings: string[];
+}
+
+export interface BackupItem {
+  id: string;
+  fileName: string;
+  filePath: string;
+  fileSize: number;
+  fileSizeFormatted: string;
+  createdAt: string;
+  itemCount: number;
+  isVerified: boolean;
+}
+
+export interface SystemHealthCheckItem {
+  passed: boolean;
+  message: string;
+  details?: any;
+}
+
+export interface SystemHealthReport {
+  timestamp: string;
+  overallStatus: 'HEALTHY' | 'WARNING' | 'ERROR';
+  checks: {
+    database: SystemHealthCheckItem;
+    storage: SystemHealthCheckItem & { rootPath?: string; freeSpace?: string };
+    societyIndex: SystemHealthCheckItem & { societyCount?: number; missingFolders?: string[] };
+    fileIndex: SystemHealthCheckItem & { indexedFiles?: number; missingPhysicalFiles?: number };
+    folderStructure: SystemHealthCheckItem;
+    configuration: SystemHealthCheckItem;
+    permissions: SystemHealthCheckItem;
+    backup: SystemHealthCheckItem & { lastBackup?: string };
+  };
+  missingFilesList: Array<{ id: string; societyName: string; fileName: string; expectedPath: string }>;
+}
+
+export interface StorageOverview {
+  rootStoragePath: string;
+  totalSocieties: number;
+  totalDocuments: number;
+  totalStorageSizeBytes: number;
+  totalStorageSizeFormatted: string;
+  categories: Array<{ id: string; name: string; documentCount: number; systemRequired: boolean; active: boolean }>;
+  societiesTree: Array<{
+    id: string;
+    name: string;
+    folderName: string;
+    path: string;
+    categories: Array<{
+      id: string;
+      name: string;
+      path: string;
+      fileCount: number;
+      files: DocumentRecord[];
+    }>;
+  }>;
+}
+
+// ============================================================
+// HENUMASTER — Central Society Administration Types
+// ============================================================
+
+export interface SocietyRegisterCount {
+  categoryId: string;
+  categoryName: string;
+  documentCount: number;
+  storageBytes: number;
+  storageFormatted: string;
+  lastUpdated: string;
+  status: 'HEALTHY' | 'WARNING' | 'EMPTY';
+  navFormId?: string; // e.g. 'generate-FORM_I', 'generate-FORM_VOUCHER'
+  folderPath?: string;
+  folderExists: boolean;
+}
+
+export interface SocietyActivityItem {
+  id: string;
+  timestamp: string;
+  type: 'DOCUMENT_GENERATED' | 'DOCUMENT_SAVED' | 'SOCIETY_CREATED' | 'METADATA_UPDATED' | 'BACKUP_CREATED' | 'STATUS_CHANGED';
+  title: string;
+  description: string;
+  categoryName?: string;
+  fileName?: string;
+}
+
+export interface SocietyHealthCheck {
+  isHealthy: boolean;
+  overallStatus: 'HEALTHY' | 'WARNING' | 'ERROR';
+  dbRecordExists: boolean;
+  folderExists: boolean;
+  categoriesConfigured: boolean;
+  allCategoryFoldersExist: boolean;
+  missingCategoryFolders: string[];
+  totalDocuments: number;
+  missingPhysicalFiles: number;
+  missingFilesList: Array<{ fileName: string; filePath: string }>;
+  backupStatus: 'UP_TO_DATE' | 'NEVER' | 'STALE';
+  lastBackupAt?: string;
+}
+
+export interface SocietySummary {
+  id: string;
+  societyName: string;
+  registrationNo: string;
+  registrationDate?: string;
+  fullAddress?: string;
+  city?: string;
+  state?: string;
+  pinCode?: string;
+  logoBase64?: string;
+  createdAt: string;
+  updatedAt?: string;
+  yearEstablished?: string;
+  status: 'ACTIVE' | 'ARCHIVED' | 'SUSPENDED';
+  isActive: boolean; // currently selected society in session
+  folderPath?: string;
+  storageSizeBytes: number;
+  storageSizeFormatted: string;
+  documentCount: number;
+  filesCount: number;
+  importCount?: number;
+  exportCount?: number;
+  completionStatus?: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED';
+  lastActivityTitle?: string;
+  lastActivityTimestamp?: string;
+  healthStatus: 'HEALTHY' | 'WARNING' | 'ERROR';
+  healthMessage?: string;
+  lastDocumentDate?: string;
+  lastDocumentName?: string;
+  memberCount?: number;
+}
+
+export interface SocietyOverviewDetails extends SocietySummary {
+  rootStoragePath: string;
+  registers: SocietyRegisterCount[];
+  recentActivity: SocietyActivityItem[];
+  health: SocietyHealthCheck;
+  missingFilesCount: number;
+}
+
+export interface HenuMasterDashboardStats {
+  totalSocieties: number;
+  activeSocieties: number;
+  archivedSocieties: number;
+  totalRegisters: number;
+  totalDocuments: number;
+  totalFiles: number;
+  totalImports: number;
+  totalExports: number;
+  completedSocieties: number;
+  inProgressSocieties: number;
+  notStartedSocieties: number;
+  storageUsedBytes: number;
+  storageUsedFormatted: string;
+  storageAvailableBytes: number;
+  storageAvailableFormatted: string;
+  storagePercentUsed: number;
+  lastBackupAt: string;
+  systemHealthStatus: 'HEALTHY' | 'WARNING' | 'ERROR';
+  healthySocietiesCount: number;
+  warningSocietiesCount: number;
+  activeSocietyId?: string;
+  activeSocietyName?: string;
+}
+
+
+
+

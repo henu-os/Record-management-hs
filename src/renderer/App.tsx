@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   LayoutDashboard, Database, FileText,
-  History, Settings, ChevronRight, ChevronDown, FileCheck, Building2, Plus, ScanLine, FileImage, CreditCard
+  History, Settings, ChevronRight, ChevronDown, FileCheck, Building2, Plus, ScanLine, FileImage, CreditCard,
+  SlidersHorizontal
 } from 'lucide-react';
 
 import Dashboard from './pages/Dashboard';
@@ -12,11 +13,16 @@ import SettingsPage from './pages/SettingsPage';
 import HenuVoucherOcrPage from './pages/voucher-ocr/HenuVoucherOcrPage';
 import { HenuCheckOcrPage } from './pages/check-ocr/HenuCheckOcrPage';
 import HenuIdfPage from './pages/henu-idf/HenuIdfPage';
+import HenuConfigPage from './pages/henu-config/HenuConfigPage';
+import HenuMasterPage from './pages/henu-master/HenuMasterPage';
 import AddSocietyModal from './components/AddSocietyModal';
+import FirstRunSetupWizard from './components/FirstRunSetupWizard';
+import { useSocietyContext } from './context/SocietyContext';
 import { Society } from '../main/types';
 
 export type PageId =
   | 'dashboard'
+  | 'henumaster'
   | 'masterdata'
   | 'controlcenter'
   | 'generate'
@@ -31,6 +37,7 @@ export type PageId =
   | 'voucher-ocr'
   | 'check-ocr'
   | 'henu-idf'
+  | 'henu-config'
   | 'history'
   | 'settings';
 
@@ -106,37 +113,27 @@ export default function App() {
     };
   }, [showSplash, handleFinishSplash]);
 
-  // Multi-Society active context
-  const [societies, setSocieties] = useState<Society[]>([]);
-  const [activeSociety, setActiveSociety] = useState<Society | null>(null);
+  // Centralized Multi-Society active context
+  const {
+    activeSociety,
+    societies,
+    switchSociety,
+    reloadSocieties: loadSocietyContext,
+  } = useSocietyContext();
+
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [showFirstRunWizard, setShowFirstRunWizard] = useState(false);
 
   const api = (window as any).api;
 
-  const loadSocietyContext = useCallback(async () => {
-    if (!api || !api.society) return;
-    try {
-      const [socList, activeSoc] = await Promise.all([
-        api.society.list(),
-        api.society.getActive(),
-      ]);
-      const validSocList = (socList || []).filter((s: any) => s && s.societyName && !/^\d{4}-\d{2}-\d{2}T/.test(s.societyName));
-      setSocieties(validSocList.length > 0 ? validSocList : (socList || []));
-      if (activeSoc && !/^\d{4}-\d{2}-\d{2}T/.test(activeSoc.societyName)) {
-        setActiveSociety(activeSoc);
-      } else if (validSocList.length > 0) {
-        setActiveSociety(validSocList[0]);
-      } else {
-        setActiveSociety(activeSoc || null);
-      }
-    } catch (err) {
-      console.error('Failed to load society context:', err);
-    }
-  }, []);
-
   useEffect(() => {
-    loadSocietyContext();
-  }, [loadSocietyContext]);
+    if (!api?.henuConfig?.getFirstRunStatus) return;
+    api.henuConfig.getFirstRunStatus().then((completed: boolean) => {
+      if (!completed) {
+        setShowFirstRunWizard(true);
+      }
+    }).catch(() => {});
+  }, [api]);
 
   useEffect(() => {
     if (!api) return;
@@ -166,17 +163,7 @@ export default function App() {
   };
 
   const handleSelectSociety = async (socId: string) => {
-    if (!socId || !api || !api.society) return;
-    try {
-      const selected = await (api.society.select ? api.society.select(socId) : api.society.setActive(socId));
-      if (selected) {
-        setActiveSociety(selected);
-        window.dispatchEvent(new CustomEvent('society-changed', { detail: selected }));
-      }
-      await loadSocietyContext();
-    } catch (err) {
-      console.error('Failed to switch active society:', err);
-    }
+    await switchSociety(socId);
   };
 
   const isGenerateActive = page.startsWith('generate');
@@ -212,6 +199,18 @@ export default function App() {
             <LayoutDashboard size={15} />
             Dashboard
             {page === 'dashboard' && <ChevronRight size={12} style={{ marginLeft: 'auto', opacity: 0.6 }} />}
+          </button>
+
+          {/* HENUMASTER — Central Society Administration */}
+          <button
+            id="nav-henumaster"
+            className={`sidebar-item${page === 'henumaster' ? ' active' : ''}`}
+            onClick={() => handleNavigate('henumaster')}
+            style={{ fontWeight: 600 }}
+          >
+            <Building2 size={15} className="text-accent" />
+            HENUMASTER
+            {page === 'henumaster' && <ChevronRight size={12} style={{ marginLeft: 'auto', opacity: 0.6 }} />}
           </button>
 
           {/* Master Data */}
@@ -376,6 +375,17 @@ export default function App() {
             {page === 'history' && <ChevronRight size={12} style={{ marginLeft: 'auto', opacity: 0.6 }} />}
           </button>
 
+          {/* HENU CONFIG (Central Storage & Database Engine) */}
+          <button
+            id="nav-henu-config"
+            className={`sidebar-item${page === 'henu-config' ? ' active' : ''}`}
+            onClick={() => handleNavigate('henu-config')}
+          >
+            <SlidersHorizontal size={15} />
+            HENU CONFIG
+            {page === 'henu-config' && <ChevronRight size={12} style={{ marginLeft: 'auto', opacity: 0.6 }} />}
+          </button>
+
           {/* Settings */}
           <button
             id="nav-settings"
@@ -495,11 +505,19 @@ export default function App() {
         {/* Dynamic Page Router Container (key={activeSociety?.id} forces clean re-mount on society switch) */}
         <main className="main-content" key={activeSociety?.id || 'empty'}>
           {page === 'dashboard' && <Dashboard onNavigate={handleNavigate} />}
+          {page === 'henumaster' && (
+            <HenuMasterPage
+              onNavigate={handleNavigate}
+              onOpenAddSociety={() => setIsAddModalOpen(true)}
+              onSocietySwitched={loadSocietyContext}
+            />
+          )}
           {page === 'controlcenter' && <GenerateForms selectedFormId="CONTROL_CENTER" onNavigate={handleNavigate} />}
           {page === 'masterdata' && <MasterData />}
           {page === 'voucher-ocr' && <HenuVoucherOcrPage onNavigate={handleNavigate} />}
           {page === 'check-ocr' && <HenuCheckOcrPage onNavigate={handleNavigate} />}
           {page === 'henu-idf' && <HenuIdfPage onNavigate={handleNavigate} />}
+          {page === 'henu-config' && <HenuConfigPage />}
           {isGenerateActive && <GenerateForms selectedFormId={activeGenerateFormId} onNavigate={handleNavigate} />}
           {page === 'history' && <GeneratedFiles />}
           {page === 'settings' && <SettingsPage onNavigate={handleNavigate} />}
@@ -513,6 +531,15 @@ export default function App() {
         onSocietyAdded={() => {
           loadSocietyContext();
           setIsAddModalOpen(false);
+        }}
+      />
+
+      {/* First Run Storage Setup Wizard */}
+      <FirstRunSetupWizard
+        isOpen={showFirstRunWizard}
+        onComplete={() => {
+          setShowFirstRunWizard(false);
+          loadSocietyContext();
         }}
       />
 

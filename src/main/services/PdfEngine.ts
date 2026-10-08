@@ -36,6 +36,7 @@ export interface PdfGenerationOptions {
   fromSerial: string;
   toSerial: string;
   nonSerialCount?: number;
+  blankMode?: 'none' | 'without_serial' | 'with_serial';
   workbook: MasterWorkbook;
   societyId?: string;
   orientationOverride?: 'Portrait' | 'Landscape';
@@ -71,7 +72,7 @@ export class PdfEngine {
    */
   static async generate(opts: PdfGenerationOptions): Promise<PdfGenerationOutput> {
     const {
-      formId, fromSerial, toSerial, nonSerialCount = 0, templateId, workbook, societyId, orientationOverride,
+      formId, fromSerial, toSerial, nonSerialCount = 0, blankMode = 'none', templateId, workbook, societyId, orientationOverride,
       rowsPerPage, renderMode, gridOn, consolidatePdf, prefix, separator, settings: settingsOverride, onProgress,
       headerImageBase64, ackImageBase64
     } = opts;
@@ -135,28 +136,34 @@ export class PdfEngine {
 
     // Resolve items array (missing serials produce null record, returning serial-only row)
     const pfx = prefix ? prefix.trim() : '';
-    const sep = separator || '-';
+    const sep = separator !== undefined ? separator : '-';
 
-    const serialItems = serialRange.map(rawSerial => {
+    const isBlankWithSerial = blankMode === 'with_serial';
+    const isBlankNoSerial = blankMode === 'without_serial';
+
+    const serialItems = isBlankNoSerial ? [] : serialRange.map(rawSerial => {
       const key = normalizeSerialKey(rawSerial);
       const common = commonMap.get(key);
       const specific = specificMap.get(key);
       const resolved = FormMappingService.resolveRecord(workbook, formId, rawSerial);
       const isFound = Boolean(common || specific);
-      const record = isFound ? resolved : null;
+      const record = isBlankWithSerial ? null : (isFound ? resolved : null);
 
       // Format serial display if prefix is present
       const displaySerial = pfx ? `${pfx}${sep}${rawSerial}` : rawSerial;
       return { serial: displaySerial, record, isNonSerial: false, rawSerial };
     });
 
-    const extraCount = Math.max(0, Number(nonSerialCount) || 0);
+    const extraCount = isBlankNoSerial
+      ? Math.max(1, Number(nonSerialCount) || 1)
+      : Math.max(0, Number(nonSerialCount) || 0);
+
     const nonSerialItems = [];
     for (let i = 0; i < extraCount; i++) {
       nonSerialItems.push({ serial: '', record: null, isNonSerial: true, rawSerial: '' });
     }
 
-    const items = [...serialItems, ...nonSerialItems];
+    const items = isBlankNoSerial ? nonSerialItems : [...serialItems, ...nonSerialItems];
 
     onProgress?.(`Rendering ${formId} document...`);
     const filePrefixMap: Record<FormId, string> = {

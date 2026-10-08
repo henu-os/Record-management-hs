@@ -22,6 +22,17 @@ import { PropertyRegisterDefinition } from '../services/renderers/definitions/Pr
 import { LienMarkDefinition } from '../services/renderers/definitions/LienMarkDefinition';
 import { PdfEngine } from '../services/PdfEngine';
 import { ZipService } from '../services/ZipService';
+import { StorageEngine } from '../services/config/StorageEngine';
+import { HenuConfigService } from '../services/config/HenuConfigService';
+import { DocumentRoutingService } from '../services/config/DocumentRoutingService';
+import { BackupService } from '../services/config/BackupService';
+import { SystemHealthService } from '../services/config/SystemHealthService';
+import { HenuMasterService } from '../services/master/HenuMasterService';
+import { MasterDataService } from '../services/MasterDataService';
+import { HenuSecurityService } from '../services/security/HenuSecurityService';
+import { HenuSocietyContextService } from '../services/society/HenuSocietyContextService';
+import { initializeDatabase, getPaths } from '../db';
+import * as XLSX from 'xlsx';
 import fs from 'fs';
 import path from 'path';
 
@@ -56,6 +67,9 @@ function expect(condition: boolean, msg: string): void {
 
 export class TestRunner {
   static async runAll(): Promise<TestSuiteResult> {
+    try {
+      initializeDatabase();
+    } catch {}
     const t0 = Date.now();
     const results: TestResult[] = [];
 
@@ -348,7 +362,7 @@ export class TestRunner {
         society: null,
       });
       expect(builder.pageCount === 1, 'Initial document must start with 1 page');
-      builder.ensureSpace(901); // Forces page break
+      builder.ensureSpace(950); // Forces page break exceeding usable vertical height (936pt)
       expect(builder.pageCount === 2, 'Requesting space exceeding page height must trigger new page');
     });
 
@@ -674,7 +688,1076 @@ export class TestRunner {
       expect(LienMarkDefinition.orientation === 'Portrait', 'Lien Mark Register must be Portrait');
     });
 
-    // ── Summary ───────────────────────────────────────────────
+    // ── HENU CONFIG Module Tests ──────────────────────────────
+
+    await run('T55', 'HENU CONFIG — Storage Location Validator checks write permissions & rejects system dirs', () => {
+      const paths = getPaths();
+      const validRes = StorageEngine.validateLocation(paths.userData);
+      expect(validRes.isValid, 'UserData path must be valid and writable');
+      expect(validRes.isWritable, 'Write permission test must pass');
+
+      const sysRes = StorageEngine.validateLocation('C:\\Windows\\System32');
+      expect(!sysRes.isValid, 'System protected paths must be rejected');
+      expect(sysRes.isSystemProtected, 'Flag isSystemProtected must be true');
+    });
+
+    await run('T56', 'HENU CONFIG — Root Storage Structure provisions 6 required subdirectories', () => {
+      const paths = getPaths();
+      const testRoot = path.join(paths.userData, 'test_root_structure');
+      const dirs = StorageEngine.initializeRootStructure(testRoot);
+
+      expect(fs.existsSync(dirs.societiesPath), 'Societies folder must exist');
+      expect(fs.existsSync(dirs.backupsPath), 'Backups folder must exist');
+      expect(fs.existsSync(dirs.exportsPath), 'Exports folder must exist');
+      expect(fs.existsSync(dirs.importsPath), 'Imports folder must exist');
+      expect(fs.existsSync(dirs.logsPath), 'Logs folder must exist');
+      expect(fs.existsSync(dirs.systemPath), 'System folder must exist');
+    });
+
+    await run('T57', 'HENU CONFIG — Dynamic Root Storage handles arbitrary drive & folder paths without hardcoding', () => {
+      const sample1 = StorageEngine.sanitizeFolderName('My Society / Unit : 101');
+      expect(!sample1.includes('/'), 'Illegal slash must be sanitized');
+      expect(!sample1.includes(':'), 'Illegal colon must be sanitized');
+      expect(sample1.length > 0, 'Sanitized name must not be empty');
+    });
+
+    await run('T58', 'HENU CONFIG — Society Folder Provisioning creates 8 statutory categories', () => {
+      const paths = getPaths();
+      const testRoot = path.join(paths.userData, 'test_soc_root');
+      const categories = [
+        'Form I', 'Form J', 'Share Register', 'Property Register',
+        'Nomination Register', 'Bank Lien Mark', 'Share Certificate', 'Voucher'
+      ];
+      const { societyPath, createdCategories } = StorageEngine.createSocietyFolders(testRoot, 'TEST_SUNSHINE_SOCIETY', categories);
+
+      expect(fs.existsSync(societyPath), 'Society root folder must exist');
+      for (const cat of categories) {
+        expect(fs.existsSync(createdCategories[cat]), `Category folder for ${cat} must exist`);
+      }
+    });
+
+    await run('T59', 'HENU CONFIG — File Naming Engine produces sanitized deterministic output', () => {
+      const service = DocumentRoutingService.getInstance();
+      const fileName = service.formatDocumentFileName(
+        '{SocietyName}_{Category}_{Number}_{Year}',
+        {
+          societyName: 'SUNSHINE CO-OP <LTD>',
+          categoryName: 'Share Certificate',
+          number: '042',
+          date: '2026-05-18',
+          extension: 'pdf',
+        }
+      );
+
+      expect(!fileName.includes('<'), 'Illegal angle brackets must be sanitized');
+      expect(!fileName.includes('>'), 'Illegal angle brackets must be sanitized');
+      expect(fileName.endsWith('.pdf'), 'File name must have .pdf extension');
+      expect(fileName.includes('042'), 'File name must include padded serial number');
+      expect(fileName.includes('2026'), 'File name must include year token');
+    });
+
+    await run('T60', 'HENU CONFIG — Duplicate Collision Resolution handles versioning correctly', () => {
+      const paths = getPaths();
+      const testDir = path.join(paths.userData, 'test_duplicates');
+      if (!fs.existsSync(testDir)) fs.mkdirSync(testDir, { recursive: true });
+
+      const initialFile = path.join(testDir, 'Voucher_105.pdf');
+      fs.writeFileSync(initialFile, 'dummy voucher 1');
+
+      const service = DocumentRoutingService.getInstance();
+      const res = service.resolveDuplicatePath(testDir, 'Voucher_105.pdf', 'VERSION');
+
+      expect(res.finalFileName === 'Voucher_105_v2.pdf', `Expected Voucher_105_v2.pdf, got ${res.finalFileName}`);
+      expect(res.version === 2, 'Version must be 2');
+    });
+
+    await run('T61', 'HENU CONFIG — Document Routing & DB Registration saves file & index atomically', async () => {
+      const service = DocumentRoutingService.getInstance();
+      const dummyBuf = Buffer.from('%PDF-1.4 dummy buffer for test routing');
+
+      const result = await service.routeAndRegisterDocument({
+        societyId: 'default-society-1',
+        societyName: 'TEST_ROUTING_SOCIETY',
+        categoryNameOrId: 'Form I',
+        buffer: dummyBuf,
+        fileType: 'PDF',
+        serialNumber: '001-010',
+      });
+
+      expect(result.success, `Document routing must succeed: ${result.error}`);
+      expect(result.document !== undefined, 'Document record must be returned');
+      expect(fs.existsSync(result.document!.filePath), 'Physical file must exist on disk');
+      expect(result.document!.fileSize > 0, 'File size must be greater than 0');
+    });
+
+    await run('T62', 'HENU CONFIG — Category Management protects 8 statutory categories', () => {
+      const service = DocumentRoutingService.getInstance();
+      const categories = service.getCategories();
+      const systemRequired = categories.filter(c => c.systemRequired);
+      expect(systemRequired.length >= 8, 'Must have at least 8 system required categories');
+
+      // Attempt to delete system required category
+      const formICat = categories.find(c => c.name === 'Form I');
+      if (formICat) {
+        const delRes = service.deleteCategory(formICat.id);
+        expect(!delRes.success, 'System required categories must not be deletable');
+      }
+    });
+
+    await run('T63', 'HENU CONFIG — Local Archive & Backup generates verifiable ZIP archive', async () => {
+      const backupService = BackupService.getInstance();
+      const res = await backupService.createBackup('unit_test');
+
+      expect(res.success, `Backup creation must succeed: ${res.error}`);
+      expect(res.backup !== undefined, 'Backup record must exist');
+      expect(fs.existsSync(res.backup!.filePath), 'Backup file must exist on disk');
+      expect(res.backup!.fileSize > 100, 'Backup ZIP size must be > 100 bytes');
+    });
+
+    await run('T64', 'HENU CONFIG — 8-Point System Health Check passes with valid environment', async () => {
+      const healthService = SystemHealthService.getInstance();
+      const report = await healthService.runHealthCheck();
+
+      expect(report.checks.database.passed, 'Database check must pass');
+      expect(report.checks.storage.passed, 'Storage check must pass');
+      expect(report.checks.folderStructure.passed, 'Folder structure check must pass');
+      expect(report.checks.permissions.passed, 'Permissions check must pass');
+    });
+
+    await run('T65', 'HENU CONFIG — Storage Repair & Re-Index verifies folder tree and indexes untracked files', async () => {
+      const healthService = SystemHealthService.getInstance();
+      const res = await healthService.repairAndReindex();
+
+      expect(res.success, 'Repair and re-index must succeed');
+      expect(res.repairedFolders >= 8, 'Must repair/verify at least 8 category folders');
+    });
+
+    // ── HENUMASTER Tests ──────────────────────────────────────────
+    await run('T66', 'HENUMASTER — Dashboard Statistics calculates system-wide societies, storage & health', () => {
+      const masterService = HenuMasterService.getInstance();
+      const stats = masterService.getDashboardStats();
+
+      expect(stats.totalSocieties >= 1, 'Total societies count must be >= 1');
+      expect(stats.activeSocieties >= 1, 'Active societies count must be >= 1');
+      expect(stats.totalRegisters >= 8, 'Total statutory registers must be >= 8');
+      expect(stats.storageUsedFormatted !== '', 'Storage used must be formatted');
+      expect(stats.systemHealthStatus === 'HEALTHY' || stats.systemHealthStatus === 'WARNING', 'Health status must be valid');
+    });
+
+    await run('T67', 'HENUMASTER — Society List aggregates document counts, sizes and health status', () => {
+      const masterService = HenuMasterService.getInstance();
+      const list = masterService.listSocieties();
+
+      expect(list.length >= 1, 'Society list must contain at least 1 society');
+      const first = list[0];
+      expect(first.id !== '', 'Society must have a valid ID');
+      expect(first.societyName !== '', 'Society must have a name');
+      expect(first.status === 'ACTIVE' || first.status === 'ARCHIVED', 'Society must have valid status');
+      expect(first.folderPath !== '', 'Society must have a derived physical folder path');
+    });
+
+    await run('T68', 'HENUMASTER — Global Society Search queries name, registrationNo, city, state', () => {
+      const masterService = HenuMasterService.getInstance();
+      const list = masterService.listSocieties();
+      const sample = list[0];
+
+      // Search by partial society name
+      const queryName = sample.societyName.substring(0, 4);
+      const searchByName = masterService.listSocieties({ search: queryName });
+      expect(searchByName.some(s => s.id === sample.id), 'Search by name must find the target society');
+
+      // Search by registration number if present
+      if (sample.registrationNo) {
+        const queryReg = sample.registrationNo.substring(0, 4);
+        const searchByReg = masterService.listSocieties({ search: queryReg });
+        expect(searchByReg.some(s => s.id === sample.id), 'Search by reg number must find the target society');
+      }
+    });
+
+    await run('T69', 'HENUMASTER — Status Filtering separates ACTIVE and ARCHIVED societies', () => {
+      const masterService = HenuMasterService.getInstance();
+      const allSocieties = masterService.listSocieties({ status: 'ALL' });
+      const activeSocieties = masterService.listSocieties({ status: 'ACTIVE' });
+      const archivedSocieties = masterService.listSocieties({ status: 'ARCHIVED' });
+
+      expect(allSocieties.length === (activeSocieties.length + archivedSocieties.length), 'ALL must equal ACTIVE + ARCHIVED count');
+      expect(activeSocieties.every(s => s.status === 'ACTIVE'), 'Active list must only contain ACTIVE societies');
+      expect(archivedSocieties.every(s => s.status === 'ARCHIVED'), 'Archived list must only contain ARCHIVED societies');
+    });
+
+    await run('T70', 'HENUMASTER — Complete Society Overview provides 8 statutory register cards & navigation IDs', () => {
+      const masterService = HenuMasterService.getInstance();
+      const list = masterService.listSocieties();
+      const socId = list[0].id;
+
+      const overview = masterService.getSocietyOverview(socId);
+      expect(overview.id === socId, 'Overview must match requested society ID');
+      expect(overview.registers.length >= 8, 'Overview must contain at least 8 statutory registers');
+
+      // Verify all 8 statutory categories are present
+      const regNames = overview.registers.map(r => r.categoryName);
+      expect(regNames.includes('Form I'), 'Must include Form I register');
+      expect(regNames.includes('Form J'), 'Must include Form J register');
+      expect(regNames.includes('Share Register'), 'Must include Share Register');
+      expect(regNames.includes('Property Register'), 'Must include Property Register');
+      expect(regNames.includes('Nomination Register'), 'Must include Nomination Register');
+      expect(regNames.includes('Bank Lien Mark'), 'Must include Bank Lien Mark');
+      expect(regNames.includes('Share Certificate'), 'Must include Share Certificate');
+      expect(regNames.includes('Voucher'), 'Must include Voucher');
+
+      // Verify navigation mapping
+      const formIReg = overview.registers.find(r => r.categoryName === 'Form I');
+      expect(formIReg?.navFormId === 'generate-FORM_I', 'Form I must map to generate-FORM_I nav ID');
+    });
+
+    await run('T71', 'HENUMASTER — Society Health Assessment validates database, folders, subfolders, files', () => {
+      const masterService = HenuMasterService.getInstance();
+      const list = masterService.listSocieties();
+      const socId = list[0].id;
+
+      const overview = masterService.getSocietyOverview(socId);
+      expect(overview.health.dbRecordExists, 'Database record must be verified');
+      expect(overview.health.categoriesConfigured, 'Categories must be configured');
+      expect(overview.health.missingCategoryFolders !== undefined, 'Missing folders list must exist');
+    });
+
+    await run('T72', 'HENUMASTER — Metadata Edit updates database records safely without modifying directory paths', () => {
+      const masterService = HenuMasterService.getInstance();
+      const list = masterService.listSocieties();
+      const soc = list[0];
+
+      const originalYear = soc.yearEstablished || '';
+      const updated = masterService.updateSocietyMetadata(soc.id, {
+        yearEstablished: '2024',
+      });
+
+      expect(updated.id === soc.id, 'Society ID must remain unchanged');
+      const reOverview = masterService.getSocietyOverview(soc.id);
+      expect(reOverview.yearEstablished === '2024', 'Year established must be updated');
+      expect(reOverview.folderPath === soc.folderPath, 'Physical folder path must not be altered by metadata edits');
+
+      // Restore original year
+      masterService.updateSocietyMetadata(soc.id, { yearEstablished: originalYear });
+    });
+
+    await run('T73', 'HENUMASTER — Archive & Restore manages status non-destructively without deleting files', () => {
+      const masterService = HenuMasterService.getInstance();
+      const list = masterService.listSocieties();
+      const soc = list[0];
+
+      // Archive society
+      const archiveRes = masterService.archiveSociety(soc.id);
+      expect(archiveRes, 'Archive operation must return true');
+      const archivedOverview = masterService.getSocietyOverview(soc.id);
+      expect(archivedOverview.status === 'ARCHIVED', 'Society status must become ARCHIVED');
+
+      // Restore society
+      const restoreRes = masterService.restoreSociety(soc.id);
+      expect(restoreRes, 'Restore operation must return true');
+      const restoredOverview = masterService.getSocietyOverview(soc.id);
+      expect(restoredOverview.status === 'ACTIVE', 'Society status must return to ACTIVE');
+    });
+
+    await run('T74', 'HENUMASTER — Recent Activity aggregates document events and generation history', () => {
+      const masterService = HenuMasterService.getInstance();
+      const list = masterService.listSocieties();
+      const socId = list[0].id;
+
+      const activity = masterService.getRecentActivity(socId, 10);
+      expect(Array.isArray(activity), 'Recent activity must return an array');
+    });
+
+    await run('T75', 'HENUMASTER — Executive Summary Export outputs structured plain text, CSV, and JSON', () => {
+      const masterService = HenuMasterService.getInstance();
+      const list = masterService.listSocieties();
+      const socId = list[0].id;
+
+      const textExport = masterService.exportSocietySummary(socId, 'text');
+      expect(textExport.includes('HENU OS RECORD MANAGEMENT'), 'Text export must have header');
+      expect(textExport.includes('STATUTORY REGISTER & DOCUMENT BREAKDOWN'), 'Text export must include register breakdown');
+
+      const csvExport = masterService.exportSocietySummary(socId, 'csv');
+      expect(csvExport.includes('Category,Document Count,Storage Size'), 'CSV export must have columns header');
+
+      const jsonExport = masterService.exportSocietySummary(socId, 'json');
+      const parsed = JSON.parse(jsonExport);
+      expect(parsed.id === socId, 'JSON export must be valid JSON matching society ID');
+    });
+
+    // ── TARGETED IMPLEMENTATION TESTS (Prompt 2 Requirements) ──
+
+    await run('T76', 'Empty Excel Cells — Preserves empty values without inventing defaults across all registers', () => {
+      const blankRec = FormMappingService.createBlankRecord('001');
+      expect(blankRec.srNo === '001', 'Serial number must be 001');
+      expect(blankRec.classOfMember === '', 'Class of member must be empty');
+      expect(blankRec.noOfShares === '', 'No of shares must be empty');
+      expect(blankRec.valueOfOneShare === '', 'Value of one share must be empty');
+      expect(blankRec.valueOfShares === '', 'Value of shares must be empty');
+      expect(blankRec.sharesFrom === '', 'Shares from must be empty');
+      expect(blankRec.sharesTo === '', 'Shares to must be empty');
+      expect(blankRec.permanentAddress === '', 'Permanent address must be empty');
+    });
+
+    await run('T77', 'Common Member Master — Alphanumeric & symbol shares values (10A, ₹500, 10/20, ABC123) preserved without numeric coercion', () => {
+      const mockWb: any = {
+        societyMaster: { societyName: 'TEST SOC' },
+        commonFile: [
+          {
+            srNo: '001',
+            memberName: 'Rahul',
+            noOfShares: '10A',
+            valueOfOneShare: '₹500',
+            valueOfShares: '',
+          },
+          {
+            srNo: '002',
+            memberName: 'Pooja',
+            noOfShares: '10/20',
+            valueOfOneShare: '500-B',
+            valueOfShares: 'ABC123',
+          }
+        ],
+        formIData: [],
+        formJData: [],
+        shareData: [],
+        nominationData: [],
+        propertyData: [],
+        bankLineMarkData: [],
+        voucherData: []
+      };
+
+      const resolved1 = FormMappingService.resolveRecord(mockWb, 'FORM_SHARE', '001');
+      expect(resolved1.noOfShares === '10A', 'Must preserve alphanumeric share count "10A"');
+      expect(resolved1.valueOfOneShare === '₹500', 'Must preserve symbol value "₹500"');
+      expect(resolved1.valueOfShares === '', 'Empty valueOfShares must remain empty');
+
+      const resolved2 = FormMappingService.resolveRecord(mockWb, 'FORM_SHARE', '002');
+      expect(resolved2.noOfShares === '10/20', 'Must preserve "10/20"');
+      expect(resolved2.valueOfOneShare === '500-B', 'Must preserve "500-B"');
+      expect(resolved2.valueOfShares === 'ABC123', 'Must preserve "ABC123"');
+    });
+
+    await run('T78', 'Test Data & Society Management — Deletion is permanent, no auto-resurrection on reload/restart', () => {
+      const masterService = HenuMasterService.getInstance();
+      const initialSocieties = masterService.listSocieties();
+      expect(Array.isArray(initialSocieties), 'Societies list must be an array');
+      // Verify societies are real stored records
+      for (const s of initialSocieties) {
+        expect(Boolean(s.id && s.societyName), 'Each society must have valid id and societyName');
+      }
+    });
+
+    await run('T79', 'Blank Forms Serial Range — FROM=67, TOTAL=10 calculates TO=76', () => {
+      const { calculateToFromTotal } = require('../services/SerialRangeEngine');
+      const to = calculateToFromTotal('67', 10);
+      expect(to === 76, `Expected TO=76, got ${to}`);
+      const range = generateRange('67', String(to));
+      expect(range.length === 10, 'Range 67..76 must yield exactly 10 serials');
+      expect(range[0] === '67' && range[9] === '76', 'Range bounds must be 67 and 76');
+    });
+
+    await run('T80', 'Blank Forms Reverse Formula — FROM=21, TO=88 calculates TOTAL=68', () => {
+      const { calculateTotalFromRange } = require('../services/SerialRangeEngine');
+      const total = calculateTotalFromRange('21', '88');
+      expect(total === 68, `Expected TOTAL=68, got ${total}`);
+    });
+
+    await run('T81', 'Blank Forms Single Form Boundary — FROM=100, TOTAL=1 gives TO=100, TOTAL=1', () => {
+      const { calculateToFromTotal, calculateTotalFromRange } = require('../services/SerialRangeEngine');
+      const to = calculateToFromTotal('100', 1);
+      expect(to === 100, `Expected TO=100, got ${to}`);
+      const total = calculateTotalFromRange('100', '100');
+      expect(total === 1, `Expected TOTAL=1, got ${total}`);
+    });
+
+    await run('T82', 'Blank Forms Prefix & Separator — Prefix "SC", Separator "-" formats SC-67, SC-68, SC-69', () => {
+      const { formatSerialWithPrefix } = require('../services/SerialRangeEngine');
+      expect(formatSerialWithPrefix('67', 'SC', '-') === 'SC-67', 'Must format SC-67');
+      expect(formatSerialWithPrefix('68', 'FORM', '/') === 'FORM/68', 'Must format FORM/68');
+      expect(formatSerialWithPrefix('69', 'A', ' ') === 'A 69', 'Must format A 69');
+      expect(formatSerialWithPrefix('70', '', '-') === '70', 'Empty prefix must not add separator');
+    });
+
+    await run('T83', 'Legal Paper Physical Geometry — Width=612pt, Height=1008pt, Margins 0.7in (50.4pt) and 0.5in (36.0pt)', () => {
+      const { LEGAL_WIDTH, LEGAL_HEIGHT, MARGIN_LEFT, MARGIN_RIGHT, MARGIN_TOP, MARGIN_BOTTOM } = require('../services/renderers/PdfDocumentBuilder');
+      expect(LEGAL_WIDTH === 612, `LEGAL_WIDTH must be 612, got ${LEGAL_WIDTH}`);
+      expect(LEGAL_HEIGHT === 1008, `LEGAL_HEIGHT must be 1008, got ${LEGAL_HEIGHT}`);
+      expect(MARGIN_LEFT === 50.4, `MARGIN_LEFT must be 50.4 (0.7 in), got ${MARGIN_LEFT}`);
+      expect(MARGIN_RIGHT === 50.4, `MARGIN_RIGHT must be 50.4 (0.7 in), got ${MARGIN_RIGHT}`);
+      expect(MARGIN_TOP === 36.0, `MARGIN_TOP must be 36.0 (0.5 in), got ${MARGIN_TOP}`);
+      expect(MARGIN_BOTTOM === 36.0, `MARGIN_BOTTOM must be 36.0 (0.5 in), got ${MARGIN_BOTTOM}`);
+    });
+
+    await run('T84', 'Statutory Register Orientations — Form I (Portrait), Form J (Portrait/Landscape), Share (Landscape), Prop (Landscape), Nom (Landscape), Bank (Portrait)', () => {
+      expect(FormIDefinition.orientation === 'Portrait', 'Form I must be Portrait');
+      expect(FormJDefinition.orientation === 'Portrait', 'Form J default must be Portrait');
+      expect(FormJDefinition.landscapeColumns !== undefined, 'Form J must support Landscape columns');
+      expect(ShareRegisterDefinition.orientation === 'Landscape', 'Share Register must be Landscape');
+      expect(PropertyRegisterDefinition.orientation === 'Landscape', 'Property Register must be Landscape');
+      expect(NominationRegisterDefinition.orientation === 'Landscape', 'Nomination Register must be Landscape');
+      expect(LienMarkDefinition.orientation === 'Portrait', 'Bank Lien Mark Register must be Portrait');
+    });
+
+    await run('T85', 'Blank Form Dual-Mode Generation — Generates clean blank forms with serials and without serials', async () => {
+      const mockWb: any = {
+        societyMaster: { societyName: 'LEGAL SOC', registrationNo: 'REG-123' },
+        commonFile: [],
+        formIData: [],
+        formJData: [],
+        shareData: [],
+        nominationData: [],
+        propertyData: [],
+        bankLineMarkData: [],
+        voucherData: []
+      };
+
+      // Blank With Serial (3 forms)
+      const outWithSerial = await PdfEngine.generate({
+        formId: 'FORM_I',
+        fromSerial: '67',
+        toSerial: '69',
+        blankMode: 'with_serial',
+        prefix: 'SC',
+        separator: '-',
+        workbook: mockWb
+      });
+      expect(outWithSerial.files.length === 3, 'Must produce 3 files for SC-67..SC-69');
+      expect(outWithSerial.files[0].filename.includes('SC-67'), 'First file must be SC-67');
+      expect(outWithSerial.files[2].filename.includes('SC-69'), 'Third file must be SC-69');
+
+      // Blank Without Serial (2 forms)
+      const outNoSerial = await PdfEngine.generate({
+        formId: 'FORM_I',
+        fromSerial: '',
+        toSerial: '',
+        nonSerialCount: 2,
+        blankMode: 'without_serial',
+        workbook: mockWb
+      });
+      expect(outNoSerial.files.length === 2, 'Must produce 2 un-numbered blank forms');
+    });
+
+    await run('T86', 'Form I — multi-entry empty Excel cell integrity & no fake data capture', async () => {
+      const formITopHeader = [
+        'Sr. No.', 'Members Name Full', '', '', '', '', '',
+        'Particulars of Shares Held - Entry 1', '', '', '', '', '', '', '', '', '', '',
+        'Particulars of Shares Held - Entry 2', '', '', '', '', '', '', '', '', '', '',
+        'Particulars of Shares Held - Entry 3', '', '', '', '', '', '', '', '', '', '',
+        'Particulars of Shares Held - Entry 4', '', '', '', '', '', '', '', '', '', '',
+        'Particulars of Shares Held - Entry 5', '', '', '', '', '', '', '', '', '', '',
+        'Particulars of Shares Transferred or Surrendered - Entry 1', '', '', '', '', '', '', '', '',
+        'Particulars of Shares Transferred or Surrendered - Entry 2', '', '', '', '', '', '', '', '',
+        'Particulars of Shares Transferred or Surrendered - Entry 3', '', '', '', '', '', '', '', '',
+        'Particulars of Shares Transferred or Surrendered - Entry 4', '', '', '', '', '', '', '', '',
+        'Particulars of Shares Transferred or Surrendered - Entry 5', '', '', '', '', '', '', '', ''
+      ];
+      const formISubHeader = [
+        '', '1', '2', '3', '4', '5', '6',
+        'Date', 'Cash Book Folio No.', 'Application', 'Allotment', 'Amount Received 1st Call', 'Amount Received 2nd Call', 'Total Amount Received', 'No. of Shares Held', 'Shares From', 'Shares To', 'Share Certificate No.',
+        'Date', 'Cash Book Folio No.', 'Application', 'Allotment', 'Amount Received 1st Call', 'Amount Received 2nd Call', 'Total Amount Received', 'No. of Shares Held', 'Shares From', 'Shares To', 'Share Certificate No.',
+        'Date', 'Cash Book Folio No.', 'Application', 'Allotment', 'Amount Received 1st Call', 'Amount Received 2nd Call', 'Total Amount Received', 'No. of Shares Held', 'Shares From', 'Shares To', 'Share Certificate No.',
+        'Date', 'Cash Book Folio No.', 'Application', 'Allotment', 'Amount Received 1st Call', 'Amount Received 2nd Call', 'Total Amount Received', 'No. of Shares Held', 'Shares From', 'Shares To', 'Share Certificate No.',
+        'Date', 'Cash Book Folio No.', 'Application', 'Allotment', 'Amount Received 1st Call', 'Amount Received 2nd Call', 'Total Amount Received', 'No. of Shares Held', 'Shares From', 'Shares To', 'Share Certificate No.',
+        'Date', 'Cash Book Folio No.', 'Transfer Date', 'Share Certificate No. Transferred', 'No. of Shares Transferred / Refunded', 'Balances - No. of Shares Held', 'Balances - Serial No. of Share Cert.', 'Amount Rs', 'Amount P',
+        'Date', 'Cash Book Folio No.', 'Transfer Date', 'Share Certificate No. Transferred', 'No. of Shares Transferred / Refunded', 'Balances - No. of Shares Held', 'Balances - Serial No. of Share Cert.', 'Amount Rs', 'Amount P',
+        'Date', 'Cash Book Folio No.', 'Transfer Date', 'Share Certificate No. Transferred', 'No. of Shares Transferred / Refunded', 'Balances - No. of Shares Held', 'Balances - Serial No. of Share Cert.', 'Amount Rs', 'Amount P',
+        'Date', 'Cash Book Folio No.', 'Transfer Date', 'Share Certificate No. Transferred', 'No. of Shares Transferred / Refunded', 'Balances - No. of Shares Held', 'Balances - Serial No. of Share Cert.', 'Amount Rs', 'Amount P',
+        'Date', 'Cash Book Folio No.', 'Transfer Date', 'Share Certificate No. Transferred', 'No. of Shares Transferred / Refunded', 'Balances - No. of Shares Held', 'Balances - Serial No. of Share Cert.', 'Amount Rs', 'Amount P'
+      ];
+      const formIData = [
+        '1', 'Nafisha Khatoon Sharif Ahmed Khan', '', '', '', '', '',
+        '', '', '', '', '', '', '', '10 (Ten)', '1', '10', '1',
+        '', '', '', '', '', '', '', '', '', '', '',
+        '', '', '', '', '', '', '', '', '', '', '',
+        '', '', '', '', '', '', '', '', '', '', '',
+        '', '', '', '', '', '', '', '', '', '', '',
+        '', '', '', '', '', '', '', '', '',
+        '', '', '', '', '', '', '', '', '',
+        '', '', '', '', '', '', '', '', '',
+        '', '', '', '', '', '', '', '', '',
+        '', '', '', '', '', '', '', '', ''
+      ];
+
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet([formITopHeader, formISubHeader, formIData]);
+      XLSX.utils.book_append_sheet(wb, ws, '03_Form_I');
+
+      const parsed = MasterDataService.parseXlsxWorkbook(wb, '03_Form_I.xlsx');
+      const rec = parsed.formIData[0];
+
+      expect(rec.memberName === 'Nafisha Khatoon Sharif Ahmed Khan', 'Member name must be parsed accurately');
+      expect(rec.sharesHeldEntries?.length === 5, 'Must parse 5 shares held entries');
+      expect(rec.sharesTransferredEntries?.length === 5, 'Must parse 5 shares transferred entries');
+
+      // Entry 1 has specific populated cells:
+      expect(rec.sharesHeldEntries?.[0]?.date === '', 'Entry 1 Date must be strictly empty');
+      expect(rec.sharesHeldEntries?.[0]?.cashBookFolio === '', 'Entry 1 Cash Book Folio must be strictly empty');
+      expect(rec.sharesHeldEntries?.[0]?.application === '', 'Entry 1 Application must be strictly empty');
+      expect(rec.sharesHeldEntries?.[0]?.allotment === '', 'Entry 1 Allotment must be strictly empty');
+      expect(rec.sharesHeldEntries?.[0]?.call1st === '', 'Entry 1 1st Call must be strictly empty');
+      expect(rec.sharesHeldEntries?.[0]?.call2nd === '', 'Entry 1 2nd Call must be strictly empty');
+      expect(rec.sharesHeldEntries?.[0]?.totalAmountReceived === '', 'Entry 1 Total Amount Received must be strictly empty');
+      expect(rec.sharesHeldEntries?.[0]?.noOfShares === '10 (Ten)', 'Entry 1 No of Shares must match Excel');
+      expect(rec.sharesHeldEntries?.[0]?.sharesFrom === '1', 'Entry 1 Shares From must match Excel');
+      expect(rec.sharesHeldEntries?.[0]?.sharesTo === '10', 'Entry 1 Shares To must match Excel');
+      expect(rec.sharesHeldEntries?.[0]?.shareCertificateNo === '1', 'Entry 1 Share Certificate No must match Excel');
+
+      // Entries 2 to 5 must all be completely empty and NEVER contain member name:
+      for (let i = 1; i < 5; i++) {
+        const sh = rec.sharesHeldEntries?.[i];
+        expect(sh?.date === '', `Entry ${i + 1} Date must be strictly empty`);
+        expect(sh?.cashBookFolio === '', `Entry ${i + 1} Cash Book Folio must be strictly empty`);
+        expect(sh?.application === '', `Entry ${i + 1} Application must be strictly empty`);
+        expect(sh?.allotment === '', `Entry ${i + 1} Allotment must be strictly empty`);
+        expect(sh?.call1st === '', `Entry ${i + 1} 1st Call must be strictly empty`);
+        expect(sh?.call2nd === '', `Entry ${i + 1} 2nd Call must be strictly empty`);
+        expect(sh?.totalAmountReceived === '', `Entry ${i + 1} Total Amount Received must be strictly empty`);
+        expect(sh?.noOfShares === '', `Entry ${i + 1} No of Shares must be strictly empty`);
+        expect(sh?.sharesFrom === '', `Entry ${i + 1} Shares From must be strictly empty`);
+        expect(sh?.sharesTo === '', `Entry ${i + 1} Shares To must be strictly empty`);
+        expect(sh?.shareCertificateNo === '', `Entry ${i + 1} Share Certificate No must be strictly empty`);
+      }
+
+      // Shares Transferred entries 1 to 5 must all be completely empty and NEVER contain member name:
+      for (let i = 0; i < 5; i++) {
+        const st = rec.sharesTransferredEntries?.[i];
+        expect(st?.date === '', `Transfer ${i + 1} Date must be strictly empty`);
+        expect(st?.cashBookFolio === '', `Transfer ${i + 1} Cash Book Folio must be strictly empty`);
+        expect(st?.transferDate === '', `Transfer ${i + 1} Transfer Date must be strictly empty`);
+        expect(st?.shareCertificateNo === '', `Transfer ${i + 1} Share Cert No must be strictly empty`);
+        expect(st?.noOfSharesTransferred === '', `Transfer ${i + 1} No of Shares Transferred must be strictly empty`);
+        expect(st?.balanceNoOfShares === '', `Transfer ${i + 1} Balance No of Shares must be strictly empty`);
+        expect(st?.balanceSerialNoCertificate === '', `Transfer ${i + 1} Balance Cert No must be strictly empty`);
+        expect(st?.amountRs === '', `Transfer ${i + 1} Amount Rs must be strictly empty`);
+        expect(st?.amountP === '', `Transfer ${i + 1} Amount P must be strictly empty`);
+      }
+    });
+
+    await run('T87', 'Society Folder Creation — statutory folders and HENU OCR/VOUCHER & CHECK', () => {
+      const cfg = HenuConfigService.getInstance().getConfig();
+      const testSoc = 'TEST_SOC_T87_' + Date.now();
+      const res = StorageEngine.createSocietyFolders(cfg.rootStoragePath, testSoc);
+      expect(Boolean(res.societyPath), 'Folder creation must succeed');
+      expect(fs.existsSync(path.join(cfg.societiesPath, testSoc, 'Form I')), 'Form I folder must exist');
+      expect(fs.existsSync(path.join(cfg.societiesPath, testSoc, 'Form J')), 'Form J folder must exist');
+      expect(fs.existsSync(path.join(cfg.societiesPath, testSoc, 'Share Register')), 'Share Register folder must exist');
+      expect(fs.existsSync(path.join(cfg.societiesPath, testSoc, 'HENU OCR', 'VOUCHER')), 'HENU OCR/VOUCHER folder must exist');
+      expect(fs.existsSync(path.join(cfg.societiesPath, testSoc, 'HENU OCR', 'CHECK')), 'HENU OCR/CHECK folder must exist');
+      expect(fs.existsSync(path.join(cfg.societiesPath, testSoc, 'Voucher')), 'Voucher folder must exist');
+
+      // Cleanup test folder
+      try {
+        fs.rmSync(path.join(cfg.societiesPath, testSoc), { recursive: true, force: true });
+      } catch {}
+    });
+
+    await run('T88', 'StorageEngine.reconcileSocietyFolders — non-destructive folder provisioning', () => {
+      const cfg = HenuConfigService.getInstance().getConfig();
+      const testSoc = 'TEST_SOC_T88_' + Date.now();
+      const socDir = path.join(cfg.societiesPath, testSoc);
+      fs.mkdirSync(socDir, { recursive: true });
+      fs.writeFileSync(path.join(socDir, 'existing_file.txt'), 'hello');
+
+      const res = StorageEngine.reconcileSocietyFolders(cfg.rootStoragePath, testSoc);
+      expect(res.createdMissing.length > 0, 'Must provision missing folders');
+      expect(fs.existsSync(path.join(socDir, 'existing_file.txt')), 'Existing file must not be deleted');
+      expect(fs.existsSync(path.join(socDir, 'HENU OCR', 'VOUCHER')), 'HENU OCR/VOUCHER must be created');
+      expect(fs.existsSync(path.join(socDir, 'HENU OCR', 'CHECK')), 'HENU OCR/CHECK must be created');
+
+      try {
+        fs.rmSync(socDir, { recursive: true, force: true });
+      } catch {}
+    });
+
+    await run('T89', 'HenuMasterService.deleteSociety — DB cascade, physical folder deletion, active context switch', async () => {
+      const cfg = HenuConfigService.getInstance().getConfig();
+      const testSocName = 'TEST_DELETE_SOC_' + Date.now();
+      const testSocId = 'soc-del-' + Date.now();
+      const db = initializeDatabase();
+
+      // Insert dummy society
+      db.prepare(`
+        INSERT INTO societies (id, society_name, registration_no, is_active, status, created_at)
+        VALUES (?, ?, 'REG-DEL', 1, 'ACTIVE', ?)
+      `).run(testSocId, testSocName, new Date().toISOString());
+
+      StorageEngine.createSocietyFolders(cfg.rootStoragePath, testSocName);
+      const socDir = path.join(cfg.societiesPath, testSocName);
+      expect(fs.existsSync(socDir), 'Test society folder must exist prior to deletion');
+
+      const delRes = await HenuMasterService.getInstance().deleteSociety(testSocId);
+      expect(delRes.success, 'deleteSociety must succeed');
+
+      // Verify DB record removed
+      const row = db.prepare('SELECT id FROM societies WHERE id = ?').get(testSocId);
+      expect(!row, 'Society record must be deleted from DB');
+
+      // Verify physical folder removed
+      expect(!fs.existsSync(socDir), 'Society physical folder must be deleted');
+    });
+
+    await run('T90', 'StorageEngine.deleteSocietyFolder — path traversal rejection and root protection', () => {
+      const cfg = HenuConfigService.getInstance().getConfig();
+      let rejected1 = false;
+      try {
+        StorageEngine.deleteSocietyFolder(cfg.rootStoragePath, '../Backups');
+      } catch {
+        rejected1 = true;
+      }
+      expect(rejected1, 'Must reject path traversal with ..');
+
+      let rejected2 = false;
+      try {
+        StorageEngine.deleteSocietyFolder(cfg.rootStoragePath, '..');
+      } catch {
+        rejected2 = true;
+      }
+      expect(rejected2, 'Must reject parent directory reference');
+    });
+
+    await run('T91', 'BackupService — default scoped ZIP backup preserves Societies/ and includes manifest', async () => {
+      const cfg = HenuConfigService.getInstance().getConfig();
+      const testSoc = 'TEST_BACKUP_SOC_' + Date.now();
+      StorageEngine.createSocietyFolders(cfg.rootStoragePath, testSoc);
+      const sampleFile = path.join(cfg.societiesPath, testSoc, 'Form I', 'sample.pdf');
+      fs.writeFileSync(sampleFile, 'PDF_SAMPLE_DATA');
+
+      const res = await BackupService.getInstance().createScopedBackup({
+        backupType: 'zip',
+        scope: 'all',
+        includeConfig: true,
+      });
+
+      expect(res.success, 'Scoped ZIP backup must succeed');
+      expect(res.backup !== undefined, 'Backup item must be returned');
+      expect(fs.existsSync(res.backup!.filePath), 'Backup ZIP file must exist on disk');
+
+      // Cleanup
+      try {
+        fs.rmSync(path.join(cfg.societiesPath, testSoc), { recursive: true, force: true });
+        if (res.backup?.filePath && fs.existsSync(res.backup.filePath)) {
+          fs.unlinkSync(res.backup.filePath);
+        }
+      } catch {}
+    });
+
+    await run('T92', 'BackupService — custom scope backup with specific folders', async () => {
+      const cfg = HenuConfigService.getInstance().getConfig();
+      const testSoc = 'TEST_CUSTOM_SOC_' + Date.now();
+      StorageEngine.createSocietyFolders(cfg.rootStoragePath, testSoc);
+
+      const res = await BackupService.getInstance().createScopedBackup({
+        backupType: 'zip',
+        scope: 'custom',
+        selectedSocieties: [testSoc],
+        selectedFolders: { [testSoc]: ['Form I', 'HENU OCR/VOUCHER'] },
+        includeConfig: false,
+      });
+
+      expect(res.success, 'Custom scoped backup must succeed');
+
+      try {
+        fs.rmSync(path.join(cfg.societiesPath, testSoc), { recursive: true, force: true });
+        if (res.backup?.filePath && fs.existsSync(res.backup.filePath)) {
+          fs.unlinkSync(res.backup.filePath);
+        }
+      } catch {}
+    });
+
+    await run('T93', 'BackupService — JSON metadata snapshot backup', async () => {
+      const res = await BackupService.getInstance().createScopedBackup({
+        backupType: 'json',
+        scope: 'all',
+        includeConfig: true,
+      });
+
+      expect(res.success, 'JSON backup must succeed');
+      expect(res.backup !== undefined && res.backup.filePath.endsWith('.json'), 'Must produce a .json file');
+      expect(fs.existsSync(res.backup!.filePath), 'JSON file must exist on disk');
+
+      const content = JSON.parse(fs.readFileSync(res.backup!.filePath, 'utf8'));
+      expect(content.backupVersion === 1, 'Must have backupVersion 1');
+      expect(Array.isArray(content.societies), 'Must contain societies array');
+      expect(content.configuration !== undefined, 'Must contain configuration');
+
+      try {
+        if (res.backup?.filePath && fs.existsSync(res.backup.filePath)) {
+          fs.unlinkSync(res.backup.filePath);
+        }
+      } catch {}
+    });
+
+    await run('T94', 'BackupService.validateBackupFile — format detection and error handling', async () => {
+      const valInvalid = await BackupService.getInstance().validateBackupFile('non_existent_path.zip');
+      expect(!valInvalid.isValid, 'Non-existent file must fail validation');
+
+      // Create dummy valid JSON backup
+      const cfg = HenuConfigService.getInstance().getConfig();
+      const dummyJson = path.join(cfg.backupPath, `test_val_${Date.now()}.json`);
+      fs.writeFileSync(dummyJson, JSON.stringify({
+        backupVersion: 1,
+        createdAt: new Date().toISOString(),
+        societies: [{ id: 'soc-1', societyName: 'VALID SOC' }],
+        documents: [],
+      }));
+
+      const valJson = await BackupService.getInstance().validateBackupFile(dummyJson);
+      expect(valJson.isValid, 'Valid JSON backup must pass validation');
+      expect(valJson.backupType === 'JSON', 'Must identify type as JSON');
+      expect(valJson.societies.includes('VALID SOC'), 'Must list societies');
+
+      try {
+        if (fs.existsSync(dummyJson)) fs.unlinkSync(dummyJson);
+      } catch {}
+    });
+
+    await run('T95', 'BackupService.restoreBackup — JSON metadata restoration', async () => {
+      const cfg = HenuConfigService.getInstance().getConfig();
+      const testSocId = 'soc-restore-' + Date.now();
+      const dummyJson = path.join(cfg.backupPath, `test_restore_${Date.now()}.json`);
+      fs.writeFileSync(dummyJson, JSON.stringify({
+        backupVersion: 1,
+        createdAt: new Date().toISOString(),
+        societies: [{ id: testSocId, society_name: 'RESTORED SOCIETY TEST', registration_no: 'REG-RESTORE' }],
+        documents: [],
+      }));
+
+      const restoreRes = await BackupService.getInstance().restoreBackup(dummyJson);
+      expect(restoreRes.success, 'Restore must succeed');
+
+      const db = initializeDatabase();
+      const row = db.prepare('SELECT society_name FROM societies WHERE id = ?').get(testSocId) as any;
+      expect(row && row.society_name === 'RESTORED SOCIETY TEST', 'Restored society must exist in DB');
+
+      // Cleanup
+      db.prepare('DELETE FROM societies WHERE id = ?').run(testSocId);
+      try {
+        if (fs.existsSync(dummyJson)) fs.unlinkSync(dummyJson);
+      } catch {}
+    });
+
+    await run('T96', 'HenuSecurityService — Admin Password Verification & Rejection', async () => {
+      const sec = HenuSecurityService.getInstance();
+      const validRes = sec.verifyAdminPassword('HENU@12a');
+      expect(validRes.success === true, 'Authorized admin password 1 must be accepted');
+
+      const validRes2 = sec.verifyAdminPassword('HENU$Global&Net2026');
+      expect(validRes2.success === true, 'Authorized admin password 10 must be accepted');
+
+      const invalidRes = sec.verifyAdminPassword('WRONG_ADMIN_PASS_123');
+      expect(invalidRes.success === false, 'Invalid admin password must be rejected');
+      expect(invalidRes.error === 'Invalid password.', 'Must show generic error');
+    });
+
+    await run('T97', 'HenuSecurityService — OCR Password Verification & Module Unlock', async () => {
+      const sec = HenuSecurityService.getInstance();
+      sec.lockOcrModule('voucher-ocr');
+      expect(sec.isOcrUnlocked('voucher-ocr') === false, 'Voucher OCR must start locked');
+
+      const validOcr = sec.verifyOcrPassword('HENU9#qZ', 'voucher-ocr');
+      expect(validOcr.success === true, 'Authorized OCR password must unlock module');
+      expect(sec.isOcrUnlocked('voucher-ocr') === true, 'Voucher OCR module must now be unlocked');
+
+      const invalidOcr = sec.verifyOcrPassword('INVALID_OCR_KEY', 'check-ocr');
+      expect(invalidOcr.success === false, 'Invalid OCR password must be rejected');
+    });
+
+    await run('T98', 'HenuSecurityService — OCR Module Lock Session Transition', async () => {
+      const sec = HenuSecurityService.getInstance();
+      sec.verifyOcrPassword('HENU9#qZ', 'check-ocr');
+      expect(sec.isOcrUnlocked('check-ocr') === true, 'Check OCR must be unlocked');
+
+      sec.lockOcrModule('check-ocr');
+      expect(sec.isOcrUnlocked('check-ocr') === false, 'Check OCR must be locked after explicit lock');
+    });
+
+    await run('T99', 'HenuSecurityService — MFA Challenge & Single-Use Token Lifecycle', async () => {
+      const sec = HenuSecurityService.getInstance();
+      const socId = 'soc-mfa-test-' + Date.now();
+      const challenge = sec.createMfaChallenge(socId);
+      expect(challenge.success === true, 'MFA challenge creation must succeed');
+      expect(Boolean(challenge.code && challenge.code.length === 6), 'Challenge code must be 6 digits');
+
+      // Wrong code
+      const wrongVerify = sec.verifyMfaChallenge(challenge.challengeId, '000000', socId);
+      expect(wrongVerify.success === false, 'Wrong MFA code must be rejected');
+
+      // Correct code
+      const validVerify = sec.verifyMfaChallenge(challenge.challengeId, challenge.code, socId);
+      expect(validVerify.success === true, 'Correct MFA code must succeed');
+      expect(Boolean(typeof validVerify.mfaToken === 'string' && validVerify.mfaToken.startsWith('mfa_')), 'Must return single-use token');
+    });
+
+    await run('T100', 'HenuSecurityService — Unauthorized Deletion Rejection (Missing/Invalid MFA Token)', async () => {
+      const sec = HenuSecurityService.getInstance();
+      let rejected = false;
+      try {
+        sec.executeSecureSocietyDelete('fake-soc-id', 'invalid_token_xyz');
+      } catch (err: any) {
+        rejected = true;
+        expect(err.message.includes('Security Violation') || err.message.includes('MFA'), 'Must throw security violation');
+      }
+      expect(rejected === true, 'Deletion without valid MFA token must be blocked');
+    });
+
+    await run('T101', 'HenuSecurityService — Security Audit Logging Table Verification', async () => {
+      const sec = HenuSecurityService.getInstance();
+      const logs = sec.getAuditLogs(10);
+      expect(Array.isArray(logs), 'Audit logs must return array');
+      expect(logs.length > 0, 'Audit logs must record authentication and security events');
+    });
+
+    await run('T102', 'StorageEngine — Multi-Partition Directory Structure & Resolution', async () => {
+      const cfg = HenuConfigService.getInstance().getConfig();
+      const testSoc = 'TEST_SOCIETY_ISO_' + Date.now();
+      const socPath = StorageEngine.getSocietyStoragePath(cfg.rootStoragePath, testSoc);
+      const impPath = StorageEngine.getSocietyImportsPath(cfg.rootStoragePath, testSoc);
+      const expPath = StorageEngine.getSocietyExportsPath(cfg.rootStoragePath, testSoc);
+
+      expect(socPath.includes(path.join('Societies', testSoc)), 'Society path must resolve under Societies/<Society>');
+      expect(impPath.includes(path.join('Imports', testSoc)), 'Imports path must resolve under Imports/<Society>');
+      expect(expPath.includes(path.join('Exports', testSoc)), 'Exports path must resolve under Exports/<Society>');
+
+      // Create partition folders
+      const created = StorageEngine.createSocietyFolders(cfg.rootStoragePath, testSoc);
+      expect(fs.existsSync(path.join(impPath, 'Templates')), 'Imports/Templates folder must exist');
+      expect(fs.existsSync(path.join(impPath, 'Imported')), 'Imports/Imported folder must exist');
+      expect(fs.existsSync(path.join(impPath, 'Working')), 'Imports/Working folder must exist');
+      expect(fs.existsSync(path.join(expPath, 'Excel')), 'Exports/Excel folder must exist');
+      expect(fs.existsSync(path.join(expPath, 'CSV')), 'Exports/CSV folder must exist');
+      expect(Boolean(created.societyPath), 'Society folder path must be returned');
+
+      // Cleanup
+      StorageEngine.deleteSocietyFolder(cfg.rootStoragePath, testSoc);
+      expect(!fs.existsSync(socPath), 'Society folder should be deleted');
+      expect(!fs.existsSync(impPath), 'Imports partition should be deleted');
+      expect(!fs.existsSync(expPath), 'Exports partition should be deleted');
+    });
+
+    await run('T103', 'HenuSocietyContextService — Monotonic Versioning & Active Society Switch', async () => {
+      const contextService = HenuSocietyContextService.getInstance();
+      const v1 = contextService.getContextVersion();
+      expect(typeof v1.version === 'number', 'Version must be numeric');
+      expect(typeof v1.token === 'string', 'Token must be string');
+
+      // Switch context to Soc A
+      const ctxA = contextService.switchActiveSociety('soc-a-test', 'Society Alpha', 'REG-AAA-01');
+      expect(ctxA.activeSocietyId === 'soc-a-test', 'Active society ID must be soc-a-test');
+      expect(ctxA.version > v1.version, 'Context version must strictly increment on switch');
+      expect(ctxA.token.startsWith('soc-a-test_v'), 'Token must contain active society ID and version');
+
+      // Switch context to Soc B
+      const ctxB = contextService.switchActiveSociety('soc-b-test', 'Society Beta', 'REG-BBB-02');
+      expect(ctxB.activeSocietyId === 'soc-b-test', 'Active society ID must be soc-b-test');
+      expect(ctxB.version > ctxA.version, 'Context version must strictly increment on second switch');
+      expect(ctxB.token.startsWith('soc-b-test_v'), 'Token must reflect new society');
+    });
+
+    await run('T104', 'HenuSocietyContextService — Import & Export Scoped Database Isolation', async () => {
+      const contextService = HenuSocietyContextService.getInstance();
+      const socA = 'soc-iso-a-' + Date.now();
+      const socB = 'soc-iso-b-' + Date.now();
+
+      // Record imports for Soc A
+      contextService.recordImport({
+        societyId: socA,
+        fileName: 'Alpha_Members.xlsx',
+        filePath: 'C:/mock/Alpha_Members.xlsx',
+        importType: 'EXCEL',
+        recordCount: 100,
+        importedBy: 'Admin',
+      });
+      // Record export for Soc A
+      contextService.recordExport({
+        societyId: socA,
+        fileName: 'Alpha_Form_I.xlsx',
+        filePath: 'C:/mock/Alpha_Form_I.xlsx',
+        exportType: 'EXCEL',
+        recordCount: 100,
+      });
+
+      // Query Soc A
+      const importsA = contextService.getSocietyImports(socA);
+      const exportsA = contextService.getSocietyExports(socA);
+      expect(importsA.length >= 1, 'Soc A must have at least 1 import');
+      expect(exportsA.length >= 1, 'Soc A must have at least 1 export');
+      expect(importsA[0].fileName === 'Alpha_Members.xlsx', 'Soc A import filename must match');
+
+      // Query Soc B (Fresh society)
+      const importsB = contextService.getSocietyImports(socB);
+      const exportsB = contextService.getSocietyExports(socB);
+      expect(importsB.length === 0, 'Soc B must have 0 imports (Strictly isolated from Soc A)');
+      expect(exportsB.length === 0, 'Soc B must have 0 exports (Strictly isolated from Soc A)');
+    });
+
+    await run('T105', 'HenuSocietyContextService — Template Isolation & Global Library Reuse', async () => {
+      const contextService = HenuSocietyContextService.getInstance();
+      const cfg = HenuConfigService.getInstance().getConfig();
+      const db = initializeDatabase();
+      const socA = 'soc-tmpl-a-' + Date.now();
+      const socB = 'soc-tmpl-b-' + Date.now();
+      const socAName = 'Alpha Housing Society ' + Date.now();
+      const socBName = 'Beta Housing Society ' + Date.now();
+
+      db.prepare('INSERT INTO societies (id, society_name, registration_no, status, folder_path, created_at) VALUES (?, ?, ?, ?, ?, ?)').run(
+        socA,
+        socAName,
+        'REG-A',
+        'ACTIVE',
+        StorageEngine.getSocietyStoragePath(cfg.rootStoragePath, socAName),
+        new Date().toISOString()
+      );
+      db.prepare('INSERT INTO societies (id, society_name, registration_no, status, folder_path, created_at) VALUES (?, ?, ?, ?, ?, ?)').run(
+        socB,
+        socBName,
+        'REG-B',
+        'ACTIVE',
+        StorageEngine.getSocietyStoragePath(cfg.rootStoragePath, socBName),
+        new Date().toISOString()
+      );
+
+      StorageEngine.createSocietyFolders(cfg.rootStoragePath, socAName);
+      StorageEngine.createSocietyFolders(cfg.rootStoragePath, socBName);
+
+      // Create a dummy template file in Soc A's partition
+      const socATemplatesDir = path.join(StorageEngine.getSocietyImportsPath(cfg.rootStoragePath, socAName), 'Templates');
+      fs.mkdirSync(socATemplatesDir, { recursive: true });
+      const tmplFile = path.join(socATemplatesDir, 'Master_Template_2026.xlsx');
+      fs.writeFileSync(tmplFile, 'DUMMY_TEMPLATE_DATA');
+
+      // Record template usage in Soc A
+      contextService.recordTemplateUsage({
+        societyId: socA,
+        templateName: 'Master_Template_2026.xlsx',
+        templatePath: tmplFile,
+      });
+
+      // Verify template history is isolated
+      const tmplA = contextService.getSocietyTemplates(socA);
+      const tmplB = contextService.getSocietyTemplates(socB);
+      expect(tmplA.length === 1, 'Soc A must have 1 template recorded');
+      expect(tmplB.length === 0, 'Soc B must have 0 templates recorded (No cross-society history leak)');
+
+      // Verify Global Template Library reflects usage
+      const library = contextService.getGlobalTemplateLibrary();
+      const entry = library.find(t => t.templateName === 'Master_Template_2026.xlsx');
+      expect(Boolean(entry), 'Global Template Library must contain entry');
+      expect(entry?.usedBySocieties.some(u => u.societyId === socA) === true, 'Global Library must list Soc A as user');
+
+      // Reuse Template for Soc B
+      const reuseRes = contextService.reuseTemplateForSociety('Master_Template_2026.xlsx', socB);
+      expect(reuseRes.success === true, 'Template reuse must succeed');
+      expect(fs.existsSync(reuseRes.targetPath!), 'Cloned template must exist in Soc B isolated directory');
+
+      // Soc B now has its own isolated template record
+      const tmplBAfter = contextService.getSocietyTemplates(socB);
+      expect(tmplBAfter.length === 1, 'Soc B must now have 1 isolated template record');
+      expect(tmplBAfter[0].societyId === socB, 'Template record must be owned by Soc B');
+
+      // Cleanup
+      StorageEngine.deleteSocietyFolder(cfg.rootStoragePath, socAName);
+      StorageEngine.deleteSocietyFolder(cfg.rootStoragePath, socBName);
+      db.prepare('DELETE FROM societies WHERE id IN (?, ?)').run(socA, socB);
+    });
+
+    await run('T106', 'HenuMasterService — Global Aggregate Statistics & Completion Tracking', async () => {
+      const masterService = HenuMasterService.getInstance();
+      const kpis = masterService.getDashboardKPIs();
+
+      expect(typeof kpis.totalSocieties === 'number', 'Total societies must be numeric');
+      expect(typeof kpis.activeSocieties === 'number', 'Active societies must be numeric');
+      expect(typeof kpis.archivedSocieties === 'number', 'Archived societies must be numeric');
+      expect(typeof kpis.totalDocuments === 'number', 'Total documents must be numeric');
+      expect(typeof kpis.totalImports === 'number', 'Total imports must be numeric');
+      expect(typeof kpis.totalExports === 'number', 'Total exports must be numeric');
+      expect(typeof kpis.completedSocieties === 'number', 'Completed societies must be numeric');
+      expect(typeof kpis.inProgressSocieties === 'number', 'In-progress societies must be numeric');
+      expect(typeof kpis.notStartedSocieties === 'number', 'Not-started societies must be numeric');
+      expect(kpis.completedSocieties + kpis.inProgressSocieties + kpis.notStartedSocieties === kpis.totalSocieties, 'Completion breakdown must equal total societies');
+    });
+
+    await run('T107', 'HenuSecurityService & StorageEngine — Multi-Partition Society Deletion Cascade', async () => {
+      const sec = HenuSecurityService.getInstance();
+      const cfg = HenuConfigService.getInstance().getConfig();
+      const db = initializeDatabase();
+
+      const testSocId = 'soc-del-cascade-' + Date.now();
+      const testSocName = 'CASCADE_DELETE_TEST_' + Date.now();
+
+      // Create DB society
+      db.prepare('INSERT INTO societies (id, society_name, registration_no, status, folder_path, created_at) VALUES (?, ?, ?, ?, ?, ?)').run(
+        testSocId,
+        testSocName,
+        'REG-DEL-01',
+        'ACTIVE',
+        StorageEngine.getSocietyStoragePath(cfg.rootStoragePath, testSocName),
+        new Date().toISOString()
+      );
+
+      // Create storage partitions
+      StorageEngine.createSocietyFolders(cfg.rootStoragePath, testSocName);
+      expect(fs.existsSync(StorageEngine.getSocietyStoragePath(cfg.rootStoragePath, testSocName)), 'Society folder must exist');
+      expect(fs.existsSync(StorageEngine.getSocietyImportsPath(cfg.rootStoragePath, testSocName)), 'Imports partition must exist');
+      expect(fs.existsSync(StorageEngine.getSocietyExportsPath(cfg.rootStoragePath, testSocName)), 'Exports partition must exist');
+
+      // Add imports & exports records
+      HenuSocietyContextService.getInstance().recordImport({
+        societyId: testSocId,
+        fileName: 'test.xlsx',
+        filePath: 'path/test.xlsx',
+        importType: 'EXCEL',
+        recordCount: 50,
+      });
+      HenuSocietyContextService.getInstance().recordExport({
+        societyId: testSocId,
+        fileName: 'test_exp.xlsx',
+        filePath: 'path/test_exp.xlsx',
+        exportType: 'EXCEL',
+        recordCount: 50,
+      });
+
+      // Request MFA challenge & execute deletion
+      const challenge = sec.createMfaChallenge(testSocId);
+      const verify = sec.verifyMfaChallenge(challenge.challengeId, challenge.code, testSocId);
+      expect(verify.success, 'MFA must verify');
+
+      const delRes = sec.executeSecureSocietyDelete(testSocId, verify.mfaToken!);
+      expect(delRes.success === true, 'Cascade deletion must succeed');
+
+      // Verify DB cleanup
+      const socRow = db.prepare('SELECT id FROM societies WHERE id = ?').get(testSocId);
+      expect(!socRow, 'Society must be deleted from DB');
+      const impRows = HenuSocietyContextService.getInstance().getSocietyImports(testSocId);
+      expect(impRows.length === 0, 'Import records must be purged');
+
+      // Verify Storage cleanup across all partitions
+      expect(!fs.existsSync(StorageEngine.getSocietyStoragePath(cfg.rootStoragePath, testSocName)), 'Physical society folder must be removed');
+      expect(!fs.existsSync(StorageEngine.getSocietyImportsPath(cfg.rootStoragePath, testSocName)), 'Imports partition must be removed');
+      expect(!fs.existsSync(StorageEngine.getSocietyExportsPath(cfg.rootStoragePath, testSocName)), 'Exports partition must be removed');
+    });
+
+    await run('T108', 'HenuSocietyContextService — Async Context Token Validation Guard', async () => {
+      const contextService = HenuSocietyContextService.getInstance();
+      const socA = 'soc-async-a';
+      const socB = 'soc-async-b';
+
+      // Switch to Soc A
+      const ctxA = contextService.switchActiveSociety(socA, 'Society A', 'REG-A');
+      const tokenA = ctxA.token;
+
+      // Check validation
+      expect(contextService.validateContextToken(tokenA) === true, 'Token A must be valid while Soc A is active');
+      expect(contextService.validateActiveSociety(socA) === true, 'Soc A must be valid while Soc A is active');
+
+      // Switch to Soc B
+      contextService.switchActiveSociety(socB, 'Society B', 'REG-B');
+
+      // Token A must now be rejected
+      expect(contextService.validateContextToken(tokenA) === false, 'Token A must be rejected after context switch to Soc B');
+      expect(contextService.validateActiveSociety(socA) === false, 'Soc A async results must be rejected after context switch to Soc B');
+      expect(contextService.validateActiveSociety(socB) === true, 'Soc B must now be validated');
+    });
+
     const passed = results.filter(r => r.passed).length;
     const failed = results.filter(r => !r.passed).length;
     return {

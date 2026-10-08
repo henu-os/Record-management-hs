@@ -18,6 +18,7 @@ import {
 } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
 import { SocietyMaster } from '../../types';
+import { FormMappingService } from '../FormMappingService';
 
 export type Alignment = 'left' | 'center' | 'right';
 
@@ -152,14 +153,19 @@ export const COLOR_TEXT          = COLOR_BODY_TEXT;
 export const COLOR_PAGE_NUMBER   = COLOR_HEADER_TEXT;
 
 // ── Legal Paper Dimensions (in points) ────────────────────────
-// 8.5 × 14 inches = 612 × 1008 points
-const LEGAL_WIDTH  = 612;
-const LEGAL_HEIGHT = 1008;
+// 8.5 × 14 inches = 612 × 1008 points (1 inch = 72 points)
+export const LEGAL_WIDTH  = 612;
+export const LEGAL_HEIGHT = 1008;
 
-// Hard-binding margins: 0.75 inches = 54 points on all sides
-// Portrait usable: 7.0" × 12.5" = 504 × 900 pt
-// Landscape usable: 12.5" × 7.0" = 900 × 504 pt
-const SAFE_MARGIN = 54;
+// Exact physical margins:
+// Left: 0.7 inch = 50.4 points
+// Right: 0.7 inch = 50.4 points
+// Top: 0.5 inch = 36.0 points
+// Bottom: 0.5 inch = 36.0 points
+export const MARGIN_LEFT   = 50.4;
+export const MARGIN_RIGHT  = 50.4;
+export const MARGIN_TOP    = 36.0;
+export const MARGIN_BOTTOM = 36.0;
 
 export interface PdfSettingsOptions {
   colorMode?: 'Color' | 'BW';
@@ -219,10 +225,10 @@ export class PdfDocumentBuilder {
   pageWidth: number = LEGAL_WIDTH;
   pageHeight: number = LEGAL_HEIGHT;
 
-  marginLeft: number = SAFE_MARGIN;
-  marginRight: number = SAFE_MARGIN;
-  marginTop: number = SAFE_MARGIN;
-  marginBottom: number = SAFE_MARGIN;
+  marginLeft: number = MARGIN_LEFT;
+  marginRight: number = MARGIN_RIGHT;
+  marginTop: number = MARGIN_TOP;
+  marginBottom: number = MARGIN_BOTTOM;
 
   currentY: number = 0;
   title: string = '';
@@ -582,13 +588,20 @@ export class PdfDocumentBuilder {
     const headerStartY = this.currentY;
     let y = headerStartY;
 
-    const societyName = (this.society?.societyName || 'HENU OS PVT LTD CO-SOC').toUpperCase();
-    const regNo = (this.society?.registrationNo || '').trim();
-    const regDate = (this.society?.registrationDate || '').trim();
-    const regInfo = (regNo || regDate)
-      ? `${regNo || '[REGISTRATION NO.]'}.: ${regDate || '[DATE]'}`
-      : '[REGISTRATION NO].: [DATE]';
-    const address = this.society?.headerAddress || this.society?.address || '[SOCIETY REGISTERED ADDRESS]';
+    const societyName = !FormMappingService.isInvalidValue(this.society?.societyName)
+      ? (this.society?.societyName || '').trim().toUpperCase()
+      : '';
+    const regNo = !FormMappingService.isInvalidValue(this.society?.registrationNo)
+      ? (this.society?.registrationNo || '').trim()
+      : '';
+    const regDate = !FormMappingService.isInvalidValue(this.society?.registrationDate)
+      ? (this.society?.registrationDate || '').trim()
+      : '';
+    const regInfo = (regNo && regDate)
+      ? `${regNo}: ${regDate}`
+      : (regNo || regDate);
+    const rawAddress = this.society?.headerAddress || this.society?.address || '';
+    const address = !FormMappingService.isInvalidValue(rawAddress) ? rawAddress.trim() : '';
 
     const cw = this.contentWidth;
     const font = this.boldText ? this.boldFont : (this.italicText ? this.font : this.font);
@@ -601,43 +614,49 @@ export class PdfDocumentBuilder {
       return this.marginLeft + (cw - textWidth) / 2;
     };
 
-    // LINE 1: Society Registration Name (bold, 12pt)
-    const row1H = headSize + 6;
-    const s1 = boldFont.widthOfTextAtSize(societyName, headSize);
-    page.drawText(societyName, {
-      x: getX(s1),
-      y: y - headSize - 2,
-      size: headSize,
-      font: boldFont,
-      color: this.headerText,
-    });
-    y -= row1H;
+    // LINE 1: Society Registration Name (bold, 12pt) — Only draw if actual name is present
+    if (societyName) {
+      const row1H = headSize + 6;
+      const s1 = boldFont.widthOfTextAtSize(societyName, headSize);
+      page.drawText(societyName, {
+        x: getX(s1),
+        y: y - headSize - 2,
+        size: headSize,
+        font: boldFont,
+        color: this.headerText,
+      });
+      y -= row1H;
+    }
 
-    // LINE 2: {Society Registration No}.: {Date} (compact format)
-    const row2H = subSize + 4;
-    const s2 = font.widthOfTextAtSize(regInfo, subSize);
-    page.drawText(regInfo, {
-      x: getX(s2),
-      y: y - subSize - 2,
-      size: subSize,
-      font: font,
-      color: this.bodyTextColor,
-    });
-    y -= row2H;
-
-    // LINE 3: Society Registered Address (wrapped naturally if long)
-    const addrLines = this.wrapText(address, cw - 120, subSize);
-    for (const line of addrLines) {
-      const row3H = subSize + 3;
-      const s3 = font.widthOfTextAtSize(line, subSize);
-      page.drawText(line, {
-        x: getX(s3),
+    // LINE 2: {Society Registration No}.: {Date} (compact format) — Only draw if present
+    if (regInfo) {
+      const row2H = subSize + 4;
+      const s2 = font.widthOfTextAtSize(regInfo, subSize);
+      page.drawText(regInfo, {
+        x: getX(s2),
         y: y - subSize - 2,
         size: subSize,
         font: font,
         color: this.bodyTextColor,
       });
-      y -= row3H;
+      y -= row2H;
+    }
+
+    // LINE 3: Society Registered Address (wrapped naturally if long) — Only draw if present
+    if (address) {
+      const addrLines = this.wrapText(address, cw - 120, subSize).filter(l => !FormMappingService.isInvalidValue(l));
+      for (const line of addrLines) {
+        const row3H = subSize + 3;
+        const s3 = font.widthOfTextAtSize(line, subSize);
+        page.drawText(line, {
+          x: getX(s3),
+          y: y - subSize - 2,
+          size: subSize,
+          font: font,
+          color: this.bodyTextColor,
+        });
+        y -= row3H;
+      }
     }
 
     // Thin separator line before form title

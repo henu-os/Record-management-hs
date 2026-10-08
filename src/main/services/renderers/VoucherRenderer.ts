@@ -426,7 +426,7 @@ export class VoucherRenderer {
     logoImg?: PDFImage
   ) {
     // Dynamic Society & Voucher Metadata
-    const fullSocName = data.societyName || society?.societyName || 'Aishwarya Heights Co-op. Housing Society Ltd.';
+    const fullSocName = data.societyName || society?.societyName || '';
     const socNo = data.socNumber || society?.registrationNo || '';
     const regDate = formatDateString(society?.registrationDate || '');
     const socAddress = data.societyAddress || society?.address || '';
@@ -819,7 +819,7 @@ export class VoucherRenderer {
     fonts: Fonts,
     logoImg?: PDFImage
   ) {
-    const fullSocName = data.societyName || society?.societyName || 'SAI RACHNA CO-OP. HOUSING SOCIETY LTD.';
+    const fullSocName = data.societyName || society?.societyName || '';
     const socNo = data.socNumber || society?.registrationNo || '';
     const regDate = formatDateString(society?.registrationDate || '');
     const socAddress = data.societyAddress || society?.address || '';

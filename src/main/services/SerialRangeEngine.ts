@@ -144,3 +144,41 @@ export function validateSerialRange(from: string, to: string, nonSerialCount = 0
 
   return null;
 }
+
+/**
+ * Calculates TO serial from FROM and TOTAL (inclusive range).
+ * Formula: TO = FROM + TOTAL - 1
+ */
+export function calculateToFromTotal(from: string | number, total: number): number {
+  const fromNum = typeof from === 'number' ? from : parseInt(String(from).replace(/\D/g, ''), 10);
+  if (isNaN(fromNum) || total < 1) return fromNum;
+  return fromNum + total - 1;
+}
+
+/**
+ * Calculates TOTAL count from FROM and TO (inclusive range).
+ * Formula: TOTAL = TO - FROM + 1
+ */
+export function calculateTotalFromRange(from: string | number, to: string | number): number {
+  const fromNum = typeof from === 'number' ? from : parseInt(String(from).replace(/\D/g, ''), 10);
+  const toNum = typeof to === 'number' ? to : parseInt(String(to).replace(/\D/g, ''), 10);
+  if (isNaN(fromNum) || isNaN(toNum) || toNum < fromNum) return 0;
+  return toNum - fromNum + 1;
+}
+
+/**
+ * Formats a serial string with optional prefix and separator.
+ * Examples:
+ *   formatSerialWithPrefix('67', 'SC', '-') => 'SC-67'
+ *   formatSerialWithPrefix('68', 'FORM', '/') => 'FORM/68'
+ *   formatSerialWithPrefix('69', 'A', ' ') => 'A 69'
+ *   formatSerialWithPrefix('70', '', '') => '70'
+ */
+export function formatSerialWithPrefix(serial: string | number, prefix?: string, separator?: string): string {
+  const sStr = String(serial).trim();
+  if (!sStr) return '';
+  const p = (prefix || '').trim();
+  if (!p) return sStr;
+  const sep = separator !== undefined ? separator : '-';
+  return `${p}${sep}${sStr}`;
+}

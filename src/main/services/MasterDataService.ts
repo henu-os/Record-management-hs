@@ -177,6 +177,7 @@ function getRows(sheet: XLSX.WorkSheet | null): Record<string, unknown>[] {
 
     // Determine column keys
     const colKeys: string[] = [];
+    const colUnderscoreKeys: string[] = [];
     const maxCols = Math.max(topHeader.length, subHeader.length);
     let lastTop = '';
 
@@ -187,10 +188,14 @@ function getRows(sheet: XLSX.WorkSheet | null): Record<string, unknown>[] {
 
       if (topCell && subCell && topCell.toLowerCase() !== subCell.toLowerCase()) {
         colKeys.push(`${topCell} ${subCell}`);
+        colUnderscoreKeys.push(`${topCell}_${subCell}`);
       } else if (subCell && lastTop && lastTop.toLowerCase() !== subCell.toLowerCase()) {
         colKeys.push(`${lastTop} ${subCell}`);
+        colUnderscoreKeys.push(`${lastTop}_${subCell}`);
       } else {
-        colKeys.push(topCell || subCell || `Col_${c + 1}`);
+        const k = topCell || subCell || `Col_${c + 1}`;
+        colKeys.push(k);
+        colUnderscoreKeys.push(k);
       }
     }
 
@@ -210,12 +215,10 @@ function getRows(sheet: XLSX.WorkSheet | null): Record<string, unknown>[] {
         const key = colKeys[c] || `Col_${c + 1}`;
         obj[key] = val !== undefined ? val : '';
 
-        // Also map topHeader key alone if present
-        const topKey = String(topHeader[c] || '').trim();
-        if (topKey && !obj[topKey]) obj[topKey] = val !== undefined ? val : '';
-        // Also map subHeader key alone if present
-        const subKey = String(subHeader[c] || '').trim();
-        if (subKey && !obj[subKey]) obj[subKey] = val !== undefined ? val : '';
+        const uKey = colUnderscoreKeys[c];
+        if (uKey && uKey !== key) {
+          obj[uKey] = val !== undefined ? val : '';
+        }
 
         if (val !== undefined && String(val).trim() !== '') hasAnyVal = true;
       }
@@ -237,6 +240,27 @@ function normalizeHeader(h: string): string {
   return h.toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
+function colExact(row: Record<string, unknown>, ...candidates: string[]): string {
+  const keys = Object.keys(row);
+  if (keys.length === 0) return '';
+
+  const normKeys = keys.map(k => ({ orig: k, norm: normalizeHeader(k) }));
+
+  for (const cand of candidates) {
+    const normCand = normalizeHeader(cand);
+    if (!normCand) continue;
+    const found = normKeys.find(k => k.norm === normCand);
+    if (found && safeStr(row[found.orig]) !== '') return safeStr(row[found.orig]);
+  }
+
+  return '';
+}
+
+function colDateExact(row: Record<string, unknown>, ...candidates: string[]): string {
+  const val = colExact(row, ...candidates);
+  return val ? excelDate(val) : '';
+}
+
 function col(row: Record<string, unknown>, ...candidates: string[]): string {
   const keys = Object.keys(row);
   if (keys.length === 0) return '';
@@ -246,15 +270,17 @@ function col(row: Record<string, unknown>, ...candidates: string[]): string {
   // 1. Exact normalized match
   for (const cand of candidates) {
     const normCand = normalizeHeader(cand);
+    if (!normCand) continue;
     const found = normKeys.find(k => k.norm === normCand);
     if (found && safeStr(row[found.orig]) !== '') return safeStr(row[found.orig]);
   }
 
-  // 2. Substring match (skip very short strings unless explicit numeric candidate)
+  // 2. Substring match: The actual column header (k.norm) must contain the candidate (normCand)
+  // Candidate must have sufficient length (>= 5) to avoid accidental collisions (e.g. '1', 'no', 'date', 'to', 'from')
   for (const cand of candidates) {
     const normCand = normalizeHeader(cand);
-    if (normCand.length < 2) continue;
-    const found = normKeys.find(k => k.norm.includes(normCand) || normCand.includes(k.norm));
+    if (normCand.length < 5) continue;
+    const found = normKeys.find(k => k.norm.includes(normCand));
     if (found && safeStr(row[found.orig]) !== '') return safeStr(row[found.orig]);
   }
 
@@ -296,143 +322,134 @@ function parseSocietyMaster(sheet: XLSX.WorkSheet | null): SocietyMaster | null 
     return '';
   };
 
-  const kvMap = new Map<string, string>();
+  const knownFieldLabels = new Set([
+    'societyname', 'societyregistrationno', 'societyregistrationnumber', 'registrationno', 'registrationnumber', 'regno',
+    'societyregistrationdate', 'registrationdate', 'dateofregistration',
+    'hedderaddress', 'headeraddress', 'societyaddress',
+    'societyaddressline1', 'societyaddressline2', 'societyaddressline3', 'societyaddressline4', 'societyaddressline5', 'societyaddressline6',
+    'societyemailid', 'societyemail', 'emailid', 'email',
+    'societytelephonemobileno', 'societytelephoneormobileno', 'telephonemobileno', 'telephone', 'mobile',
+    'totalunit', 'totalunits',
+    'noofflatorroom', 'noofflat', 'noshop', 'nooffice', 'nogalas', 'noofgalas',
+    'noofprintblankextrasrno', 'noofprintblank',
+    'addresspermanent', 'addressresidentialcareof', 'addressresidentialcareoff', 'newaddressasabove',
+    'flatroomshopofficegalano', 'flattenementno', 'wingno',
+    'null', 'undefined', 'nan', 'na', 'n/a',
+    'field', 'value', 'srno', 'serialno', 'line1', 'line2', 'line3', 'line4', 'line5', 'line6',
+    'fieldname', 'fieldvalue', 'anoofflatorroom', 'bnoshop', 'cnooffice', 'dnogalas'
+  ]);
 
-  const isHeaderWord = (s: string) => {
+  const isPureNumberOrBullet = (s: string) => /^[0-9]+[a-z]?$/i.test(s.trim()) || /^[a-d]\)$/i.test(s.trim());
+
+  const isInvalidValue = (s: string): boolean => {
+    if (!s || !s.trim()) return true;
     const norm = s.toLowerCase().replace(/[^a-z0-9]/g, '');
-    return norm === 'field' || norm === 'value' || norm === 'srno' || norm === 'serialno' || (norm.startsWith('line') && norm.length <= 6);
+    if (knownFieldLabels.has(norm)) return true;
+    if (isPureNumberOrBullet(s) && (s.trim().length <= 2 || /^[a-d]\)$/i.test(s.trim()))) return true;
+    return false;
   };
 
-  // Strategy A: Key-Value vertical pair scan across columns
-  for (let r = range.s.r; r <= range.e.r; r++) {
-    for (let c = range.s.c; c <= range.e.c; c++) {
-      const kStr = getCellStr(r, c);
-      if (!kStr) continue;
+  // 1. Identify columns in header row
+  let colField = 1, colVal = 2;
+  let colL1 = 3, colL2 = 4, colL3 = 5, colL4 = 6, colL5 = 7, colL6 = 8;
 
-      let vStr = getCellStr(r, c + 1);
-      if ((!vStr || isHeaderWord(vStr)) && c + 2 <= range.e.c) {
-        vStr = getCellStr(r, c + 2);
-      }
+  for (let r = 0; r < Math.min(rawAoa.length, 5); r++) {
+    const rowArr = (rawAoa[r] || []) as unknown[];
+    for (let c = 0; c < rowArr.length; c++) {
+      const hStr = String(rowArr[c] || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (hStr === 'field' || hStr === 'fieldname') colField = c;
+      if (hStr === 'value' || hStr === 'fieldvalue') colVal = c;
+      if (hStr === 'line1' || hStr === 'addressline1' || hStr === 'societyaddressline1') colL1 = c;
+      if (hStr === 'line2' || hStr === 'addressline2' || hStr === 'societyaddressline2') colL2 = c;
+      if (hStr === 'line3' || hStr === 'addressline3' || hStr === 'societyaddressline3') colL3 = c;
+      if (hStr === 'line4' || hStr === 'addressline4' || hStr === 'societyaddressline4') colL4 = c;
+      if (hStr === 'line5' || hStr === 'addressline5' || hStr === 'societyaddressline5') colL5 = c;
+      if (hStr === 'line6' || hStr === 'addressline6' || hStr === 'societyaddressline6') colL6 = c;
+    }
+  }
 
-      if (kStr && vStr && !isHeaderWord(vStr)) {
-        const normK = kStr.toLowerCase().replace(/[^a-z0-9]/g, '');
-        if (!kvMap.has(normK)) {
-          kvMap.set(normK, vStr);
-        }
+  if (colVal === colField) {
+    colVal = colField + 1;
+  }
+
+  // Strategy A: Map rows by Field Name (Vertical format standard to HENU OS template)
+  const fieldRowMap = new Map<string, number>();
+  for (let r = 0; r < rawAoa.length; r++) {
+    const fieldText = getCellStr(r, colField);
+    if (fieldText) {
+      const normF = fieldText.toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (!isPureNumberOrBullet(normF) && normF !== 'field') {
+        fieldRowMap.set(normF, r);
       }
     }
   }
 
-  // Strategy B: Horizontal tabular rows (Row 1 headers, Row 2 values)
+  // Strategy B: Horizontal tabular rows (Row 1 headers, Row 2 values fallback)
+  const horizMap = new Map<string, string>();
   if (rawAoa.length >= 2) {
     const headerRow = (rawAoa[0] || []) as unknown[];
     const valRow = (rawAoa[1] || []) as unknown[];
     for (let c = 0; c < Math.max(headerRow.length, valRow.length); c++) {
       const kStr = String(headerRow[c] || '').trim();
       const vStr = String(valRow[c] || '').trim();
-      if (kStr && vStr && !isHeaderWord(vStr)) {
+      if (kStr && vStr && !isInvalidValue(vStr)) {
         const normK = kStr.toLowerCase().replace(/[^a-z0-9]/g, '');
-        if (!kvMap.has(normK)) {
-          kvMap.set(normK, vStr);
+        if (!isPureNumberOrBullet(normK) && !horizMap.has(normK)) {
+          horizMap.set(normK, vStr);
         }
       }
     }
   }
 
-  const findVal = (candidates: string[]): string => {
+  const getFieldValue = (candidates: string[]): string => {
     for (const cand of candidates) {
       const normCand = cand.toLowerCase().replace(/[^a-z0-9]/g, '');
-      for (const [k, v] of kvMap.entries()) {
-        if (k === normCand || k.includes(normCand) || normCand.includes(k)) {
-          if (v && v.trim() !== '' && !isHeaderWord(v)) {
-            return v.trim();
-          }
+      // Check vertical map first
+      for (const [fName, rowIdx] of fieldRowMap.entries()) {
+        if (fName === normCand || fName.includes(normCand) || normCand.includes(fName)) {
+          const val = getCellStr(rowIdx, colVal);
+          if (val && !isInvalidValue(val)) return val;
+        }
+      }
+      // Check horizontal map
+      for (const [hName, val] of horizMap.entries()) {
+        if (hName === normCand || hName.includes(normCand) || normCand.includes(hName)) {
+          if (val && !isInvalidValue(val)) return val;
         }
       }
     }
     return '';
   };
 
-  const societyName = findVal([
-    'societyregistrationname', 'societyname', 'nameofsociety', 'name', 'society', 'socname',
-    'societytitle', 'fullsocietyname', 'societymaster'
-  ]);
+  const societyName = getFieldValue(['societyname', 'societyregistrationname', 'nameofsociety', 'socname', 'societytitle']);
+  const registrationNo = getFieldValue(['societyregistrationno', 'registrationno', 'regno', 'registrationnumber']);
+  const registrationDate = getFieldValue(['societyregistrationdate', 'registrationdate', 'dateofregistration']);
+  const headerAddress = getFieldValue(['hedderaddress', 'headeraddress']);
+  const rawAddressVal = getFieldValue(['societyaddress', 'address', 'registeredaddress', 'officeaddress']);
 
-  const registrationNo = findVal([
-    'societyregistrationno', 'registrationno', 'regno', 'registrationnumber',
-    'regnumber', 'registration'
-  ]);
-
-  const registrationDate = findVal([
-    'societyregistrationdate', 'registrationdate', 'dateofregistration', 'regdate', 'date', 'dated'
-  ]);
-
-  const headerAddress = findVal([
-    'hedderaddress', 'headeraddress', 'hedder address', 'header address', 'societyhedderaddress', 'societyheaderaddress'
-  ]);
-
-  const address = findVal([
-    'societyaddress', 'address', 'registeredaddress', 'officeaddress', 'location'
-  ]);
-
-  // 1. Check if the sheet has a header row with 'Line 1'..'Line 6' columns
-  let colIdxLine1 = -1, colIdxLine2 = -1, colIdxLine3 = -1, colIdxLine4 = -1, colIdxLine5 = -1, colIdxLine6 = -1;
-  for (let r = 0; r < Math.min(rawAoa.length, 5); r++) {
-    const rowArr = (rawAoa[r] || []) as unknown[];
-    for (let c = 0; c < rowArr.length; c++) {
-      const hStr = String(rowArr[c] || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-      if (hStr === 'line1' || hStr === 'addressline1' || hStr === 'societyaddressline1') colIdxLine1 = c;
-      if (hStr === 'line2' || hStr === 'addressline2' || hStr === 'societyaddressline2') colIdxLine2 = c;
-      if (hStr === 'line3' || hStr === 'addressline3' || hStr === 'societyaddressline3') colIdxLine3 = c;
-      if (hStr === 'line4' || hStr === 'addressline4' || hStr === 'societyaddressline4') colIdxLine4 = c;
-      if (hStr === 'line5' || hStr === 'addressline5' || hStr === 'societyaddressline5') colIdxLine5 = c;
-      if (hStr === 'line6' || hStr === 'addressline6' || hStr === 'societyaddressline6') colIdxLine6 = c;
-    }
-  }
-
+  // Extract address lines 1..6 from Society Address row
   let line1 = '', line2 = '', line3 = '', line4 = '', line5 = '', line6 = '';
+  const addrRowIdx = Array.from(fieldRowMap.entries()).find(([k]) => k.includes('societyaddress') || k === 'address')?.[1];
 
-  // 2. Scan rows for 'Society Address'
-  for (let r = 0; r < rawAoa.length; r++) {
-    const rowArr = (rawAoa[r] || []) as unknown[];
-    const rowText = rowArr.map(x => String(x || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '')).join(' ');
-    if (rowText.includes('societyaddress') || (rowText.includes('5') && rowText.includes('address'))) {
-      if (colIdxLine1 >= 0 && getCellStr(r, colIdxLine1)) line1 = getCellStr(r, colIdxLine1);
-      if (colIdxLine2 >= 0 && getCellStr(r, colIdxLine2)) line2 = getCellStr(r, colIdxLine2);
-      if (colIdxLine3 >= 0 && getCellStr(r, colIdxLine3)) line3 = getCellStr(r, colIdxLine3);
-      if (colIdxLine4 >= 0 && getCellStr(r, colIdxLine4)) line4 = getCellStr(r, colIdxLine4);
-      if (colIdxLine5 >= 0 && getCellStr(r, colIdxLine5)) line5 = getCellStr(r, colIdxLine5);
-      if (colIdxLine6 >= 0 && getCellStr(r, colIdxLine6)) line6 = getCellStr(r, colIdxLine6);
+  if (addrRowIdx !== undefined) {
+    const l1 = getCellStr(addrRowIdx, colL1);
+    const l2 = getCellStr(addrRowIdx, colL2);
+    const l3 = getCellStr(addrRowIdx, colL3);
+    const l4 = getCellStr(addrRowIdx, colL4);
+    const l5 = getCellStr(addrRowIdx, colL5);
+    const l6 = getCellStr(addrRowIdx, colL6);
 
-      // If column indices weren't found in header, grab consecutive non-label cells
-      if (!line1 && !line2 && !line3 && !line4 && !line5 && !line6) {
-        const meaningful = rowArr
-          .map((v, c) => getCellStr(r, c))
-          .filter(v => {
-            const nv = v.toLowerCase().replace(/[^a-z0-9]/g, '');
-            return nv !== '5' && nv !== 'societyaddress' && nv !== 'field' && nv !== 'value' && !nv.startsWith('line') && v.trim() !== '';
-          });
-        if (meaningful[0]) line1 = meaningful[0];
-        if (meaningful[1]) line2 = meaningful[1];
-        if (meaningful[2]) line3 = meaningful[2];
-        if (meaningful[3]) line4 = meaningful[3];
-        if (meaningful[4]) line5 = meaningful[4];
-        if (meaningful[5]) line6 = meaningful[5];
-      }
-    }
+    if (l1 && !isInvalidValue(l1)) line1 = l1;
+    if (l2 && !isInvalidValue(l2)) line2 = l2;
+    if (l3 && !isInvalidValue(l3)) line3 = l3;
+    if (l4 && !isInvalidValue(l4)) line4 = l4;
+    if (l5 && !isInvalidValue(l5)) line5 = l5;
+    if (l6 && !isInvalidValue(l6)) line6 = l6;
   }
 
-  // 3. Fallback to kvMap
-  if (!line1) line1 = findVal(['societyaddressline1', 'addressline1', 'line1', 'societyaddress1', 'address1']);
-  if (!line2) line2 = findVal(['societyaddressline2', 'addressline2', 'line2', 'societyaddress2', 'address2']);
-  if (!line3) line3 = findVal(['societyaddressline3', 'addressline3', 'line3', 'societyaddress3', 'address3']);
-  if (!line4) line4 = findVal(['societyaddressline4', 'addressline4', 'line4', 'societyaddress4', 'address4']);
-  if (!line5) line5 = findVal(['societyaddressline5', 'addressline5', 'line5', 'societyaddress5', 'address5']);
-  if (!line6) line6 = findVal(['societyaddressline6', 'addressline6', 'line6', 'societyaddress6', 'address6']);
-
-  // If separate line columns were not present, split multiline address into 6 lines
-  if (!line1 && !line2 && !line3 && !line4 && !line5 && !line6 && address) {
-    const parts = address.split(/[\r\n]+/).map(p => p.trim());
+  // Fallback: split multiline address if present
+  if (!line1 && !line2 && !line3 && !line4 && !line5 && !line6 && rawAddressVal && !isInvalidValue(rawAddressVal)) {
+    const parts = rawAddressVal.split(/[\r\n]+/).map(p => p.trim());
     line1 = parts[0] || '';
     line2 = parts[1] || '';
     line3 = parts[2] || '';
@@ -461,22 +478,16 @@ function parseSocietyMaster(sheet: XLSX.WorkSheet | null): SocietyMaster | null 
 
   const finalCombinedAddress = combinedAddressLines.length > 0
     ? combinedAddressLines.join('\n')
-    : (address || headerAddress || '');
+    : (rawAddressVal && !isInvalidValue(rawAddressVal) ? rawAddressVal : '');
 
-  const email = findVal([
-    'societyemailid', 'societyemail', 'emailid', 'email', 'emailaddress', 'e_mail'
-  ]);
+  const email = getFieldValue(['societyemailid', 'societyemail', 'emailid', 'email', 'emailaddress']);
+  const telephone = getFieldValue(['societytelephonemobileno', 'societytelephoneormobileno', 'telephonemobileno', 'telephone', 'mobile', 'phone', 'contact']);
 
-  const telephone = findVal([
-    'societytelephonemobileno', 'societytelephoneormobileno', 'telephonemobileno',
-    'telephone', 'mobile', 'phone', 'contact', 'mobileno', 'phoneno'
-  ]);
-
-  const rawFlat = findVal(['noofflatorroom', 'noofflat', 'flat', 'room', 'flats', 'unitsflat']);
-  const rawShop = findVal(['noshop', 'shop', 'shops', 'unitsshop']);
-  const rawOffice = findVal(['nooffice', 'office', 'offices', 'unitsoffice']);
-  const rawGala = findVal(['nogalas', 'noofgalas', 'gala', 'galas', 'unitsgala']);
-  const rawBlank = findVal(['noofprintblankextrasrno', 'noofprintblank', 'printblanks', 'printblank', 'extrasr', 'blank']);
+  const rawFlat = getFieldValue(['noofflatorroom', 'noofflat', 'flat', 'room', 'flats']);
+  const rawShop = getFieldValue(['noshop', 'shop', 'shops']);
+  const rawOffice = getFieldValue(['nooffice', 'office', 'offices']);
+  const rawGala = getFieldValue(['nogalas', 'noofgalas', 'gala', 'galas']);
+  const rawBlank = getFieldValue(['noofprintblankextrasrno', 'noofprintblank', 'printblanks', 'printblank']);
 
   const unitsFlat = parseInt(rawFlat || '0', 10) || 0;
   const unitsShop = parseInt(rawShop || '0', 10) || 0;
@@ -485,49 +496,15 @@ function parseSocietyMaster(sheet: XLSX.WorkSheet | null): SocietyMaster | null 
   const printBlanks = parseInt(rawBlank || '0', 10) || 0;
   const totalUnits = unitsFlat + unitsShop + unitsOffice + unitsGala;
 
-  // Strategy C: Loose Text Search Fallback for Society Name if still blank
-  let finalSocietyName = societyName;
-  if (!finalSocietyName) {
-    for (let r = range.s.r; r <= range.e.r; r++) {
-      for (let c = range.s.c; c <= range.e.c; c++) {
-        const txt = getCellStr(r, c);
-        if (txt && txt.length > 5) {
-          const upper = txt.toUpperCase();
-          if (
-            upper.includes('CO-OP') ||
-            upper.includes('HSG') ||
-            upper.includes('SOC') ||
-            upper.includes('LIMITED') ||
-            upper.includes('LTD') ||
-            upper.includes('HOUSING')
-          ) {
-            finalSocietyName = txt;
-            break;
-          }
-        }
-      }
-      if (finalSocietyName) break;
-    }
-  }
-
-  if (!finalSocietyName && kvMap.size > 0) {
-    for (const [k, v] of kvMap.entries()) {
-      if (k !== 'field' && k !== 'value' && v && v.length > 3) {
-        finalSocietyName = v;
-        break;
-      }
-    }
-  }
-
-  // Return SocietyMaster if any key-value pairs or text exists
-  if (!finalSocietyName && !registrationNo && !address && !headerAddress && !email && !telephone && kvMap.size === 0) {
+  // If entire sheet has no society data at all, return null
+  if (!societyName && !registrationNo && !finalCombinedAddress && !headerAddress && !email && !telephone && totalUnits === 0 && printBlanks === 0) {
     return null;
   }
 
   return {
-    societyName: finalSocietyName || '',
+    societyName: societyName || '',
     registrationNo: registrationNo || '',
-    registrationDate: excelDate(registrationDate) || registrationDate,
+    registrationDate: excelDate(registrationDate) || registrationDate || '',
     headerAddress: headerAddress || finalCombinedAddress || '',
     address: finalCombinedAddress || '',
     societyAddress,
@@ -610,63 +587,231 @@ function parseFormI(sheet: XLSX.WorkSheet | null, common: CommonFileRecord[]): F
 
       // Parse up to 5 entries of Shares Held
       const sharesHeldEntries: FormIShareHeldEntry[] = [];
+      const flatSharesHeld: Record<string, string> = {};
       for (let i = 1; i <= 5; i++) {
+        const d = colDateExact(r,
+          `Particulars of Shares Held - Entry ${i}_Date`,
+          `Particulars of Shares Held - Entry ${i} Date`,
+          `Shares Held ${i} Date`,
+          `sharesHeld_date_${i}`,
+          ...(i === 1 ? ['Share Allotment Date', 'share_allotment_date', 'Shares Held Date', 'Date of Allotment'] : [`Shares Held Date ${i}`, `Shares Held Date_${i}`])
+        );
+        const cbf = colExact(r,
+          `Particulars of Shares Held - Entry ${i}_Cash Book Folio No.`,
+          `Particulars of Shares Held - Entry ${i} Cash Book Folio No.`,
+          `Shares Held ${i} Cash Book Folio`,
+          `sharesHeld_cashBookFolio_${i}`,
+          ...(i === 1 ? ['Cash Book Folio No.', 'Cash Book Folio', 'cash_book_folio', 'CBF'] : [`Cash Book Folio_${i}`, `CBF_${i}`])
+        );
+        const app = colExact(r,
+          `Particulars of Shares Held - Entry ${i}_Application`,
+          `Particulars of Shares Held - Entry ${i} Application`,
+          `Shares Held ${i} Application`,
+          `sharesHeld_application_${i}`,
+          ...(i === 1 ? ['Share Application', 'share_application'] : [`Application_${i}`])
+        );
+        const allot = colExact(r,
+          `Particulars of Shares Held - Entry ${i}_Allotment`,
+          `Particulars of Shares Held - Entry ${i} Allotment`,
+          `Shares Held ${i} Allotment`,
+          `sharesHeld_allotment_${i}`,
+          ...(i === 1 ? ['Share Allotment', 'share_allotment'] : [`Allotment_${i}`])
+        );
+        const call1 = colExact(r,
+          `Particulars of Shares Held - Entry ${i}_Amount Received 1st Call`,
+          `Particulars of Shares Held - Entry ${i} Amount Received 1st Call`,
+          `Shares Held ${i} 1st Call`,
+          `sharesHeld_call1st_${i}`,
+          ...(i === 1 ? ['Amount Received 1st Call', 'Amount Received_1st Call', 'share_1st_call'] : [`1st Call_${i}`, `Amount Received 1st Call_${i}`])
+        );
+        const call2 = colExact(r,
+          `Particulars of Shares Held - Entry ${i}_Amount Received 2nd Call`,
+          `Particulars of Shares Held - Entry ${i} Amount Received 2nd Call`,
+          `Shares Held ${i} 2nd Call`,
+          `sharesHeld_call2nd_${i}`,
+          ...(i === 1 ? ['Amount Received 2nd Call', 'Amount Received_2nd Call', 'share_2nd_call'] : [`2nd Call_${i}`, `Amount Received 2nd Call_${i}`])
+        );
+        const tot = colExact(r,
+          `Particulars of Shares Held - Entry ${i}_Total Amount Received`,
+          `Particulars of Shares Held - Entry ${i} Total Amount Received`,
+          `Shares Held ${i} Total Amount Received`,
+          `sharesHeld_totalAmountReceived_${i}`,
+          ...(i === 1 ? ['Total Amount Received', 'total_amount_received'] : [`Total Amount Received_${i}`, `Amount Received_${i}`])
+        );
+        const nos = colExact(r,
+          `Particulars of Shares Held - Entry ${i}_No. of Shares Held`,
+          `Particulars of Shares Held - Entry ${i} No. of Shares Held`,
+          `Shares Held ${i} No. of Shares`,
+          `sharesHeld_noOfShares_${i}`,
+          ...(i === 1 ? ['No. of Shares Held', 'No. of Shares', 'No of Shares', 'no_of_shares'] : [`No. of Shares Held_${i}`, `No. of Shares_${i}`])
+        ) || (i === 1 ? (base.noOfShares || '') : '');
+        const sFrom = colExact(r,
+          `Particulars of Shares Held - Entry ${i}_Shares From`,
+          `Particulars of Shares Held - Entry ${i} Shares From`,
+          `Shares Held ${i} Shares From`,
+          `sharesHeld_sharesFrom_${i}`,
+          ...(i === 1 ? ['Shares From', 'shares_from', 'Distinctive From', 'Shares Range From'] : [`Shares From_${i}`, `Shares Range From_${i}`])
+        ) || (i === 1 ? (base.sharesFrom || '') : '');
+        const sTo = colExact(r,
+          `Particulars of Shares Held - Entry ${i}_Shares To`,
+          `Particulars of Shares Held - Entry ${i} Shares To`,
+          `Shares Held ${i} Shares To`,
+          `sharesHeld_sharesTo_${i}`,
+          ...(i === 1 ? ['Shares To', 'shares_to', 'Distinctive To', 'Shares Range To'] : [`Shares To_${i}`, `Shares Range To_${i}`])
+        ) || (i === 1 ? (base.sharesTo || '') : '');
+        const cert = colExact(r,
+          `Particulars of Shares Held - Entry ${i}_Share Certificate No.`,
+          `Particulars of Shares Held - Entry ${i} Share Certificate No.`,
+          `Shares Held ${i} Share Certificate No.`,
+          `sharesHeld_shareCertNo_${i}`,
+          ...(i === 1 ? ['Share Certificate No.', 'Serial No. of Share Certificate', 'share_certificate_no', 'Serial No. of Share Cert.'] : [`Share Certificate No._${i}`, `Serial No. of Share Certificate_${i}`])
+        ) || (i === 1 ? (base.serialNoOfShareCertificate || base.shareCertificateNo || '') : '');
+
         const entry: FormIShareHeldEntry = {
-          date: colDate(r, `Particulars of Shares Held - Entry ${i}_Date`, `Shares Held ${i} Date`, i === 1 ? 'Share Allotment Date' : `Shares Held Date ${i}`, i === 1 ? 'Date' : `Date_${i}`),
-          cashBookFolio: col(r, `Particulars of Shares Held - Entry ${i}_Cash Book Folio No.`, `Shares Held ${i} Cash Book Folio`, i === 1 ? 'Cash Book Folio No.' : `Cash Book Folio_${i}`, i === 1 ? 'Cash Book Folio' : `CBF_${i}`),
-          application: col(r, `Particulars of Shares Held - Entry ${i}_Application`, `Shares Held ${i} Application`, i === 1 ? 'Application' : `Application_${i}`),
-          allotment: col(r, `Particulars of Shares Held - Entry ${i}_Allotment`, `Shares Held ${i} Allotment`, i === 1 ? 'Allotment' : `Allotment_${i}`),
-          call1st: col(r, `Particulars of Shares Held - Entry ${i}_Amount Received 1st Call`, `Shares Held ${i} 1st Call`, i === 1 ? '1st Call' : `1st Call_${i}`, i === 1 ? 'Amount Received_1st Call' : `Amount Received 1st Call_${i}`),
-          call2nd: col(r, `Particulars of Shares Held - Entry ${i}_Amount Received 2nd Call`, `Shares Held ${i} 2nd Call`, i === 1 ? '2nd Call' : `2nd Call_${i}`, i === 1 ? 'Amount Received_2nd Call' : `Amount Received 2nd Call_${i}`),
-          totalAmountReceived: col(r, `Particulars of Shares Held - Entry ${i}_Total Amount Received`, `Shares Held ${i} Total Amount Received`, i === 1 ? 'Total Amount Received' : `Total Amount Received_${i}`, i === 1 ? 'Amount Received' : `Amount Received_${i}`),
-          noOfShares: col(r, `Particulars of Shares Held - Entry ${i}_No. of Shares Held`, `Shares Held ${i} No. of Shares`, i === 1 ? 'No. of Shares' : `No. of Shares_${i}`, i === 1 ? 'No. of Shares Held' : `No. of Shares Held_${i}`) || (i === 1 ? base.noOfShares : ''),
-          sharesFrom: col(r, `Particulars of Shares Held - Entry ${i}_Shares From`, `Shares Held ${i} Shares From`, i === 1 ? 'From' : `From_${i}`, i === 1 ? 'Shares From' : `Shares From_${i}`) || (i === 1 ? base.sharesFrom : ''),
-          sharesTo: col(r, `Particulars of Shares Held - Entry ${i}_Shares To`, `Shares Held ${i} Shares To`, i === 1 ? 'To' : `To_${i}`, i === 1 ? 'Shares To' : `Shares To_${i}`) || (i === 1 ? base.sharesTo : ''),
-          shareCertificateNo: col(r, `Particulars of Shares Held - Entry ${i}_Share Certificate No.`, `Shares Held ${i} Share Certificate No.`, i === 1 ? 'Share Certificate No.' : `Share Certificate No._${i}`, i === 1 ? 'Serial No. of Share Certificate' : `Serial No. of Share Certificate_${i}`) || (i === 1 ? (base.serialNoOfShareCertificate || base.shareCertificateNo) : ''),
+          date: d,
+          cashBookFolio: cbf,
+          application: app,
+          allotment: allot,
+          call1st: call1,
+          call2nd: call2,
+          totalAmountReceived: tot,
+          noOfShares: nos,
+          sharesFrom: sFrom,
+          sharesTo: sTo,
+          shareCertificateNo: cert,
         };
         sharesHeldEntries.push(entry);
+
+        flatSharesHeld[`sharesHeld_date_${i}`] = d;
+        flatSharesHeld[`sharesHeld_cashBookFolio_${i}`] = cbf;
+        flatSharesHeld[`sharesHeld_application_${i}`] = app;
+        flatSharesHeld[`sharesHeld_allotment_${i}`] = allot;
+        flatSharesHeld[`sharesHeld_call1st_${i}`] = call1;
+        flatSharesHeld[`sharesHeld_call2nd_${i}`] = call2;
+        flatSharesHeld[`sharesHeld_totalAmountReceived_${i}`] = tot;
+        flatSharesHeld[`sharesHeld_noOfShares_${i}`] = nos;
+        flatSharesHeld[`sharesHeld_sharesFrom_${i}`] = sFrom;
+        flatSharesHeld[`sharesHeld_sharesTo_${i}`] = sTo;
+        flatSharesHeld[`sharesHeld_shareCertNo_${i}`] = cert;
       }
 
       // Parse up to 5 entries of Shares Transferred
       const sharesTransferredEntries: FormIShareTransferredEntry[] = [];
+      const flatSharesTransferred: Record<string, string> = {};
       for (let i = 1; i <= 5; i++) {
+        const d = colDateExact(r,
+          `Particulars of Shares Transferred or Surrendered - Entry ${i}_Date`,
+          `Particulars of Shares Transferred or Surrendered - Entry ${i} Date`,
+          `Shares Transferred ${i} Date`,
+          `sharesTransferred_date_${i}`,
+          ...(i === 1 ? ['Date of transfer / refund', 'Date of Transfer / Refund', 'date_of_transfer_refund', 'Transfer Refund Date'] : [`Transfer Date ${i}`, `Transfer Date_${i}`])
+        );
+        const cbf = colExact(r,
+          `Particulars of Shares Transferred or Surrendered - Entry ${i}_Cash Book Folio No.`,
+          `Particulars of Shares Transferred or Surrendered - Entry ${i} Cash Book Folio No.`,
+          `Shares Transferred ${i} Cash Book Folio`,
+          `sharesTransferred_cashBookFolio_${i}`,
+          ...(i === 1 ? ['Transfer Cash Book Folio', 'transfer_cash_book_folio', 'Transfer CBF'] : [`Transfer CBF_${i}`])
+        );
+        const tDate = colDateExact(r,
+          `Particulars of Shares Transferred or Surrendered - Entry ${i}_Transfer Date`,
+          `Particulars of Shares Transferred or Surrendered - Entry ${i} Transfer Date`,
+          `Shares Transferred ${i} Transfer Date`,
+          `sharesTransferred_transferDate_${i}`,
+          ...(i === 1 ? ['Date of Transfer', 'date_of_transfer', 'Transfer Date'] : [`Date of Transfer_${i}`])
+        );
+        const cert = colExact(r,
+          `Particulars of Shares Transferred or Surrendered - Entry ${i}_Share Certificate No. Transferred`,
+          `Particulars of Shares Transferred or Surrendered - Entry ${i} Share Certificate No. Transferred`,
+          `Shares Transferred ${i} Cert No`,
+          `sharesTransferred_shareCertNo_${i}`,
+          ...(i === 1 ? ['Share Certificate No. transferred or refunded', 'Share Certificate No. Transferred', 'share_cert_transferred', 'Transfer Certificate No.'] : [`Share Cert No Transferred_${i}`, `Transfer Cert No_${i}`])
+        );
+        const nos = colExact(r,
+          `Particulars of Shares Transferred or Surrendered - Entry ${i}_No. of Shares Transferred / Refunded`,
+          `Particulars of Shares Transferred or Surrendered - Entry ${i} No. of Shares Transferred / Refunded`,
+          `Shares Transferred ${i} No of Shares`,
+          `sharesTransferred_noOfShares_${i}`,
+          ...(i === 1 ? ['No. of Shares Transferred / Refunded', 'No. of Shares Transferred', 'No of Shares Transferred', 'no_of_shares_transferred'] : [`No of Shares Transferred_${i}`])
+        );
+        const balNos = colExact(r,
+          `Particulars of Shares Transferred or Surrendered - Entry ${i}_Balances - No. of Shares Held`,
+          `Particulars of Shares Transferred or Surrendered - Entry ${i} Balances - No. of Shares Held`,
+          `Shares Transferred ${i} Balance Shares`,
+          `sharesTransferred_balanceNoOfShares_${i}`,
+          ...(i === 1 ? ['Balances - No. of Shares Held', 'Balance No. of Shares', 'balance_no_of_shares'] : [`Balance No. of Shares_${i}`])
+        );
+        const balCert = colExact(r,
+          `Particulars of Shares Transferred or Surrendered - Entry ${i}_Balances - Serial No. of Share Cert.`,
+          `Particulars of Shares Transferred or Surrendered - Entry ${i} Balances - Serial No. of Share Cert.`,
+          `Shares Transferred ${i} Balance Cert`,
+          `sharesTransferred_balanceCertNo_${i}`,
+          ...(i === 1 ? ['Balances - Serial No. of Share Cert.', 'Balance Serial No. of Share Certificate', 'balance_serial_no_cert'] : [`Balance Serial No Certificate_${i}`])
+        );
+        const amtRs = colExact(r,
+          `Particulars of Shares Transferred or Surrendered - Entry ${i}_Amount Rs`,
+          `Particulars of Shares Transferred or Surrendered - Entry ${i} Amount Rs`,
+          `Shares Transferred ${i} Amount Rs`,
+          `sharesTransferred_amountRs_${i}`,
+          ...(i === 1 ? ['Balance Amount Rs', 'Amount Rs', 'balance_amount_rs'] : [`Balance Amount Rs_${i}`])
+        );
+        const amtP = colExact(r,
+          `Particulars of Shares Transferred or Surrendered - Entry ${i}_Amount P`,
+          `Particulars of Shares Transferred or Surrendered - Entry ${i} Amount P`,
+          `Shares Transferred ${i} Amount P`,
+          `sharesTransferred_amountP_${i}`,
+          ...(i === 1 ? ['Balance Amount P', 'Amount P', 'balance_amount_p'] : [`Balance Amount P_${i}`])
+        );
+
         const entry: FormIShareTransferredEntry = {
-          date: colDate(r, `Particulars of Shares Transferred or Surrendered - Entry ${i}_Date`, `Shares Transferred ${i} Date`, i === 1 ? 'Date of transfer / refund' : `Transfer Date ${i}`, i === 1 ? 'Transfer Date' : `Transfer Date_${i}`),
-          cashBookFolio: col(r, `Particulars of Shares Transferred or Surrendered - Entry ${i}_Cash Book Folio No.`, `Shares Transferred ${i} Cash Book Folio`, i === 1 ? 'Transfer Cash Book Folio' : `Transfer CBF_${i}`),
-          transferDate: colDate(r, `Particulars of Shares Transferred or Surrendered - Entry ${i}_Transfer Date`, `Shares Transferred ${i} Transfer Date`, i === 1 ? 'Date of Transfer' : `Date of Transfer_${i}`),
-          shareCertificateNo: col(r, `Particulars of Shares Transferred or Surrendered - Entry ${i}_Share Certificate No. Transferred`, `Shares Transferred ${i} Cert No`, i === 1 ? 'Share Certificate No. transferred or refunded' : `Share Cert No Transferred_${i}`, i === 1 ? 'Transfer Certificate No.' : `Transfer Cert No_${i}`),
-          noOfSharesTransferred: col(r, `Particulars of Shares Transferred or Surrendered - Entry ${i}_No. of Shares Transferred / Refunded`, `Shares Transferred ${i} No of Shares`, i === 1 ? 'No. of Shares Transferred' : `No of Shares Transferred_${i}`, i === 1 ? 'No. of Shares Transferred/Refunded From' : `No. of Shares Transferred From_${i}`),
-          balanceNoOfShares: col(r, `Particulars of Shares Transferred or Surrendered - Entry ${i}_Balances - No. of Shares Held`, `Shares Transferred ${i} Balance Shares`, i === 1 ? 'Balance No. of Shares' : `Balance No. of Shares_${i}`),
-          balanceSerialNoCertificate: col(r, `Particulars of Shares Transferred or Surrendered - Entry ${i}_Balances - Serial No. of Share Cert.`, `Shares Transferred ${i} Balance Cert`, i === 1 ? 'Balance Serial No. of Share Certificate' : `Balance Serial No Certificate_${i}`),
-          amountRs: col(r, `Particulars of Shares Transferred or Surrendered - Entry ${i}_Amount Rs`, `Shares Transferred ${i} Amount Rs`, i === 1 ? 'Balance Amount Rs' : `Balance Amount Rs_${i}`),
-          amountP: col(r, `Particulars of Shares Transferred or Surrendered - Entry ${i}_Amount P`, `Shares Transferred ${i} Amount P`, i === 1 ? 'Balance Amount P' : `Balance Amount P_${i}`),
+          date: d,
+          cashBookFolio: cbf,
+          transferDate: tDate,
+          shareCertificateNo: cert,
+          noOfSharesTransferred: nos,
+          balanceNoOfShares: balNos,
+          balanceSerialNoCertificate: balCert,
+          amountRs: amtRs,
+          amountP: amtP,
         };
         sharesTransferredEntries.push(entry);
+
+        flatSharesTransferred[`sharesTransferred_date_${i}`] = d;
+        flatSharesTransferred[`sharesTransferred_cashBookFolio_${i}`] = cbf;
+        flatSharesTransferred[`sharesTransferred_transferDate_${i}`] = tDate;
+        flatSharesTransferred[`sharesTransferred_shareCertNo_${i}`] = cert;
+        flatSharesTransferred[`sharesTransferred_noOfShares_${i}`] = nos;
+        flatSharesTransferred[`sharesTransferred_balanceNoOfShares_${i}`] = balNos;
+        flatSharesTransferred[`sharesTransferred_balanceCertNo_${i}`] = balCert;
+        flatSharesTransferred[`sharesTransferred_amountRs_${i}`] = amtRs;
+        flatSharesTransferred[`sharesTransferred_amountP_${i}`] = amtP;
       }
 
       return {
         ...base,
+        ...flatSharesHeld,
+        ...flatSharesTransferred,
         srNo,
-        dateOfAdmission: colDate(r, 'Date of Admission', 'Date of admission', 'date_of_admission') || base.dateOfAdmission,
-        dateOfEntranceFee: colDate(r, 'Date of Payment of Entrance Fees', 'Date of Payment of entrance fee', 'date_of_entrance_fee') || base.dateOfEntranceFee,
-        occupation: col(r, 'Occupation', 'occupation') || base.occupation,
-        age: col(r, 'Age on the Date of Admission', 'Age on Admission', 'Age', 'age') || base.age,
-        nomineeName: col(r, 'Nominee Name Full', 'Nominee Name', 'Full Name of Nominee', 'nominee_name') || base.nomineeName,
-        nomineeAddress: col(r, 'Nominee Address', 'Address of Nominee', 'nominee_address') || base.nomineeAddress,
-        dateOfNomination: colDate(r, 'Date of Nomination', 'date_of_nomination') || base.dateOfNomination,
-        dateOfCessation: colDate(r, 'Date of Cessation of Membership', 'Date of Cessation', 'date_of_cessation') || base.dateOfCessation,
-        reasonForCessation: col(r, 'Reason for Cessation', 'reason_for_cessation') || base.reasonForCessation,
-        remarks: col(r, 'Remark', 'Remarks', 'remarks') || base.remarks,
-        dateOfAllotment: sharesHeldEntries[0]?.date || colDate(r, 'Share Allotment Date', 'share_allotment_date') || base.dateOfAllotment,
-        cashBookFolio: sharesHeldEntries[0]?.cashBookFolio || col(r, 'Cash Book Folio No.', 'Cash Book Folio', 'cash_book_folio') || base.cashBookFolio,
-        shareApplication: sharesHeldEntries[0]?.application || col(r, 'Application', 'share_application') || base.shareApplication,
-        shareAllotment: sharesHeldEntries[0]?.allotment || col(r, 'Allotment', 'share_allotment') || base.shareAllotment,
-        share1stCall: sharesHeldEntries[0]?.call1st || col(r, '1st Call', 'share_1st_call') || base.share1stCall,
-        share2ndCall: sharesHeldEntries[0]?.call2nd || col(r, '2nd Call', 'share_2nd_call') || base.share2ndCall,
-        totalAmountReceived: sharesHeldEntries[0]?.totalAmountReceived || col(r, 'Total Amount Received', 'Amount Received', 'total_amount_received') || base.totalAmountReceived,
-        serialNoOfShareCertificate: sharesHeldEntries[0]?.shareCertificateNo || col(r, 'Share Certificate No.', 'Serial No. of Share Certificate', 'serial_no_of_share_cert') || base.serialNoOfShareCertificate,
-        sharesFrom: sharesHeldEntries[0]?.sharesFrom || col(r, 'From', 'shares_from') || base.sharesFrom,
-        sharesTo: sharesHeldEntries[0]?.sharesTo || col(r, 'To', 'shares_to') || base.sharesTo,
+        dateOfAdmission: colDate(r, 'Date of Admission', 'Date of admission', 'date_of_admission') || base.dateOfAdmission || '',
+        dateOfEntranceFee: colDate(r, 'Date of Payment of Entrance Fees', 'Date of Payment of entrance fee', 'date_of_entrance_fee') || base.dateOfEntranceFee || '',
+        occupation: col(r, 'Occupation', 'occupation') || base.occupation || '',
+        age: col(r, 'Age on the Date of Admission', 'Age on Admission', 'Age', 'age') || base.age || '',
+        nomineeName: col(r, 'Nominee Name Full', 'Nominee Name', 'Full Name of Nominee', 'nominee_name') || base.nomineeName || '',
+        nomineeAddress: col(r, 'Nominee Address', 'Address of Nominee', 'nominee_address') || base.nomineeAddress || '',
+        dateOfNomination: colDate(r, 'Date of Nomination', 'date_of_nomination') || base.dateOfNomination || '',
+        dateOfCessation: colDate(r, 'Date of Cessation of Membership', 'Date of Cessation', 'date_of_cessation') || base.dateOfCessation || '',
+        reasonForCessation: col(r, 'Reason for Cessation', 'reason_for_cessation') || base.reasonForCessation || '',
+        remarks: col(r, 'Remark', 'Remarks', 'remarks') || base.remarks || '',
+        dateOfAllotment: sharesHeldEntries[0]?.date || colDateExact(r, 'Share Allotment Date', 'share_allotment_date') || base.dateOfAllotment || '',
+        cashBookFolio: sharesHeldEntries[0]?.cashBookFolio || colExact(r, 'Cash Book Folio No.', 'Cash Book Folio', 'cash_book_folio') || base.cashBookFolio || '',
+        shareApplication: sharesHeldEntries[0]?.application || colExact(r, 'Application', 'share_application') || base.shareApplication || '',
+        shareAllotment: sharesHeldEntries[0]?.allotment || colExact(r, 'Allotment', 'share_allotment') || base.shareAllotment || '',
+        share1stCall: sharesHeldEntries[0]?.call1st || colExact(r, '1st Call', 'share_1st_call') || base.share1stCall || '',
+        share2ndCall: sharesHeldEntries[0]?.call2nd || colExact(r, '2nd Call', 'share_2nd_call') || base.share2ndCall || '',
+        totalAmountReceived: sharesHeldEntries[0]?.totalAmountReceived || colExact(r, 'Total Amount Received', 'total_amount_received') || base.totalAmountReceived || '',
+        serialNoOfShareCertificate: sharesHeldEntries[0]?.shareCertificateNo || colExact(r, 'Share Certificate No.', 'Serial No. of Share Certificate', 'serial_no_of_share_cert') || base.serialNoOfShareCertificate || '',
+        sharesFrom: sharesHeldEntries[0]?.sharesFrom || colExact(r, 'Shares From', 'shares_from') || base.sharesFrom || '',
+        sharesTo: sharesHeldEntries[0]?.sharesTo || colExact(r, 'Shares To', 'shares_to') || base.sharesTo || '',
         sharesHeldEntries,
         sharesTransferredEntries,
       };
@@ -1041,6 +1186,107 @@ export function synchronizeMasterWorkbook(wb: MasterWorkbook): MasterWorkbook {
     const nomineeRelationship = pickFirst(cItem?.nomineeRelationship, nomItem?.nomineeRelationship);
     const dateOfNomination = pickFirst(cItem?.dateOfNomination, nomItem?.dateOfNomination, fIItem?.dateOfNomination);
 
+    // Sync 5 shares held entries
+    const memberNameList = [
+      cItem?.memberName, cItem?.member1, cItem?.member2, cItem?.member3, cItem?.member4, cItem?.member5, cItem?.member6,
+      fIItem?.memberName, fIItem?.member1, fIItem?.member2, fIItem?.member3, fIItem?.member4, fIItem?.member5, fIItem?.member6,
+      nomItem?.nomineeName, nomItem?.nominee1, nomItem?.nominee2,
+    ].filter(Boolean).map(n => String(n).trim().toLowerCase().replace(/\s+/g, ' '));
+
+    const cleanField = (val: unknown): string => {
+      if (val === undefined || val === null) return '';
+      const str = String(val).trim();
+      if (!str) return '';
+      const lowerNorm = str.toLowerCase().replace(/\s+/g, ' ');
+      if (memberNameList.some(n => n && (lowerNorm === n || (n.length >= 3 && (lowerNorm.includes(n) || n.includes(lowerNorm)))))) {
+        return '';
+      }
+      return str;
+    };
+
+    const shEntries: FormIShareHeldEntry[] = [];
+    const flatSH: Record<string, string> = {};
+    const existingSH = ((fIItem as any)?.sharesHeldEntries || (cItem as any)?.sharesHeldEntries || []) as FormIShareHeldEntry[];
+    for (let i = 1; i <= 5; i++) {
+      const idxEntry = existingSH[i - 1] || null;
+      const d = cleanField(pickFirst((cItem as any)?.[`sharesHeld_date_${i}`], (fIItem as any)?.[`sharesHeld_date_${i}`], idxEntry?.date, i === 1 ? (cItem?.dateOfAllotment || fIItem?.dateOfAllotment) : ''));
+      const cbf = cleanField(pickFirst((cItem as any)?.[`sharesHeld_cashBookFolio_${i}`], (fIItem as any)?.[`sharesHeld_cashBookFolio_${i}`], idxEntry?.cashBookFolio, i === 1 ? (cItem?.cashBookFolio || fIItem?.cashBookFolio) : ''));
+      const app = cleanField(pickFirst((cItem as any)?.[`sharesHeld_application_${i}`], (fIItem as any)?.[`sharesHeld_application_${i}`], idxEntry?.application, i === 1 ? (cItem?.shareApplication || fIItem?.shareApplication) : ''));
+      const allot = cleanField(pickFirst((cItem as any)?.[`sharesHeld_allotment_${i}`], (fIItem as any)?.[`sharesHeld_allotment_${i}`], idxEntry?.allotment, i === 1 ? (cItem?.shareAllotment || fIItem?.shareAllotment) : ''));
+      const call1 = cleanField(pickFirst((cItem as any)?.[`sharesHeld_call1st_${i}`], (fIItem as any)?.[`sharesHeld_call1st_${i}`], idxEntry?.call1st, i === 1 ? (cItem?.share1stCall || fIItem?.share1stCall) : ''));
+      const call2 = cleanField(pickFirst((cItem as any)?.[`sharesHeld_call2nd_${i}`], (fIItem as any)?.[`sharesHeld_call2nd_${i}`], idxEntry?.call2nd, i === 1 ? (cItem?.share2ndCall || fIItem?.share2ndCall) : ''));
+      const tot = cleanField(pickFirst((cItem as any)?.[`sharesHeld_totalAmountReceived_${i}`], (fIItem as any)?.[`sharesHeld_totalAmountReceived_${i}`], idxEntry?.totalAmountReceived, i === 1 ? (cItem?.totalAmountReceived || fIItem?.totalAmountReceived) : ''));
+      const nos = cleanField(pickFirst((cItem as any)?.[`sharesHeld_noOfShares_${i}`], (fIItem as any)?.[`sharesHeld_noOfShares_${i}`], idxEntry?.noOfShares, i === 1 ? noOfShares : ''));
+      const sFrom = cleanField(pickFirst((cItem as any)?.[`sharesHeld_sharesFrom_${i}`], (fIItem as any)?.[`sharesHeld_sharesFrom_${i}`], idxEntry?.sharesFrom, i === 1 ? sharesFrom : ''));
+      const sTo = cleanField(pickFirst((cItem as any)?.[`sharesHeld_sharesTo_${i}`], (fIItem as any)?.[`sharesHeld_sharesTo_${i}`], idxEntry?.sharesTo, i === 1 ? sharesTo : ''));
+      const cert = cleanField(pickFirst((cItem as any)?.[`sharesHeld_shareCertNo_${i}`], (fIItem as any)?.[`sharesHeld_shareCertNo_${i}`], idxEntry?.shareCertificateNo, i === 1 ? shareCertificateNo : ''));
+
+      shEntries.push({
+        date: d ? excelDate(d) : '',
+        cashBookFolio: cbf,
+        application: app,
+        allotment: allot,
+        call1st: call1,
+        call2nd: call2,
+        totalAmountReceived: tot,
+        noOfShares: nos,
+        sharesFrom: sFrom,
+        sharesTo: sTo,
+        shareCertificateNo: cert,
+      });
+
+      flatSH[`sharesHeld_date_${i}`] = d ? excelDate(d) : '';
+      flatSH[`sharesHeld_cashBookFolio_${i}`] = cbf;
+      flatSH[`sharesHeld_application_${i}`] = app;
+      flatSH[`sharesHeld_allotment_${i}`] = allot;
+      flatSH[`sharesHeld_call1st_${i}`] = call1;
+      flatSH[`sharesHeld_call2nd_${i}`] = call2;
+      flatSH[`sharesHeld_totalAmountReceived_${i}`] = tot;
+      flatSH[`sharesHeld_noOfShares_${i}`] = nos;
+      flatSH[`sharesHeld_sharesFrom_${i}`] = sFrom;
+      flatSH[`sharesHeld_sharesTo_${i}`] = sTo;
+      flatSH[`sharesHeld_shareCertNo_${i}`] = cert;
+    }
+
+    // Sync 5 shares transferred entries
+    const stEntries: FormIShareTransferredEntry[] = [];
+    const flatST: Record<string, string> = {};
+    const existingST = ((fIItem as any)?.sharesTransferredEntries || (cItem as any)?.sharesTransferredEntries || []) as FormIShareTransferredEntry[];
+    for (let i = 1; i <= 5; i++) {
+      const idxEntry = existingST[i - 1] || null;
+      const d = cleanField(pickFirst((cItem as any)?.[`sharesTransferred_date_${i}`], (fIItem as any)?.[`sharesTransferred_date_${i}`], idxEntry?.date, i === 1 ? (cItem?.dateOfTransferRefund || fIItem?.dateOfTransferRefund) : ''));
+      const cbf = cleanField(pickFirst((cItem as any)?.[`sharesTransferred_cashBookFolio_${i}`], (fIItem as any)?.[`sharesTransferred_cashBookFolio_${i}`], idxEntry?.cashBookFolio, i === 1 ? (cItem?.transferCashBookFolio || fIItem?.transferCashBookFolio) : ''));
+      const tDate = cleanField(pickFirst((cItem as any)?.[`sharesTransferred_transferDate_${i}`], (fIItem as any)?.[`sharesTransferred_transferDate_${i}`], idxEntry?.transferDate, i === 1 ? (cItem?.transferDate || fIItem?.transferDate) : ''));
+      const cert = cleanField(pickFirst((cItem as any)?.[`sharesTransferred_shareCertNo_${i}`], (fIItem as any)?.[`sharesTransferred_shareCertNo_${i}`], idxEntry?.shareCertificateNo, i === 1 ? (cItem?.shareCertTransferred || fIItem?.shareCertTransferred || cItem?.transferCertificateNo) : ''));
+      const nos = cleanField(pickFirst((cItem as any)?.[`sharesTransferred_noOfShares_${i}`], (fIItem as any)?.[`sharesTransferred_noOfShares_${i}`], idxEntry?.noOfSharesTransferred, i === 1 ? (cItem?.noOfSharesTransferredRefunded || fIItem?.noOfSharesTransferredRefunded || cItem?.noOfSharesTransferred) : ''));
+      const balNos = cleanField(pickFirst((cItem as any)?.[`sharesTransferred_balanceNoOfShares_${i}`], (fIItem as any)?.[`sharesTransferred_balanceNoOfShares_${i}`], idxEntry?.balanceNoOfShares, i === 1 ? (cItem?.balanceNoOfShares || fIItem?.balanceNoOfShares) : ''));
+      const balCert = cleanField(pickFirst((cItem as any)?.[`sharesTransferred_balanceCertNo_${i}`], (fIItem as any)?.[`sharesTransferred_balanceCertNo_${i}`], idxEntry?.balanceSerialNoCertificate, i === 1 ? (cItem?.balanceSerialNoCertificate || fIItem?.balanceSerialNoCertificate) : ''));
+      const amtRs = cleanField(pickFirst((cItem as any)?.[`sharesTransferred_amountRs_${i}`], (fIItem as any)?.[`sharesTransferred_amountRs_${i}`], idxEntry?.amountRs, i === 1 ? (cItem?.balanceAmountRs || fIItem?.balanceAmountRs) : ''));
+      const amtP = cleanField(pickFirst((cItem as any)?.[`sharesTransferred_amountP_${i}`], (fIItem as any)?.[`sharesTransferred_amountP_${i}`], idxEntry?.amountP));
+
+      stEntries.push({
+        date: d ? excelDate(d) : '',
+        cashBookFolio: cbf,
+        transferDate: tDate ? excelDate(tDate) : '',
+        shareCertificateNo: cert,
+        noOfSharesTransferred: nos,
+        balanceNoOfShares: balNos,
+        balanceSerialNoCertificate: balCert,
+        amountRs: amtRs,
+        amountP: amtP,
+      });
+
+      flatST[`sharesTransferred_date_${i}`] = d ? excelDate(d) : '';
+      flatST[`sharesTransferred_cashBookFolio_${i}`] = cbf;
+      flatST[`sharesTransferred_transferDate_${i}`] = tDate ? excelDate(tDate) : '';
+      flatST[`sharesTransferred_shareCertNo_${i}`] = cert;
+      flatST[`sharesTransferred_noOfShares_${i}`] = nos;
+      flatST[`sharesTransferred_balanceNoOfShares_${i}`] = balNos;
+      flatST[`sharesTransferred_balanceCertNo_${i}`] = balCert;
+      flatST[`sharesTransferred_amountRs_${i}`] = amtRs;
+      flatST[`sharesTransferred_amountP_${i}`] = amtP;
+    }
+
     // Merge base record. commonFile (cItem) is spread LAST so that for any field it
     // holds it overrides the registers — commonFile is the single source of truth, and
     // this makes edits to non-explicitly-tracked fields (e.g. remark, dateOfCessation)
@@ -1053,6 +1299,10 @@ export function synchronizeMasterWorkbook(wb: MasterWorkbook): MasterWorkbook {
       ...(propItem || {}),
       ...(bankItem || {}),
       ...(cItem || {}),
+      ...flatSH,
+      ...flatST,
+      sharesHeldEntries: shEntries,
+      sharesTransferredEntries: stEntries,
       srNo,
       memberName,
       member1,

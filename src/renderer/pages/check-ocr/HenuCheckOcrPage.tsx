@@ -20,6 +20,7 @@ import { CheckAssistantDrawer } from './components/CheckAssistantDrawer';
 import { OcrApiConfigModal } from '../voucher-ocr/components/OcrApiConfigModal';
 import { ClientOcrApiBridge } from '../voucher-ocr/services/ClientOcrApiBridge';
 import { CheckProcessingRecord } from '../../../modules/henu-check-ocr/schema/types';
+import { OcrSecurityLock } from '../../components/OcrSecurityLock';
 import './check-ocr.css';
 
 interface HenuCheckOcrPageProps {
@@ -191,7 +192,8 @@ export const HenuCheckOcrPage: React.FC<HenuCheckOcrPageProps> = ({ onNavigate }
   };
 
   return (
-    <div className="check-ocr-container">
+    <OcrSecurityLock module="check-ocr" moduleTitle="CHECK OCR">
+      <div className="check-ocr-container">
       {/* Top Header & Navigation Bar */}
       <div className="check-ocr-header">
         <div className="check-ocr-title-area">
@@ -468,6 +470,7 @@ export const HenuCheckOcrPage: React.FC<HenuCheckOcrPageProps> = ({ onNavigate }
         }}
       />
     </div>
+    </OcrSecurityLock>
   );
 };
 

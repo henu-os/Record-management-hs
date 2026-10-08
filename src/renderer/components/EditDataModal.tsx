@@ -344,6 +344,47 @@ export default function EditDataModal({ isOpen, moduleId, onClose, onSaved }: Pr
   const isVoucherMode = targetSheetId === '10_Voucher' || moduleId === 'FORM_VOUCHER' || moduleId === 'voucher';
   const activeSchema = FORM_SCHEMAS[targetSheetId] || FORM_SCHEMAS['03_Form_I'];
 
+  // Helper to unpack nested shares entries for modal editing
+  const prepareMemberRecordForEditing = (rec: any): any => {
+    if (!rec) return rec;
+    const copy = { ...rec };
+    if (Array.isArray(copy.sharesHeldEntries)) {
+      copy.sharesHeldEntries.forEach((sh: any, idx: number) => {
+        const i = idx + 1;
+        if (sh) {
+          copy[`sharesHeld_date_${i}`] = sh.date || copy[`sharesHeld_date_${i}`] || '';
+          copy[`sharesHeld_cashBookFolio_${i}`] = sh.cashBookFolio || copy[`sharesHeld_cashBookFolio_${i}`] || '';
+          copy[`sharesHeld_application_${i}`] = sh.application || copy[`sharesHeld_application_${i}`] || '';
+          copy[`sharesHeld_allotment_${i}`] = sh.allotment || copy[`sharesHeld_allotment_${i}`] || '';
+          copy[`sharesHeld_call1st_${i}`] = sh.call1st || copy[`sharesHeld_call1st_${i}`] || '';
+          copy[`sharesHeld_call2nd_${i}`] = sh.call2nd || copy[`sharesHeld_call2nd_${i}`] || '';
+          copy[`sharesHeld_totalAmountReceived_${i}`] = sh.totalAmountReceived || copy[`sharesHeld_totalAmountReceived_${i}`] || '';
+          copy[`sharesHeld_noOfShares_${i}`] = sh.noOfShares || copy[`sharesHeld_noOfShares_${i}`] || '';
+          copy[`sharesHeld_sharesFrom_${i}`] = sh.sharesFrom || copy[`sharesHeld_sharesFrom_${i}`] || '';
+          copy[`sharesHeld_sharesTo_${i}`] = sh.sharesTo || copy[`sharesHeld_sharesTo_${i}`] || '';
+          copy[`sharesHeld_shareCertNo_${i}`] = sh.shareCertificateNo || copy[`sharesHeld_shareCertNo_${i}`] || '';
+        }
+      });
+    }
+    if (Array.isArray(copy.sharesTransferredEntries)) {
+      copy.sharesTransferredEntries.forEach((st: any, idx: number) => {
+        const i = idx + 1;
+        if (st) {
+          copy[`sharesTransferred_date_${i}`] = st.date || copy[`sharesTransferred_date_${i}`] || '';
+          copy[`sharesTransferred_cashBookFolio_${i}`] = st.cashBookFolio || copy[`sharesTransferred_cashBookFolio_${i}`] || '';
+          copy[`sharesTransferred_transferDate_${i}`] = st.transferDate || copy[`sharesTransferred_transferDate_${i}`] || '';
+          copy[`sharesTransferred_shareCertNo_${i}`] = st.shareCertificateNo || copy[`sharesTransferred_shareCertNo_${i}`] || '';
+          copy[`sharesTransferred_noOfShares_${i}`] = st.noOfSharesTransferred || copy[`sharesTransferred_noOfShares_${i}`] || '';
+          copy[`sharesTransferred_balanceNoOfShares_${i}`] = st.balanceNoOfShares || copy[`sharesTransferred_balanceNoOfShares_${i}`] || '';
+          copy[`sharesTransferred_balanceCertNo_${i}`] = st.balanceSerialNoCertificate || copy[`sharesTransferred_balanceCertNo_${i}`] || '';
+          copy[`sharesTransferred_amountRs_${i}`] = st.amountRs || copy[`sharesTransferred_amountRs_${i}`] || '';
+          copy[`sharesTransferred_amountP_${i}`] = st.amountP || copy[`sharesTransferred_amountP_${i}`] || '';
+        }
+      });
+    }
+    return copy;
+  };
+
   // Load records when modal opens or activeMode changes
   const loadRecords = useCallback(async () => {
     if (!api?.masterData) return;
@@ -379,7 +420,7 @@ export default function EditDataModal({ isOpen, moduleId, onClose, onSaved }: Pr
           const curId = selectedId || commonList[0].srNo;
           const found = commonList.find((m: any) => m.srNo === curId) || commonList[0];
           setSelectedId(found.srNo);
-          setEditingRecord({ ...found });
+          setEditingRecord(prepareMemberRecordForEditing(found));
         }
       }
     } catch (err) {
@@ -416,7 +457,7 @@ export default function EditDataModal({ isOpen, moduleId, onClose, onSaved }: Pr
     setSelectedId(id);
     const rec = records.find(r => (isVoucherMode ? (r.voucherNo === id || r.srNo === id) : r.srNo === id));
     if (rec) {
-      setEditingRecord({ ...rec });
+      setEditingRecord(isVoucherMode ? { ...rec } : prepareMemberRecordForEditing(rec));
       setHasUnsavedChanges(false);
       setSuccessMsg(null);
     }
@@ -562,7 +603,7 @@ export default function EditDataModal({ isOpen, moduleId, onClose, onSaved }: Pr
         const commonList = wb.commonFile || [];
         setRecords(commonList);
         const found = commonList.find((c: any) => String(c.srNo).trim() === String(recordToSave.srNo).trim());
-        if (found) setEditingRecord({ ...found });
+        if (found) setEditingRecord(prepareMemberRecordForEditing(found));
       }
 
       setSuccessMsg('✓ Saved successfully');

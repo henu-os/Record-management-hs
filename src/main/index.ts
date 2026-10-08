@@ -43,6 +43,14 @@ import { ZipService } from './services/ZipService';
 import { ValidationEngine } from './services/ValidationEngine';
 import { generateRange, normalizeSerial, normalizeSerialKey } from './services/SerialRangeEngine';
 import { FormDesignSettingsService } from './services/FormDesignSettingsService';
+import { HenuConfigService } from './services/config/HenuConfigService';
+import { StorageEngine } from './services/config/StorageEngine';
+import { DocumentRoutingService } from './services/config/DocumentRoutingService';
+import { BackupService } from './services/config/BackupService';
+import { SystemHealthService } from './services/config/SystemHealthService';
+import { HenuMasterService } from './services/master/HenuMasterService';
+import { HenuSecurityService } from './services/security/HenuSecurityService';
+import { HenuSocietyContextService } from './services/society/HenuSocietyContextService';
 import {
   MasterWorkbook,
   FormId,
@@ -194,13 +202,19 @@ function getActiveSociety(): Society {
     }
   }
   if (!row) {
-    const id = 'default-society-1';
-    const now = new Date().toISOString();
-    db.prepare(`
-      INSERT INTO societies (id, society_name, registration_no, registration_date, full_address, city, state, pin_code, logo_base64, created_at, is_active)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
-    `).run(id, 'HENU OS PRIVATE LIMITED', 'U62099RJ2025PTC109150', '02/12/2025', 'Home Bhagesar, 10B-204 Second Floor, Pali AASAN home', 'Pali', 'Rajasthan', '306401', '', now);
-    row = db.prepare('SELECT * FROM societies WHERE id = ?').get(id) as any;
+    return {
+      id: '',
+      societyName: '',
+      registrationNo: '',
+      registrationDate: '',
+      fullAddress: '',
+      city: '',
+      state: '',
+      pinCode: '',
+      createdAt: '',
+      isActive: false,
+      logoBase64: '',
+    };
   }
   return {
     id: row.id,
@@ -302,6 +316,16 @@ ipcMain.handle('society:create', (_e, payload: AddSocietyPayload) => {
 
   activeMasterWorkbook = null;
   dbLog('SOCIETY_CREATE', `Created society: ${payload.societyName} (${payload.registrationNo})`);
+
+  // Provision society folder structure via HENU CONFIG
+  try {
+    const config = HenuConfigService.getInstance().getConfig();
+    const categories = DocumentRoutingService.getInstance().getCategories().map(c => c.name);
+    StorageEngine.createSocietyFolders(config.rootStoragePath, payload.societyName, categories);
+  } catch (err) {
+    console.error('Failed to provision society folders:', err);
+  }
+
   return getActiveSociety();
 });
 
@@ -346,6 +370,64 @@ ipcMain.handle('society:updateLogo', (_e, societyId: string, logoBase64: string)
   dbLog('SOCIETY_UPDATE_LOGO', `Updated logo for society ID: ${societyId}`);
   return getActiveSociety();
 });
+
+// ══════════════════════════════════════════════════════════════
+// SOCIETY CONTEXT ISOLATION & STORAGE PARTITIONING
+// ══════════════════════════════════════════════════════════════
+ipcMain.handle('societyContext:getVersion', () => {
+  return HenuSocietyContextService.getInstance().getContextVersion();
+});
+
+ipcMain.handle('societyContext:getImports', (_e, societyId?: string) => {
+  const sId = societyId || getActiveSociety().id;
+  return HenuSocietyContextService.getInstance().getSocietyImports(sId);
+});
+
+ipcMain.handle('societyContext:getExports', (_e, societyId?: string) => {
+  const sId = societyId || getActiveSociety().id;
+  return HenuSocietyContextService.getInstance().getSocietyExports(sId);
+});
+
+ipcMain.handle('societyContext:getTemplates', (_e, societyId?: string) => {
+  const sId = societyId || getActiveSociety().id;
+  return HenuSocietyContextService.getInstance().getSocietyTemplates(sId);
+});
+
+ipcMain.handle('societyContext:getGlobalTemplates', () => {
+  return HenuSocietyContextService.getInstance().getGlobalTemplateLibrary();
+});
+
+ipcMain.handle('societyContext:reuseTemplate', (_e, payload: { templateName: string; targetSocietyId: string }) => {
+  return HenuSocietyContextService.getInstance().reuseTemplateForSociety(payload.templateName, payload.targetSocietyId || getActiveSociety().id);
+});
+
+ipcMain.handle('storage:openImportsFolder', async () => {
+  const config = HenuConfigService.getInstance().getConfig();
+  const activeSoc = getActiveSociety();
+  const dir = StorageEngine.getSocietyImportsPath(config.rootStoragePath, activeSoc.societyName || 'Society');
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  await shell.openPath(dir);
+  return dir;
+});
+
+ipcMain.handle('storage:openExportsFolder', async () => {
+  const config = HenuConfigService.getInstance().getConfig();
+  const activeSoc = getActiveSociety();
+  const dir = StorageEngine.getSocietyExportsPath(config.rootStoragePath, activeSoc.societyName || 'Society');
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  await shell.openPath(dir);
+  return dir;
+});
+
+ipcMain.handle('storage:openSocietyFolder', async () => {
+  const config = HenuConfigService.getInstance().getConfig();
+  const activeSoc = getActiveSociety();
+  const dir = StorageEngine.getSocietyStoragePath(config.rootStoragePath, activeSoc.societyName || 'Society');
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  await shell.openPath(dir);
+  return dir;
+});
+
 
 // ══════════════════════════════════════════════════════════════
 // FOUNDATION DATA & REGISTER LOCKING
@@ -496,6 +578,18 @@ ipcMain.handle('masterData:exportMaster', async () => {
   const buffer = await MasterDataService.exportMasterWorkbook(wbToExport);
   fs.writeFileSync(result.filePath, buffer);
   dbLog('MASTER_EXPORT', `Master exported to ${result.filePath}`);
+
+  try {
+    HenuSocietyContextService.getInstance().recordExport({
+      societyId: activeSoc?.id || '',
+      fileName: path.basename(result.filePath),
+      filePath: result.filePath,
+      exportType: 'EXCEL',
+      recordCount: wbToExport.commonFile.length,
+      status: 'COMPLETED',
+    });
+  } catch {}
+
   return result.filePath;
 });
 
@@ -557,6 +651,18 @@ ipcMain.handle('masterData:exportModule', async (_e, moduleId: ModuleId) => {
   const buffer = await MasterDataService.exportIndividualModule(wbToExport, moduleId);
   fs.writeFileSync(result.filePath, buffer);
   dbLog('MODULE_EXPORT', `Module ${moduleId} exported to ${result.filePath}`);
+
+  try {
+    HenuSocietyContextService.getInstance().recordExport({
+      societyId: activeSoc?.id || '',
+      fileName: path.basename(result.filePath),
+      filePath: result.filePath,
+      exportType: 'EXCEL',
+      recordCount: wbToExport.commonFile.length || 1,
+      status: 'COMPLETED',
+    });
+  } catch {}
+
   return result.filePath;
 });
 
@@ -644,6 +750,18 @@ ipcMain.handle('masterData:importModule', async (_e, moduleId: ModuleId) => {
     JSON.stringify(updatedWb.validationErrors), JSON.stringify(updatedWb.validationWarnings),
     JSON.stringify(updatedWb), updatedWb.loadedAt,
   );
+
+  try {
+    HenuSocietyContextService.getInstance().recordImport({
+      societyId: activeSoc.id,
+      fileName: path.basename(filePath),
+      filePath,
+      importType: 'MODULE',
+      recordCount: updatedWb.commonFile.length || updatedWb.formIData.length || 1,
+      status: 'COMPLETED',
+      templateName: `Template_${moduleId}.xlsx`,
+    });
+  } catch {}
 
   dbLog('MODULE_IMPORT', `Imported module ${moduleId} from ${filePath}`);
   return buildMasterDataStatus(updatedWb);
@@ -840,6 +958,18 @@ ipcMain.handle('masterData:upload', async () => {
     JSON.stringify(wb.validationErrors), JSON.stringify(wb.validationWarnings),
     JSON.stringify(wb), wb.loadedAt,
   );
+
+  try {
+    HenuSocietyContextService.getInstance().recordImport({
+      societyId: activeSoc.id,
+      fileName: wb.fileName,
+      filePath: filePath,
+      importType: 'EXCEL',
+      recordCount: wb.commonFile.length,
+      status: 'COMPLETED',
+      templateName: wb.fileName,
+    });
+  } catch {}
 
   dbLog('MASTER_DATA_UPLOAD', `Uploaded: ${wb.fileName}`, { records: wb.commonFile.length, societyId: activeSoc.id });
   return buildMasterDataStatus(wb);
@@ -1323,6 +1453,30 @@ ipcMain.handle('generate:execute', async (_e, arg1: any, arg2?: any, arg3?: any,
     dbLog('GENERATE_SUCCESS', `Generated ${formId} ${fromSerial}-${toSerial}`, { pdfPath, zipPath });
     mainWindow?.webContents.send('generate:progress', 'Complete.');
 
+    // Auto-route and register document in HENU CONFIG
+    try {
+      const categoryMap: Record<FormId, string> = {
+        FORM_I: 'Form I',
+        FORM_J: 'Form J',
+        FORM_SHARE: 'Share Register',
+        FORM_PROP: 'Property Register',
+        FORM_NOM: 'Nomination Register',
+        FORM_BANK: 'Bank Lien Mark',
+        FORM_SHARE_CERT: 'Share Certificate',
+        FORM_VOUCHER: 'Voucher',
+      };
+      await DocumentRoutingService.getInstance().routeAndRegisterDocument({
+        societyId: activeSoc?.id || 'default-society-1',
+        societyName: activeSoc?.societyName || 'HENU OS',
+        categoryNameOrId: categoryMap[formId] || 'Form I',
+        buffer: previewBuffer,
+        fileType: 'PDF',
+        serialNumber: `${fromSerial}-${toSerial}`,
+      });
+    } catch (routeErr) {
+      console.error('HENU CONFIG auto-routing notice:', routeErr);
+    }
+
     const b64 = previewBuffer.toString('base64');
     const dataUrl = `data:application/pdf;base64,${b64}`;
 
@@ -1573,6 +1727,170 @@ ipcMain.handle('ocrApi:processCheck', async (_e, imageBase64OrBuffer: string, mi
     return { success: false, errorCategory: 'SERVER_ERROR', errorMessage: err.message };
   }
 });
+
+// ── HENU CONFIG IPC Handlers ─────────────────────────────────
+ipcMain.handle('henuConfig:getFirstRunStatus', async () => {
+  return HenuConfigService.getInstance().isFirstRunCompleted();
+});
+
+ipcMain.handle('henuConfig:validateStorageLocation', async (_e, targetPath: string) => {
+  return StorageEngine.validateLocation(targetPath);
+});
+
+ipcMain.handle('henuConfig:completeFirstRun', async (_e, rootPath: string) => {
+  return HenuConfigService.getInstance().completeFirstRun(rootPath);
+});
+
+ipcMain.handle('henuConfig:getConfig', async () => {
+  return HenuConfigService.getInstance().getConfig();
+});
+
+ipcMain.handle('henuConfig:saveConfig', async (_e, cfg: any) => {
+  return HenuConfigService.getInstance().saveConfig(cfg);
+});
+
+ipcMain.handle('henuConfig:getCategories', async () => {
+  return DocumentRoutingService.getInstance().getCategories();
+});
+
+ipcMain.handle('henuConfig:saveCategory', async (_e, cat: any) => {
+  return DocumentRoutingService.getInstance().saveCategory(cat);
+});
+
+ipcMain.handle('henuConfig:deleteCategory', async (_e, id: string) => {
+  return DocumentRoutingService.getInstance().deleteCategory(id);
+});
+
+ipcMain.handle('henuConfig:reorderCategories', async (_e, ids: string[]) => {
+  return DocumentRoutingService.getInstance().reorderCategories(ids);
+});
+
+ipcMain.handle('henuConfig:getStorageOverview', async () => {
+  return DocumentRoutingService.getInstance().getStorageOverview();
+});
+
+ipcMain.handle('henuConfig:getDocuments', async (_e, filter?: any) => {
+  return DocumentRoutingService.getInstance().getDocuments(filter);
+});
+
+ipcMain.handle('henuConfig:routeAndSaveDocument', async (_e, params: any) => {
+  return DocumentRoutingService.getInstance().routeAndRegisterDocument(params);
+});
+
+ipcMain.handle('henuConfig:changeDataLocation', async (_e, newPath: string) => {
+  return HenuConfigService.getInstance().changeDataLocation(newPath);
+});
+
+ipcMain.handle('henuConfig:createBackup', async (_e, label?: string) => {
+  return BackupService.getInstance().createBackup(label);
+});
+
+ipcMain.handle('henuConfig:createScopedBackup', async (_e, options: any) => {
+  return BackupService.getInstance().createScopedBackup(options);
+});
+
+ipcMain.handle('henuConfig:validateBackupFile', async (_e, filePath: string) => {
+  return BackupService.getInstance().validateBackupFile(filePath);
+});
+
+ipcMain.handle('henuConfig:restoreBackup', async (_e, filePath: string, options?: any) => {
+  return BackupService.getInstance().restoreBackup(filePath, options);
+});
+
+ipcMain.handle('henuConfig:listBackups', async () => {
+  return BackupService.getInstance().listBackups();
+});
+
+ipcMain.handle('henuConfig:runHealthCheck', async () => {
+  return SystemHealthService.getInstance().runHealthCheck();
+});
+
+ipcMain.handle('henuConfig:repairFileIndex', async () => {
+  return SystemHealthService.getInstance().repairAndReindex();
+});
+
+// ── HENUMASTER IPC Handlers ──────────────────────────────────
+ipcMain.handle('henuMaster:getDashboardStats', async () => {
+  return HenuMasterService.getInstance().getDashboardStats();
+});
+
+ipcMain.handle('henuMaster:listSocieties', async (_e, filter?: any) => {
+  return HenuMasterService.getInstance().listSocieties(filter);
+});
+
+ipcMain.handle('henuMaster:getSocietyOverview', async (_e, societyId: string) => {
+  return HenuMasterService.getInstance().getSocietyOverview(societyId);
+});
+
+ipcMain.handle('henuMaster:updateSocietyMetadata', async (_e, societyId: string, metadata: any) => {
+  return HenuMasterService.getInstance().updateSocietyMetadata(societyId, metadata);
+});
+
+ipcMain.handle('henuMaster:deleteSociety', async (_e, societyId: string) => {
+  return HenuMasterService.getInstance().deleteSociety(societyId);
+});
+
+ipcMain.handle('henuMaster:archiveSociety', async (_e, societyId: string) => {
+  return HenuMasterService.getInstance().archiveSociety(societyId);
+});
+
+ipcMain.handle('henuMaster:restoreSociety', async (_e, societyId: string) => {
+  return HenuMasterService.getInstance().restoreSociety(societyId);
+});
+
+ipcMain.handle('henuMaster:getRecentActivity', async (_e, societyId?: string, limit?: number) => {
+  return HenuMasterService.getInstance().getRecentActivity(societyId, limit);
+});
+
+ipcMain.handle('henuMaster:exportSocietySummary', async (_e, societyId: string, format?: 'json' | 'csv' | 'text') => {
+  return HenuMasterService.getInstance().exportSocietySummary(societyId, format);
+});
+
+ipcMain.handle('henuMaster:openFolder', async (_e, folderPath: string) => {
+  if (folderPath && fs.existsSync(folderPath)) {
+    shell.openPath(folderPath);
+    return { success: true };
+  }
+  return { success: false, error: 'Path does not exist' };
+});
+
+// ── Centralized Security IPC Handlers ────────────────────────
+ipcMain.handle('security:verifyAdminPassword', async (_e, password: string) => {
+  return HenuSecurityService.getInstance().verifyAdminPassword(password);
+});
+
+ipcMain.handle('security:createMfaChallenge', async (_e, societyId: string) => {
+  return HenuSecurityService.getInstance().createMfaChallenge(societyId);
+});
+
+ipcMain.handle('security:verifyMfaChallenge', async (_e, challengeId: string, code: string, societyId: string) => {
+  return HenuSecurityService.getInstance().verifyMfaChallenge(challengeId, code, societyId);
+});
+
+ipcMain.handle('security:verifyOcrPassword', async (_e, password: string, module: 'voucher-ocr' | 'check-ocr') => {
+  return HenuSecurityService.getInstance().verifyOcrPassword(password, module);
+});
+
+ipcMain.handle('security:getOcrSessionStatus', async (_e, module: 'voucher-ocr' | 'check-ocr') => {
+  const unlocked = HenuSecurityService.getInstance().isOcrUnlocked(module);
+  return { unlocked };
+});
+
+ipcMain.handle('security:lockOcrSession', async (_e, module: 'voucher-ocr' | 'check-ocr') => {
+  const success = HenuSecurityService.getInstance().lockOcrModule(module);
+  return { success };
+});
+
+ipcMain.handle('security:executeSecureSocietyDelete', async (_e, payload: { societyId: string; mfaToken: string }) => {
+  return HenuSecurityService.getInstance().executeSecureSocietyDelete(payload.societyId, payload.mfaToken);
+});
+
+ipcMain.handle('security:getAuditLogs', async (_e, limit?: number) => {
+  return HenuSecurityService.getInstance().getAuditLogs(limit);
+});
+
+
+
 
 
 

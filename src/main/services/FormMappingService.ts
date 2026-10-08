@@ -43,6 +43,94 @@ export class FormMappingService {
    * 
    * CRITICAL: Society address is ONLY appended to Permanent Address, NEVER to Residential Address.
    */
+  /**
+   * Identifies whether a string value is an empty/placeholder/header label rather than actual data.
+   */
+  static isInvalidValue(val: string | null | undefined): boolean {
+    if (!val) return true;
+    const str = String(val).trim();
+    if (!str) return true;
+    const norm = str.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const invalidSet = new Set([
+      'societyname',
+      'societyregistrationno',
+      'societyregistrationnumber',
+      'registrationno',
+      'registrationnumber',
+      'regno',
+      'societyregistrationdate',
+      'registrationdate',
+      'dateofregistration',
+      'hedderaddress',
+      'headeraddress',
+      'societyaddress',
+      'societyaddressline1',
+      'societyaddressline2',
+      'societyaddressline3',
+      'societyaddressline4',
+      'societyaddressline5',
+      'societyaddressline6',
+      'societyemailid',
+      'societyemail',
+      'emailid',
+      'email',
+      'societytelephonemobileno',
+      'societytelephoneormobileno',
+      'telephonemobileno',
+      'telephone',
+      'mobile',
+      'totalunit',
+      'totalunits',
+      'noofflatorroom',
+      'noofflat',
+      'noshop',
+      'nooffice',
+      'nogalas',
+      'noofgalas',
+      'noofprintblankextrasrno',
+      'noofprintblank',
+      'addresspermanent',
+      'addressresidentialcareof',
+      'addressresidentialcareoff',
+      'newaddressasabove',
+      'flatroomshopofficegalano',
+      'flattenementno',
+      'wingno',
+      'null',
+      'undefined',
+      'nan',
+      'na',
+      'n/a',
+      'field',
+      'value',
+      'srno',
+      'serialno',
+      'line1',
+      'line2',
+      'line3',
+      'line4',
+      'line5',
+      'line6',
+      'anoofflatorroom',
+      'bnoshop',
+      'cnooffice',
+      'dnogalas',
+    ]);
+    return invalidSet.has(norm);
+  }
+
+  /**
+   * Helper method to build exactly 6 lines for the stacked 5. Permanent Address:
+   * Line 1 = {Member Flat/Wing}, {Society Line 1} (or just Member Flat/Wing if no Society Line 1)
+   * Line 2 = {Society Line 2}
+   * Line 3 = {Society Line 3}
+   * Line 4 = {Society Line 4}
+   * Line 5 = {Society Line 5}
+   * Line 6 = {Society Line 6}
+   * 
+   * CRITICAL: Society address is ONLY appended if validly present in Sheet 1 Society Master.
+   * If blank or not available, it MUST remain blank.
+   */
   static buildPermanentAddressLines(
     rec: NormalizedMemberRecord | null | undefined,
     society: SocietyMaster | null | undefined
@@ -72,14 +160,17 @@ export class FormMappingService {
       sLines = ['', '', '', '', '', ''];
     }
 
+    // Sanitize society address lines: clean out placeholder field labels and blank cells
+    sLines = sLines.map(l => (FormMappingService.isInvalidValue(l) ? '' : l.trim()));
+
     // Determine member's local permanent address components (e.g. flatNo, wingNo, or raw permanentAddress)
     let memberPart = '';
     if (rec) {
-      if (rec.permanentAddress && rec.permanentAddress.trim()) {
+      if (rec.permanentAddress && !FormMappingService.isInvalidValue(rec.permanentAddress)) {
         memberPart = rec.permanentAddress.trim();
       } else {
-        const flat = rec.flatNo ? String(rec.flatNo).trim() : '';
-        const wing = rec.wingNo ? String(rec.wingNo).trim() : '';
+        const flat = rec.flatNo && !FormMappingService.isInvalidValue(rec.flatNo) ? String(rec.flatNo).trim() : '';
+        const wing = rec.wingNo && !FormMappingService.isInvalidValue(rec.wingNo) ? String(rec.wingNo).trim() : '';
         const parts = [flat, wing].filter(Boolean);
         memberPart = parts.join(', ');
       }
@@ -95,25 +186,28 @@ export class FormMappingService {
       line1 = sLine1;
     }
 
-    return [
+    const resultLines: string[] = [
       line1,
       (sLines[1] || '').trim(),
       (sLines[2] || '').trim(),
       (sLines[3] || '').trim(),
       (sLines[4] || '').trim(),
       (sLines[5] || '').trim(),
-    ];
+    ].filter(l => l !== '');
+
+    return resultLines;
   }
 
   /**
    * Formats Permanent Address as a clean multi-line string with non-empty lines joined by newline.
+   * If all lines are empty or invalid, returns empty string "".
    */
   static formatPermanentAddress(
     rec: NormalizedMemberRecord | null | undefined,
     society: SocietyMaster | null | undefined
   ): string {
     const lines = FormMappingService.buildPermanentAddressLines(rec, society);
-    const nonBlank = lines.filter(l => l.trim() !== '');
+    const nonBlank = lines.filter(l => l.trim() !== '' && !FormMappingService.isInvalidValue(l));
     return nonBlank.length > 0 ? nonBlank.join('\n') : '';
   }
 
@@ -345,8 +439,8 @@ export class FormMappingService {
     return {
       srNo: rec.srNo,
       memberName: FormMappingService.formatAllMemberNames(rec),
-      address: rec.permanentAddress || rec.residentialAddress,
-      classOfMember: rec.classOfMember || (rec.memberName || rec.srNo ? 'Active Member' : ''),
+      address: rec.permanentAddress || rec.residentialAddress || '',
+      classOfMember: rec.classOfMember || '',
     };
   }
 
@@ -354,32 +448,32 @@ export class FormMappingService {
   static mapToShareRegister(rec: NormalizedMemberRecord) {
     return {
       srNo: rec.srNo,
-      dateOfAllotment: rec.dateOfAllotment,
-      cashBookFolioNo: rec.cashBookFolio,
-      shareCertificateNo: rec.shareCertificateNo,
-      noOfShares: rec.noOfShares,
-      valueOfShares: rec.valueOfShares,
+      dateOfAllotment: rec.dateOfAllotment || '',
+      cashBookFolioNo: rec.cashBookFolio || '',
+      shareCertificateNo: rec.shareCertificateNo || '',
+      noOfShares: rec.noOfShares || '',
+      valueOfShares: rec.valueOfShares || '',
       memberName: FormMappingService.formatAllMemberNames(rec),
-      member1: rec.member1,
-      member2: rec.member2,
-      member3: rec.member3,
-      member4: rec.member4,
-      member5: rec.member5,
-      member6: rec.member6,
-      flatNo: rec.flatNo,
-      wingNo: rec.wingNo,
-      dateOfTransferRefund: rec.dateOfTransferRefund,
-      transferJournalFolioNo: rec.transferJournalFolioNo,
-      noOfSharesTransferredRefunded: rec.noOfSharesTransferredRefunded || rec.noOfSharesTransferred,
-      shareCertTransferred: rec.shareCertTransferred || rec.transferCertificateNo,
-      sharesValueTransferred: rec.sharesValueTransferred,
-      nameOfTransferee: rec.nameOfTransferee,
-      authorityForTransfer: rec.authorityForTransfer,
-      oldShareCertNo: rec.oldShareCertNo,
-      oldMembershipNo: rec.oldMembershipNo,
-      sharesFrom: rec.sharesFrom,
-      sharesTo: rec.sharesTo,
-      remark: rec.remarks || rec.propertyRemarks,
+      member1: rec.member1 || '',
+      member2: rec.member2 || '',
+      member3: rec.member3 || '',
+      member4: rec.member4 || '',
+      member5: rec.member5 || '',
+      member6: rec.member6 || '',
+      flatNo: rec.flatNo || '',
+      wingNo: rec.wingNo || '',
+      dateOfTransferRefund: rec.dateOfTransferRefund || '',
+      transferJournalFolioNo: rec.transferJournalFolioNo || '',
+      noOfSharesTransferredRefunded: rec.noOfSharesTransferredRefunded || rec.noOfSharesTransferred || '',
+      shareCertTransferred: rec.shareCertTransferred || rec.transferCertificateNo || '',
+      sharesValueTransferred: rec.sharesValueTransferred || '',
+      nameOfTransferee: rec.nameOfTransferee || '',
+      authorityForTransfer: rec.authorityForTransfer || '',
+      oldShareCertNo: rec.oldShareCertNo || '',
+      oldMembershipNo: rec.oldMembershipNo || '',
+      sharesFrom: rec.sharesFrom || '',
+      sharesTo: rec.sharesTo || '',
+      remark: rec.remarks || rec.propertyRemarks || '',
     };
   }
 
@@ -387,17 +481,17 @@ export class FormMappingService {
   static mapToNominationRegister(rec: NormalizedMemberRecord) {
     return {
       srNo: rec.srNo,
-      membershipNo: rec.membershipNo,
-      shareCertificateNo: rec.shareCertificateNo,
-      permanentAddress: rec.permanentAddress,
+      membershipNo: rec.membershipNo || '',
+      shareCertificateNo: rec.shareCertificateNo || '',
+      permanentAddress: rec.permanentAddress || '',
       memberName: FormMappingService.formatAllMemberNames(rec),
-      dateOfNomination: rec.dateOfNomination,
-      nomineeName: rec.nomineeName,
-      nomineeAddress: rec.nomineeAddress,
-      nomineePercentage: rec.nomineePercentage,
-      mcMeetingDate: rec.mcMeetingDate,
-      subsequentRevocation: rec.subsequentRevocation,
-      remark: rec.remarks,
+      dateOfNomination: rec.dateOfNomination || '',
+      nomineeName: rec.nomineeName || '',
+      nomineeAddress: rec.nomineeAddress || '',
+      nomineePercentage: rec.nomineePercentage || '',
+      mcMeetingDate: rec.mcMeetingDate || '',
+      subsequentRevocation: rec.subsequentRevocation || '',
+      remark: rec.remarks || '',
     };
   }
 
@@ -406,15 +500,15 @@ export class FormMappingService {
     return {
       srNo: rec.srNo,
       memberName: FormMappingService.formatAllMemberNames(rec),
-      dateOfPossession: rec.dateOfPossession,
-      distinguishingNo: rec.distinguishingNo || rec.flatNo,
-      descriptionOfTenement: rec.descriptionOfTenement || (rec.flatNo ? `Flat/Unit: ${rec.flatNo} Wing: ${rec.wingNo || ''}` : ''),
-      areaOfTenement: rec.area,
-      costOfTenement: rec.costOfTenement,
-      annualGroundRent: rec.annualGroundRent,
-      dateOfCessation: rec.dateOfCessation,
-      signature: rec.signature,
-      remark: rec.propertyRemarks || rec.remarks,
+      dateOfPossession: rec.dateOfPossession || '',
+      distinguishingNo: rec.distinguishingNo || rec.flatNo || '',
+      descriptionOfTenement: rec.descriptionOfTenement || '',
+      areaOfTenement: rec.area || '',
+      costOfTenement: rec.costOfTenement || '',
+      annualGroundRent: rec.annualGroundRent || '',
+      dateOfCessation: rec.dateOfCessation || '',
+      signature: rec.signature || '',
+      remark: rec.propertyRemarks || rec.remarks || '',
     };
   }
 
@@ -422,30 +516,30 @@ export class FormMappingService {
   static mapToLienMarkRegister(rec: NormalizedMemberRecord) {
     return {
       srNo: rec.srNo,
-      permanentAddress: rec.permanentAddress,
-      flatNo: rec.flatNo,
-      wingNo: rec.wingNo,
-      area: rec.area,
-      carpetBuildupSqFt: rec.carpetBuildupSqFt,
-      shareCertificateNo: rec.shareCertificateNo,
-      sharesFrom: rec.sharesFrom,
-      sharesTo: rec.sharesTo,
+      permanentAddress: rec.permanentAddress || '',
+      flatNo: rec.flatNo || '',
+      wingNo: rec.wingNo || '',
+      area: rec.area || '',
+      carpetBuildupSqFt: rec.carpetBuildupSqFt || '',
+      shareCertificateNo: rec.shareCertificateNo || '',
+      sharesFrom: rec.sharesFrom || '',
+      sharesTo: rec.sharesTo || '',
       memberName: FormMappingService.formatAllMemberNames(rec),
-      member1: rec.member1,
-      member2: rec.member2,
-      member3: rec.member3,
-      member4: rec.member4,
-      member5: rec.member5,
-      member6: rec.member6,
-      dateOfLoanSanction: rec.dateOfLoanSanction,
-      bankName: rec.bankName,
-      bankAddress: rec.bankAddress,
-      loanAmount: rec.loanAmount,
-      loanPeriod: rec.loanPeriod,
-      mcMeetingApprovalDate: rec.mcMeetingApprovalDate,
-      resolutionNo: rec.resolutionNo,
-      dateOfNOC: rec.dateOfNOC,
-      dateOfLienCancellation: rec.dateOfLienCancellation,
+      member1: rec.member1 || '',
+      member2: rec.member2 || '',
+      member3: rec.member3 || '',
+      member4: rec.member4 || '',
+      member5: rec.member5 || '',
+      member6: rec.member6 || '',
+      dateOfLoanSanction: rec.dateOfLoanSanction || '',
+      bankName: rec.bankName || '',
+      bankAddress: rec.bankAddress || '',
+      loanAmount: rec.loanAmount || '',
+      loanPeriod: rec.loanPeriod || '',
+      mcMeetingApprovalDate: rec.mcMeetingApprovalDate || '',
+      resolutionNo: rec.resolutionNo || '',
+      dateOfNOC: rec.dateOfNOC || '',
+      dateOfLienCancellation: rec.dateOfLienCancellation || '',
     };
   }
 
@@ -453,12 +547,12 @@ export class FormMappingService {
   static mapToShareCertificate(rec: NormalizedMemberRecord) {
     return {
       srNo: rec.srNo,
-      shareCertificateNo: rec.shareCertificateNo || rec.srNo,
-      memberRegisterNo: rec.membershipNo || rec.srNo,
-      noOfShares: rec.noOfShares || '10',
-      shareValue: rec.valueOfShares || rec.totalAmountReceived || '500',
-      distinctiveFrom: rec.sharesFrom || '001',
-      distinctiveTo: rec.sharesTo || '010',
+      shareCertificateNo: rec.shareCertificateNo || '',
+      memberRegisterNo: rec.membershipNo || '',
+      noOfShares: rec.noOfShares || '',
+      shareValue: rec.valueOfShares || rec.totalAmountReceived || '',
+      distinctiveFrom: rec.sharesFrom || '',
+      distinctiveTo: rec.sharesTo || '',
       wing: rec.wingNo || '',
       flatNo: rec.flatNo || '',
       holder1: rec.member1 || rec.memberName || '',
@@ -469,7 +563,7 @@ export class FormMappingService {
       holder6: rec.member6 || '',
       oldShareCertNo: rec.oldShareCertNo || '',
       issueDate: rec.dateOfAllotment || '',
-      issueCity: 'MUMBAI',
+      issueCity: '',
     };
   }
 }

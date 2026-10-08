@@ -1253,19 +1253,19 @@ export class ShareCertificateRenderer {
 
     // Subheading & Address
     curY -= 22;
-    const legalName = data.societyLegalName || 'CO-OPERATIVE HOUSING SOCIETY LTD.';
-    drawCentered(page, legalName, fonts.bold, 12, cx, curY, C1_RUBY_RED);
+    const legalName = data.societyLegalName || '';
+    if (legalName) drawCentered(page, legalName, fonts.bold, 12, cx, curY, C1_RUBY_RED);
 
     curY -= 18;
-    const addr = data.societyAddress || 'MUMBAI';
-    drawCentered(page, addr, fonts.reg, 9.5, cx, curY, COLOR_BLACK);
+    const addr = data.societyAddress || '';
+    if (addr) drawCentered(page, addr, fonts.reg, 9.5, cx, curY, COLOR_BLACK);
 
     curY -= 16;
     drawCentered(page, '(Registered under the Maharashtra Co-operative Societies Act, 1960)', fonts.italic, 8.5, cx, curY, COLOR_BLACK);
 
     curY -= 14;
-    const regNoDate = `Regd. No.: ${data.registrationNo}  Dated: ${data.registrationDate}`;
-    drawCentered(page, regNoDate, fonts.bold, 9, cx, curY, C1_RUBY_RED);
+    const regNoDate = (data.registrationNo || data.registrationDate) ? `Regd. No.: ${data.registrationNo || ''}  Dated: ${data.registrationDate || ''}` : '';
+    if (regNoDate) drawCentered(page, regNoDate, fonts.bold, 9, cx, curY, C1_RUBY_RED);
 
     // Metadata Box (Secondary BG #F9F0E0)
     curY -= 70;
@@ -1277,13 +1277,15 @@ export class ShareCertificateRenderer {
     page.drawText(`Share Certificate No.: ${data.shareCertificateNo}`, { x: m + 26 + colW, y: curY + 42, size: 8.5, font: fonts.bold, color: COLOR_BLACK });
     page.drawText(`Member's Register No.: ${data.memberRegisterNo}`, { x: m + 26, y: curY + 24, size: 8.5, font: fonts.bold, color: COLOR_BLACK });
     page.drawText(`No. of Shares: ${data.noOfShares}`, { x: m + 26 + colW, y: curY + 24, size: 8.5, font: fonts.bold, color: COLOR_BLACK });
-    page.drawText(`Wing: ${data.wingNo || '-'}   |   Flat/Shop No.: ${data.flatNo}`, { x: m + 26, y: curY + 6, size: 8.5, font: fonts.bold, color: COLOR_BLACK });
+    page.drawText(`Wing: ${data.wingNo || ''}   |   Flat/Shop No.: ${data.flatNo || ''}`, { x: m + 26, y: curY + 6, size: 8.5, font: fonts.bold, color: COLOR_BLACK });
 
     // Authorised Share Capital Band
     curY -= 36;
     page.drawRectangle({ x: m + 16, y: curY, width: w - 32, height: 26, color: C1_BG_SEC, borderColor: C1_RUBY_RED, borderWidth: 0.8 });
-    const authText = `(AUTHORISED SHARE CAPITAL OF Rs. ${data.authorisedCapital})  DIVIDED INTO ${data.totalAuthorisedShares} SHARES OF Rs. ${data.faceValue} EACH`;
-    drawCentered(page, authText, fonts.bold, 8.5, cx, curY + 8, C1_RUBY_RED);
+    const authText = (data.authorisedCapital || data.totalAuthorisedShares || data.faceValue)
+      ? `(AUTHORISED SHARE CAPITAL OF Rs. ${data.authorisedCapital || ''})  DIVIDED INTO ${data.totalAuthorisedShares || ''} SHARES OF Rs. ${data.faceValue || ''} EACH`
+      : '';
+    if (authText) drawCentered(page, authText, fonts.bold, 8.5, cx, curY + 8, C1_RUBY_RED);
 
     // Certification Box & Member Holders
     curY -= 150;
@@ -1292,7 +1294,7 @@ export class ShareCertificateRenderer {
     page.drawText('THIS IS TO CERTIFY THAT', { x: m + 26, y: curY + certBoxH - 18, size: 9, font: fonts.bold, color: C1_RUBY_RED });
 
     const holders = [
-      data.member1 || data.memberName || 'HOLDER 1',
+      data.member1 || data.memberName || '',
       data.member2 || '',
       data.member3 || '',
     ].filter(Boolean);

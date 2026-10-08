@@ -1454,6 +1454,7 @@ export const browserMockApi = {
           fromSerial,
           toSerial,
           nonSerialCount: options?.nonSerialCount,
+          blankMode: options?.blankMode,
           templateId: options?.templateId,
           shareRegisterTemplateId: options?.shareRegisterTemplateId,
           voucherPaperSize: options?.voucherPaperSize,
@@ -1560,6 +1561,7 @@ export const browserMockApi = {
           fromSerial,
           toSerial,
           nonSerialCount: options?.nonSerialCount,
+          blankMode: options?.blankMode,
           templateId: options?.templateId,
           shareRegisterTemplateId: options?.shareRegisterTemplateId,
           voucherPaperSize: options?.voucherPaperSize,
@@ -2267,6 +2269,362 @@ CRITICAL: If a field is blank or missing, set its value to null. Never invent or
       },
     };
   })(),
+  henuConfig: (() => {
+    let mockConfig = {
+      id: 'default-config',
+      rootStoragePath: 'D:\\HENU OS RECMA',
+      societiesPath: 'D:\\HENU OS RECMA\\Societies',
+      backupPath: 'D:\\HENU OS RECMA\\Backups',
+      exportPath: 'D:\\HENU OS RECMA\\Exports',
+      importPath: 'D:\\HENU OS RECMA\\Imports',
+      logsPath: 'D:\\HENU OS RECMA\\Logs',
+      systemPath: 'D:\\HENU OS RECMA\\System',
+      firstRunCompleted: true,
+      fileNamingPattern: '{SocietyName}_{Category}_{Number}_{Date}',
+      duplicateStrategy: 'VERSION',
+      backupEnabled: true,
+      backupFrequency: 'DAILY',
+      backupRetentionDays: 30,
+      lastBackupAt: '',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    let mockCategories = [
+      { id: 'cat-form-i', name: 'Form I', systemRequired: true, active: true, sortOrder: 1, createdAt: '', updatedAt: '' },
+      { id: 'cat-form-j', name: 'Form J', systemRequired: true, active: true, sortOrder: 2, createdAt: '', updatedAt: '' },
+      { id: 'cat-share-reg', name: 'Share Register', systemRequired: true, active: true, sortOrder: 3, createdAt: '', updatedAt: '' },
+      { id: 'cat-prop-reg', name: 'Property Register', systemRequired: true, active: true, sortOrder: 4, createdAt: '', updatedAt: '' },
+      { id: 'cat-nom-reg', name: 'Nomination Register', systemRequired: true, active: true, sortOrder: 5, createdAt: '', updatedAt: '' },
+      { id: 'cat-bank-lien', name: 'Bank Lien Mark', systemRequired: true, active: true, sortOrder: 6, createdAt: '', updatedAt: '' },
+      { id: 'cat-share-cert', name: 'Share Certificate', systemRequired: true, active: true, sortOrder: 7, createdAt: '', updatedAt: '' },
+      { id: 'cat-voucher', name: 'Voucher', systemRequired: true, active: true, sortOrder: 8, createdAt: '', updatedAt: '' },
+    ];
+
+    let mockDocs: any[] = [];
+    let mockBackups: any[] = [];
+
+    return {
+      getFirstRunStatus: async () => mockConfig.firstRunCompleted,
+      validateStorageLocation: async (p: string) => ({
+        isValid: Boolean(p && p.length > 2),
+        path: p,
+        exists: true,
+        isWritable: true,
+        isReadable: true,
+        dbReady: true,
+        fileStorageReady: true,
+        availableSpaceFormatted: '> 50 GB',
+        isSystemProtected: false,
+        errors: [],
+        warnings: [],
+      }),
+      completeFirstRun: async (p: string) => {
+        mockConfig.rootStoragePath = p;
+        mockConfig.firstRunCompleted = true;
+        return { isValid: true, path: p, exists: true, isWritable: true, isReadable: true, dbReady: true, fileStorageReady: true, isSystemProtected: false, errors: [], warnings: [] };
+      },
+      getConfig: async () => ({ ...mockConfig }),
+      saveConfig: async (cfg: any) => {
+        mockConfig = { ...mockConfig, ...cfg, updatedAt: new Date().toISOString() };
+        return { ...mockConfig };
+      },
+      getCategories: async () => [...mockCategories],
+      saveCategory: async (cat: any) => {
+        const id = cat.id || `cat-${Date.now()}`;
+        const newCat = { id, name: cat.name || 'Custom Category', systemRequired: Boolean(cat.systemRequired), active: cat.active !== undefined ? cat.active : true, sortOrder: cat.sortOrder || 99, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+        const idx = mockCategories.findIndex(c => c.id === id);
+        if (idx >= 0) mockCategories[idx] = newCat;
+        else mockCategories.push(newCat);
+        return newCat;
+      },
+      deleteCategory: async (id: string) => {
+        mockCategories = mockCategories.filter(c => c.id !== id || c.systemRequired);
+        return { success: true };
+      },
+      reorderCategories: async (ids: string[]) => {
+        return [...mockCategories];
+      },
+      getStorageOverview: async () => ({
+        rootStoragePath: mockConfig.rootStoragePath,
+        totalSocieties: 1,
+        totalDocuments: mockDocs.length,
+        totalStorageSizeBytes: 1024 * 1024 * 2.5,
+        totalStorageSizeFormatted: '2.50 MB',
+        categories: mockCategories.map(c => ({ id: c.id, name: c.name, documentCount: 0, systemRequired: c.systemRequired, active: c.active })),
+        societiesTree: [],
+      }),
+      getDocuments: async () => [...mockDocs],
+      routeAndSaveDocument: async (params: any) => {
+        const doc = { id: `doc-${Date.now()}`, societyId: params.societyId, categoryId: params.categoryNameOrId, fileName: `${params.categoryNameOrId}_001.pdf`, filePath: `D:\\HENU OS RECMA\\${params.categoryNameOrId}.pdf`, fileType: 'PDF', fileSize: 45000, version: 1, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), status: 'ACTIVE' };
+        mockDocs.push(doc);
+        return { success: true, document: doc };
+      },
+      changeDataLocation: async (p: string) => {
+        mockConfig.rootStoragePath = p;
+        return { success: true, message: `Storage location changed to: ${p}` };
+      },
+      createBackup: async (label?: string) => {
+        const item = { id: `backup-${Date.now()}`, fileName: `HENU_BACKUP_${Date.now()}.zip`, filePath: `D:\\HENU OS RECMA\\Backups\\backup.zip`, fileSize: 1024 * 1024 * 5, fileSizeFormatted: '5.00 MB', createdAt: new Date().toISOString(), itemCount: 10, isVerified: true };
+        mockBackups.unshift(item);
+        return { success: true, backup: item };
+      },
+      createScopedBackup: async (options: any) => {
+        const ext = options.backupType === 'json' ? 'json' : 'zip';
+        const item = { id: `backup-${Date.now()}`, fileName: `HENU_OS_RECMA_BACKUP_${Date.now()}.${ext}`, filePath: `D:\\HENU OS RECMA\\Backups\\backup.${ext}`, fileSize: 1024 * 1024 * 5, fileSizeFormatted: '5.00 MB', createdAt: new Date().toISOString(), itemCount: 10, isVerified: true };
+        mockBackups.unshift(item);
+        return { success: true, backup: item };
+      },
+      validateBackupFile: async (filePath: string) => ({
+        isValid: true,
+        backupType: filePath.endsWith('.json') ? 'JSON' : 'ZIP',
+        backupDate: new Date().toISOString(),
+        societies: ['HENU OS PRIVATE LIMITED'],
+        filesCount: 12,
+        fileSizeFormatted: '5.00 MB',
+        version: '1.0.0',
+        hasConfig: true,
+        errors: [],
+      }),
+      restoreBackup: async () => ({ success: true, message: 'Restored successfully' }),
+      listBackups: async () => [...mockBackups],
+      runHealthCheck: async () => ({
+        timestamp: new Date().toISOString(),
+        overallStatus: 'HEALTHY',
+        checks: {
+          database: { passed: true, message: 'Database operational (Browser Mock)' },
+          storage: { passed: true, message: 'Root storage ready' },
+          societyIndex: { passed: true, message: 'Societies verified' },
+          fileIndex: { passed: true, message: 'Files verified' },
+          folderStructure: { passed: true, message: '8/8 Categories active' },
+          configuration: { passed: true, message: 'Config valid' },
+          permissions: { passed: true, message: 'Permissions OK' },
+          backup: { passed: true, message: 'Backups ready' },
+        },
+        missingFilesList: [],
+      }),
+      repairFileIndex: async () => ({ success: true, repairedFolders: 8, registeredFiles: 0, message: 'Repair complete' }),
+    };
+  })(),
+  henuMaster: (() => {
+    return {
+      getDashboardStats: async () => ({
+        totalSocieties: 1,
+        activeSocieties: 1,
+        archivedSocieties: 0,
+        totalRegisters: 8,
+        totalDocuments: 12,
+        totalFiles: 12,
+        storageUsedBytes: 1024 * 1024 * 18,
+        storageUsedFormatted: '18.00 MB',
+        storageAvailableBytes: 1024 * 1024 * 1024 * 120,
+        storageAvailableFormatted: '120.00 GB',
+        storagePercentUsed: 5,
+        lastBackupAt: new Date().toISOString(),
+        systemHealthStatus: 'HEALTHY',
+        healthySocietiesCount: 1,
+        warningSocietiesCount: 0,
+        activeSocietyId: 'default-society-1',
+        activeSocietyName: 'HENU OS PRIVATE LIMITED',
+      }),
+      listSocieties: async (filter?: any) => {
+        const raw = localStorage.getItem('henu_os_societies');
+        let list: any[] = [];
+        if (raw) {
+          try { list = JSON.parse(raw); } catch {}
+        }
+        if (list.length === 0) {
+          list = [{
+            id: 'default-society-1',
+            societyName: 'HENU OS PRIVATE LIMITED',
+            registrationNo: 'U62099RJ2025PTC109150',
+            registrationDate: '02/12/2025',
+            fullAddress: 'Home Bhagesar, 10B-204 Second Floor, Pali AASAN home',
+            city: 'Pali',
+            state: 'Rajasthan',
+            pinCode: '306401',
+            createdAt: new Date().toISOString(),
+            status: 'ACTIVE',
+            isActive: true,
+            storageSizeBytes: 1024 * 1024 * 18,
+            storageSizeFormatted: '18.00 MB',
+            documentCount: 12,
+            filesCount: 12,
+            healthStatus: 'HEALTHY',
+            healthMessage: 'Storage folder and records intact',
+          }];
+        }
+        return list;
+      },
+      getSocietyOverview: async (societyId: string) => {
+        const categories = [
+          { categoryId: 'cat-form-i', categoryName: 'Form I', documentCount: 2, storageBytes: 1024 * 500, storageFormatted: '500 KB', lastUpdated: 'Today', status: 'HEALTHY', navFormId: 'generate-FORM_I', folderExists: true },
+          { categoryId: 'cat-form-j', categoryName: 'Form J', documentCount: 1, storageBytes: 1024 * 300, storageFormatted: '300 KB', lastUpdated: 'Today', status: 'HEALTHY', navFormId: 'generate-FORM_J', folderExists: true },
+          { categoryId: 'cat-share-reg', categoryName: 'Share Register', documentCount: 3, storageBytes: 1024 * 800, storageFormatted: '800 KB', lastUpdated: 'Today', status: 'HEALTHY', navFormId: 'generate-FORM_SHARE', folderExists: true },
+          { categoryId: 'cat-prop-reg', categoryName: 'Property Register', documentCount: 1, storageBytes: 1024 * 400, storageFormatted: '400 KB', lastUpdated: 'Today', status: 'HEALTHY', navFormId: 'generate-FORM_PROP', folderExists: true },
+          { categoryId: 'cat-nom-reg', categoryName: 'Nomination Register', documentCount: 1, storageBytes: 1024 * 250, storageFormatted: '250 KB', lastUpdated: 'Today', status: 'HEALTHY', navFormId: 'generate-FORM_NOM', folderExists: true },
+          { categoryId: 'cat-bank-lien', categoryName: 'Bank Lien Mark', documentCount: 0, storageBytes: 0, storageFormatted: '0 B', lastUpdated: 'None', status: 'EMPTY', navFormId: 'generate-FORM_BANK', folderExists: true },
+          { categoryId: 'cat-share-cert', categoryName: 'Share Certificate', documentCount: 2, storageBytes: 1024 * 600, storageFormatted: '600 KB', lastUpdated: 'Today', status: 'HEALTHY', navFormId: 'generate-FORM_SHARE_CERT', folderExists: true },
+          { categoryId: 'cat-ocr-voucher', categoryName: 'HENU OCR / VOUCHER', documentCount: 1, storageBytes: 1024 * 200, storageFormatted: '200 KB', lastUpdated: 'Today', status: 'HEALTHY', navFormId: 'voucher-ocr', folderExists: true },
+          { categoryId: 'cat-ocr-check', categoryName: 'HENU OCR / CHECK', documentCount: 1, storageBytes: 1024 * 200, storageFormatted: '200 KB', lastUpdated: 'Today', status: 'HEALTHY', navFormId: 'check-ocr', folderExists: true },
+          { categoryId: 'cat-voucher', categoryName: 'Voucher', documentCount: 2, storageBytes: 1024 * 450, storageFormatted: '450 KB', lastUpdated: 'Today', status: 'HEALTHY', navFormId: 'generate-FORM_VOUCHER', folderExists: true },
+        ];
+        return {
+          id: societyId,
+          societyName: 'HENU OS PRIVATE LIMITED',
+          registrationNo: 'U62099RJ2025PTC109150',
+          registrationDate: '02/12/2025',
+          fullAddress: 'Home Bhagesar, 10B-204 Second Floor, Pali AASAN home',
+          city: 'Pali',
+          state: 'Rajasthan',
+          pinCode: '306401',
+          createdAt: new Date().toISOString(),
+          status: 'ACTIVE',
+          isActive: true,
+          rootStoragePath: 'D:\\HENU OS RECMA',
+          folderPath: 'D:\\HENU OS RECMA\\Societies\\HENU OS PRIVATE LIMITED',
+          storageSizeBytes: 1024 * 1024 * 18,
+          storageSizeFormatted: '18.00 MB',
+          documentCount: 12,
+          filesCount: 12,
+          healthStatus: 'HEALTHY',
+          healthMessage: 'All statutory folders and files verified',
+          registers: categories,
+          recentActivity: [
+            { id: 'act-1', timestamp: new Date().toISOString(), type: 'DOCUMENT_SAVED', title: 'Document Saved: Voucher_001.pdf', description: 'Version 1 registered' },
+            { id: 'act-2', timestamp: new Date().toISOString(), type: 'DOCUMENT_GENERATED', title: 'Batch Generated: Form I', description: 'Generated 10 sheets' },
+          ],
+          health: {
+            isHealthy: true,
+            overallStatus: 'HEALTHY',
+            dbRecordExists: true,
+            folderExists: true,
+            categoriesConfigured: true,
+            allCategoryFoldersExist: true,
+            missingCategoryFolders: [],
+            totalDocuments: 12,
+            missingPhysicalFiles: 0,
+            missingFilesList: [],
+            backupStatus: 'UP_TO_DATE',
+          },
+          missingFilesCount: 0,
+        };
+      },
+      updateSocietyMetadata: async (_socId: string, metadata: any) => ({ ...metadata }),
+      deleteSociety: async (societyId: string) => {
+        const raw = localStorage.getItem('henu_os_societies');
+        if (raw) {
+          try {
+            let list = JSON.parse(raw);
+            list = list.filter((s: any) => s.id !== societyId);
+            localStorage.setItem('henu_os_societies', JSON.stringify(list));
+          } catch {}
+        }
+        return { success: true, message: 'Society deleted successfully.' };
+      },
+      archiveSociety: async () => true,
+      restoreSociety: async () => true,
+      getRecentActivity: async () => [
+        { id: 'act-1', timestamp: new Date().toISOString(), type: 'DOCUMENT_SAVED', title: 'Document Saved: Voucher_001.pdf', description: 'Version 1 registered' },
+      ],
+      exportSocietySummary: async () => 'HENU OS SUMMARY EXPORT',
+      openFolder: async () => ({ success: true }),
+    };
+  })(),
+  security: (() => {
+    // SHA-256 hashes of authorized passwords for browser mock environment
+    const adminHashes = [
+      'e1032a0e5a28060d37f7bc80b37aadaaf0bd0a05ab4530f9b67ad64bd00e3a98',
+      '82931df46247e3dd54b4aebdfc0a77ed4f137c16262ea36ef8b938c269e7ee6e',
+      'c18bfa0ce8848c7083cf5f2e2000f2abdef1eb53cf72fa1f2019739f9bbac973',
+      '41a9d5daf1d4410941775974a6af877fe312b402cf2f44c27cc2f37e1bb7b2b5',
+      '53c011ebe1d442318d6fd08cc9252717d115d80735cb0355de5e1741c13142f6',
+      '46598d5afb13d468f594123e80c8f5227bf322bab33b56035d6bc17464b924a0',
+      '0b239ed193d8c9ed3f4cc9cc3204cc8f011ce7edb1831f37fce20b0459c270f4',
+      'c3927d543f990bc1d22f4e9223d0d889596373918744491cba2e8e841880c1d1',
+      '0a835e80e723ffbb6d62cdd6ffc4daf96050145f735958d31e0524ed8a62952d',
+      '52753da1407e31d84f6bc5f6acce88ee81180f08f14e8fb5a94538b6949b387c',
+    ];
+    const ocrHashes = [
+      'f286365912d193644158e94f88ef93b20e833fe25343b0be84d59415d367d403',
+      '0140f4f6c63039e26a0ec65526d6bf8fce1de039e2c7bc00a6b05104c1f44495',
+      'c18bfa0ce8848c7083cf5f2e2000f2abdef1eb53cf72fa1f2019739f9bbac973',
+      '4982555d0769a600910c669221a036de3944e93923827b6a2cdc44350ceb60e6',
+      'a61e6916924b7d93e821a0e4400512d7f99edf9002daaffc7cb01e0a30ebcfe6',
+      'b974e7e54c540dc4aebadc236924073d005dbf67b9d7325030ad9e1ff3c18315',
+      '4e870bed74508e9cbd4b6784868a5bbe02b7c33d3d2b5e270014e6802c85acdf',
+      '357b5d3d8d353d241f518e72223d013c0c09880619495b611c959ef87c37f070',
+      'a94b2fdd5ce4cf9d6dac4438398e805de0267ce544e1d401d3397161ee83363f',
+      '3cdc1e474b3b78bb4242fb03d2a945ac88d2069e7891e63c1e2fa574a044f584',
+    ];
+
+    async function sha256Hex(text: string): Promise<string> {
+      const msgUint8 = new TextEncoder().encode(text);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    const unlockedOcr = new Set<string>();
+    const mfaChallenges = new Map<string, any>();
+
+    return {
+      verifyAdminPassword: async (password: string) => {
+        const hash = await sha256Hex(password || '');
+        if (adminHashes.includes(hash)) {
+          return { success: true };
+        }
+        return { success: false, error: 'Invalid password.' };
+      },
+      createMfaChallenge: async (societyId: string) => {
+        const challengeId = 'mfa_' + Math.random().toString(36).substring(2, 9);
+        const code = String(Math.floor(100000 + Math.random() * 900000));
+        mfaChallenges.set(challengeId, {
+          challengeId,
+          societyId,
+          code,
+          expiresAt: Date.now() + 5 * 60 * 1000,
+          verified: false,
+        });
+        return {
+          success: true,
+          challengeId,
+          code,
+          expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+        };
+      },
+      verifyMfaChallenge: async (challengeId: string, code: string, societyId: string) => {
+        const rec = mfaChallenges.get(challengeId);
+        if (!rec || rec.societyId !== societyId) return { success: false, error: 'Challenge not found.' };
+        if (Date.now() > rec.expiresAt) return { success: false, error: 'Challenge expired.' };
+        if (String(code).trim() !== rec.code) return { success: false, error: 'Invalid 6-digit verification code.' };
+        const mfaToken = 'tok_' + Math.random().toString(36).substring(2, 9);
+        rec.verified = true;
+        rec.mfaToken = mfaToken;
+        return { success: true, mfaToken };
+      },
+      verifyOcrPassword: async (password: string, module: 'voucher-ocr' | 'check-ocr') => {
+        const hash = await sha256Hex(password || '');
+        if (ocrHashes.includes(hash)) {
+          unlockedOcr.add(module);
+          return { success: true };
+        }
+        return { success: false, error: 'Invalid password.' };
+      },
+      getOcrSessionStatus: async (module: 'voucher-ocr' | 'check-ocr') => {
+        return { unlocked: unlockedOcr.has(module) };
+      },
+      lockOcrSession: async (module: 'voucher-ocr' | 'check-ocr') => {
+        unlockedOcr.delete(module);
+        return { success: true };
+      },
+      executeSecureSocietyDelete: async (payload: { societyId: string; mfaToken: string }) => {
+        return browserMockApi.henuMaster.deleteSociety(payload.societyId);
+      },
+      getAuditLogs: async () => [],
+    };
+  })(),
 };
+
 
 

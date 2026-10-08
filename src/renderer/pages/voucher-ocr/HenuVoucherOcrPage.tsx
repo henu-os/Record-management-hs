@@ -20,6 +20,7 @@ import { VoucherAssistantDrawer } from './components/VoucherAssistantDrawer';
 import { OcrApiConfigModal } from './components/OcrApiConfigModal';
 import { ClientOcrApiBridge } from './services/ClientOcrApiBridge';
 import { VoucherProcessingRecord } from '../../../modules/henu-voucher-ocr/schema/types';
+import { OcrSecurityLock } from '../../components/OcrSecurityLock';
 import './voucher-ocr.css';
 
 interface HenuVoucherOcrPageProps {
@@ -193,7 +194,8 @@ export const HenuVoucherOcrPage: React.FC<HenuVoucherOcrPageProps> = ({ onNaviga
   };
 
   return (
-    <div className="voucher-ocr-container">
+    <OcrSecurityLock module="voucher-ocr" moduleTitle="HENU Voucher OCR">
+      <div className="voucher-ocr-container">
       {/* Top Header & Navigation Bar */}
       <div className="voucher-ocr-header">
         <div className="voucher-ocr-title-area">
@@ -511,6 +513,7 @@ export const HenuVoucherOcrPage: React.FC<HenuVoucherOcrPageProps> = ({ onNaviga
         onNavigateToSettings={() => onNavigate?.('settings')}
       />
     </div>
+    </OcrSecurityLock>
   );
 };
 

@@ -132,9 +132,35 @@ export class FormIRenderer {
 
       builder.drawTwoTierHeader(shareGroups, 36);
 
+      // Helper to strip any accidentally leaked member/nominee names from share and transfer cells
+      const memberNames = [
+        rec?.memberName,
+        rec?.member1,
+        rec?.member2,
+        rec?.member3,
+        rec?.member4,
+        rec?.member5,
+        rec?.member6,
+        FormMappingService.formatAllMemberNames(rec),
+        rec?.nomineeName,
+        rec?.nominee1,
+        rec?.nominee2,
+      ].filter(Boolean).map(n => String(n).trim().toLowerCase().replace(/\s+/g, ' '));
+
+      const cleanVal = (val: unknown): string => {
+        if (val === undefined || val === null) return '';
+        const str = String(val).trim();
+        if (!str) return '';
+        const lowerNorm = str.toLowerCase().replace(/\s+/g, ' ');
+        if (memberNames.some(n => n && (lowerNorm === n || (n.length >= 3 && (lowerNorm.includes(n) || n.includes(lowerNorm)))))) {
+          return '';
+        }
+        return str;
+      };
+
       // Render 5 Rows for Shares Held (Populating Entries 1 to 5)
       for (let i = 0; i < 5; i++) {
-        const entry = rec?.sharesHeldEntries?.[i] || (i === 0 ? {
+        const rawEntry = rec?.sharesHeldEntries?.[i] || (i === 0 ? {
           date: rec?.dateOfAllotment || '',
           cashBookFolio: rec?.cashBookFolio || '',
           application: rec?.shareApplication || '',
@@ -147,6 +173,20 @@ export class FormIRenderer {
           sharesTo: rec?.sharesTo || '',
           shareCertificateNo: rec?.serialNoOfShareCertificate || rec?.shareCertificateNo || '',
         } : null);
+
+        const entry = rawEntry ? {
+          date: cleanVal(rawEntry.date),
+          cashBookFolio: cleanVal(rawEntry.cashBookFolio),
+          application: cleanVal(rawEntry.application),
+          allotment: cleanVal(rawEntry.allotment),
+          call1st: cleanVal(rawEntry.call1st),
+          call2nd: cleanVal(rawEntry.call2nd),
+          totalAmountReceived: cleanVal(rawEntry.totalAmountReceived),
+          noOfShares: cleanVal(rawEntry.noOfShares),
+          sharesFrom: cleanVal(rawEntry.sharesFrom),
+          sharesTo: cleanVal(rawEntry.sharesTo),
+          shareCertificateNo: cleanVal(rawEntry.shareCertificateNo),
+        } : null;
 
         const hasData = entry && Object.values(entry).some(v => v && String(v).trim() !== '');
 
@@ -208,9 +248,9 @@ export class FormIRenderer {
 
       // Render 5 Rows for Shares Transferred or Surrendered (Populating Entries 1 to 5)
       for (let i = 0; i < 5; i++) {
-        const entry = rec?.sharesTransferredEntries?.[i] || (i === 0 ? {
+        const rawEntry = rec?.sharesTransferredEntries?.[i] || (i === 0 ? {
           date: rec?.dateOfTransferRefund || rec?.transferDate || '',
-          cashBookFolio: rec?.transferCashBookFolio || rec?.cashBookFolio || '',
+          cashBookFolio: rec?.transferCashBookFolio || '',
           transferDate: rec?.transferDate || '',
           shareCertificateNo: rec?.shareCertTransferred || rec?.transferCertificateNo || '',
           noOfSharesTransferred: rec?.noOfSharesTransferredRefunded || rec?.noOfSharesTransferred || '',
@@ -219,6 +259,18 @@ export class FormIRenderer {
           amountRs: rec?.balanceAmountRs || '',
           amountP: '',
         } : null);
+
+        const entry = rawEntry ? {
+          date: cleanVal(rawEntry.date),
+          cashBookFolio: cleanVal(rawEntry.cashBookFolio),
+          transferDate: cleanVal(rawEntry.transferDate),
+          shareCertificateNo: cleanVal(rawEntry.shareCertificateNo),
+          noOfSharesTransferred: cleanVal(rawEntry.noOfSharesTransferred),
+          balanceNoOfShares: cleanVal(rawEntry.balanceNoOfShares),
+          balanceSerialNoCertificate: cleanVal(rawEntry.balanceSerialNoCertificate),
+          amountRs: cleanVal(rawEntry.amountRs),
+          amountP: cleanVal(rawEntry.amountP),
+        } : null;
 
         const hasData = entry && Object.values(entry).some(v => v && String(v).trim() !== '');
 

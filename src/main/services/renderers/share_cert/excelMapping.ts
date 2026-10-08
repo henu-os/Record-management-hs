@@ -21,17 +21,17 @@ export class ShareCertificateExcelMapping {
     const sNo = isBlank ? '' : (rec?.srNo || serial);
     const certNo = isBlank ? '' : (rec?.shareCertificateNo || serial);
     const regNo = isBlank ? '' : (rec?.membershipNo || serial);
-    const shares = isBlank ? '' : (rec?.noOfShares || '10');
+    const shares = isBlank ? '' : (rec?.noOfShares || '');
     const flat = isBlank ? '' : (rec?.flatNo ? (rec?.wingNo ? `${rec.wingNo}/${rec.flatNo}` : rec.flatNo) : '');
 
-    const socName = (society?.societyName || 'CO-OPERATIVE HOUSING SOCIETY LTD.').toUpperCase();
-    const socAddr = (society?.headerAddress || society?.address || 'MUMBAI').toUpperCase();
-    const regActNo = society?.registrationNo || 'BOM/HSG/0000';
-    const regDate = society?.registrationDate || '01.01.2000';
+    const socName = (society?.societyName || '').toUpperCase();
+    const socAddr = (society?.headerAddress || society?.address || '').toUpperCase();
+    const regActNo = society?.registrationNo || '';
+    const regDate = society?.registrationDate || '';
 
-    const authCap = society?.authorisedCapital || '1,00,000/-';
-    const totalShares = society?.totalAuthorisedShares || '2000';
-    const faceVal = society?.faceValue || '50';
+    const authCap = society?.authorisedCapital || '';
+    const totalShares = society?.totalAuthorisedShares || '';
+    const faceVal = society?.faceValue || '';
 
     // Member names
     const m1 = isBlank ? '' : (rec?.member1 || rec?.memberName || '');
@@ -40,9 +40,9 @@ export class ShareCertificateExcelMapping {
 
     const primaryName = [m1, m2, m3].filter(Boolean).join(', ');
 
-    const fromNum = isBlank ? '001' : (rec?.sharesFrom || '001');
-    const toNum = isBlank ? '010' : (rec?.sharesTo || '010');
-    const valShares = isBlank ? '500/-' : (rec?.valueOfShares ? `${rec.valueOfShares}/-` : '500/-');
+    const fromNum = isBlank ? '' : (rec?.sharesFrom || '');
+    const toNum = isBlank ? '' : (rec?.sharesTo || '');
+    const valShares = isBlank ? '' : (rec?.valueOfShares ? (String(rec.valueOfShares).endsWith('/-') ? String(rec.valueOfShares) : `${rec.valueOfShares}/-`) : '');
 
     return {
       serialNo: sNo,
@@ -71,10 +71,10 @@ export class ShareCertificateExcelMapping {
       sharesTo: toNum,
       valueOfShares: valShares,
 
-      issueCity: (rec as any)?.issueCity || 'MUMBAI',
+      issueCity: (rec as any)?.issueCity || '',
       issueDate: (rec as any)?.issueDate || '',
 
-      oldCertificateNo: isBlank ? '001' : ((rec as any)?.oldShareCertNo || '001'),
+      oldCertificateNo: isBlank ? '' : ((rec as any)?.oldShareCertNo || ''),
       oldSharesFrom: fromNum,
       oldSharesTo: toNum,
     };

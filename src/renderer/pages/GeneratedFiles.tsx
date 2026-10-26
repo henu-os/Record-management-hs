@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { History, FileText, FileSpreadsheet, FolderOpen, Trash2, RefreshCw, Eye, Search, Building2, X } from 'lucide-react';
+import { History, FileText, FileSpreadsheet, FolderOpen, Trash2, RefreshCw, Eye, Search, Building2, X, Printer } from 'lucide-react';
 import { GenerationHistoryEntry, Society } from '../../main/types';
 
 export default function GeneratedFiles() {
@@ -255,9 +255,34 @@ export default function GeneratedFiles() {
                 {previewTitle}
               </h3>
             </div>
-            <button className="btn btn-ghost btn-sm" onClick={() => setPreviewPdfUrl(null)}>
-              <X size={18} />
-            </button>
+            <div className="flex items-center gap-10">
+              <button
+                className="btn btn-primary btn-sm flex items-center gap-6"
+                onClick={async () => {
+                  if (!previewPdfUrl) return;
+                  const isLandscape = previewTitle.toLowerCase().includes('share') ||
+                    previewTitle.toLowerCase().includes('property') ||
+                    previewTitle.toLowerCase().includes('nomination');
+                  const orientation = isLandscape ? 'Landscape' : 'Portrait';
+                  if (api?.system?.printPdf) {
+                    await api.system.printPdf({
+                      pdfUrl: previewPdfUrl,
+                      orientation,
+                      pageSize: 'Legal',
+                      silent: false,
+                    });
+                  } else {
+                    window.print();
+                  }
+                }}
+                style={{ fontSize: 11, fontWeight: 700 }}
+              >
+                <Printer size={13} /> 🖨 Print Directly (Legal)
+              </button>
+              <button className="btn btn-ghost btn-sm" onClick={() => setPreviewPdfUrl(null)}>
+                <X size={18} />
+              </button>
+            </div>
           </div>
           <iframe
             src={previewPdfUrl}

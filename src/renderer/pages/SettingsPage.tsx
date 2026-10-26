@@ -21,6 +21,79 @@ const TABS: { id: string; label: string }[] = [
   { id: 'voucher_ocr', label: 'HENU Voucher OCR' },
 ];
 
+export const COLOR_PALETTES = [
+  {
+    name: 'Classic Navy (Official)',
+    headerBgColor: '#D9E2EC',
+    headerTextColor: '#1B365D',
+    sectionBgColor: '#2B4C7E',
+    sectionTextColor: '#FFFFFF',
+    cellBgColor: '#FFFFFF',
+    textColor: '#1E293B',
+    borderColor: '#94A3B8',
+  },
+  {
+    name: 'Executive Slate',
+    headerBgColor: '#E2E8F0',
+    headerTextColor: '#1E293B',
+    sectionBgColor: '#475569',
+    sectionTextColor: '#FFFFFF',
+    cellBgColor: '#F8FAFC',
+    textColor: '#0F172A',
+    borderColor: '#CBD5E1',
+  },
+  {
+    name: 'Official Emerald',
+    headerBgColor: '#D1E7DD',
+    headerTextColor: '#14532D',
+    sectionBgColor: '#166534',
+    sectionTextColor: '#FFFFFF',
+    cellBgColor: '#F0FDF4',
+    textColor: '#0F172A',
+    borderColor: '#86EFAC',
+  },
+  {
+    name: 'Warm Bronze',
+    headerBgColor: '#FEF3C7',
+    headerTextColor: '#78350F',
+    sectionBgColor: '#92400E',
+    sectionTextColor: '#FFFFFF',
+    cellBgColor: '#FFFBEB',
+    textColor: '#1C1917',
+    borderColor: '#FDE68A',
+  },
+  {
+    name: 'Eco Ink-Saver (Pastel Slate)',
+    headerBgColor: '#F1F5F9',
+    headerTextColor: '#1E293B',
+    sectionBgColor: '#CBD5E1',
+    sectionTextColor: '#0F172A',
+    cellBgColor: '#FFFFFF',
+    textColor: '#0F172A',
+    borderColor: '#94A3B8',
+  },
+  {
+    name: 'Soft Sky (Light Print)',
+    headerBgColor: '#E0F2FE',
+    headerTextColor: '#0369A1',
+    sectionBgColor: '#BAE6FD',
+    sectionTextColor: '#0C4A6E',
+    cellBgColor: '#F8FAFC',
+    textColor: '#0F172A',
+    borderColor: '#93C5FD',
+  },
+  {
+    name: 'Monochrome Print (B&W)',
+    headerBgColor: '#F1F5F9',
+    headerTextColor: '#000000',
+    sectionBgColor: '#E2E8F0',
+    sectionTextColor: '#000000',
+    cellBgColor: '#FFFFFF',
+    textColor: '#000000',
+    borderColor: '#000000',
+  },
+];
+
 export default function SettingsPage({ onNavigate }: Props) {
   const [activeTab, setActiveTab] = useState<string>('global');
   const [settings, setSettings] = useState<FormDesignSettings>(DEFAULT_FORM_DESIGN_SETTINGS);
@@ -33,7 +106,7 @@ export default function SettingsPage({ onNavigate }: Props) {
   useEffect(() => {
     api.society?.getActive().then((soc: any) => {
       if (soc) setActiveSociety(soc);
-    }).catch(() => {});
+    }).catch(() => { });
   }, []);
 
   const loadTabSettings = async (tabId: string) => {
@@ -67,30 +140,71 @@ export default function SettingsPage({ onNavigate }: Props) {
       return;
     }
     // Enforce limits before saving
+    const rawDataFs = settings.dataFontSize ?? settings.bodyFontSize ?? settings.fontSize ?? 9.5;
+    const dataFs = Math.min(16, Math.max(7, Number(rawDataFs) || 9.5));
+    const rawFixedFs = settings.fixedDataFontSize ?? settings.headerFontSize ?? 8.5;
+    const fixedFs = Math.min(14, Math.max(7, Number(rawFixedFs) || 8.5));
+
     const clamped: FormDesignSettings = {
       ...settings,
-      fontSize: Math.min(12, Math.max(7, Number(settings.fontSize) || 7.5)),
-      headerFontSize: Math.min(14, Math.max(8, Number(settings.headerFontSize) || 11)),
+      headerFill: settings.headerBgColor,
+      cellFill: settings.cellBgColor,
+      gridColor: settings.borderColor,
+      dataFontSize: dataFs,
+      fixedDataFontSize: fixedFs,
+      fontSize: dataFs,
+      bodyFontSize: dataFs,
+      headerFontSize: Math.min(16, Math.max(8, Number(settings.headerFontSize) || 11)),
       gridOpacity: Math.min(100, Math.max(0, Number(settings.gridOpacity) ?? 100)),
+      pageNumberPosition: settings.pageNumberPosition || 'Bottom',
+      pageNumberAlign: settings.pageNumberAlign || 'center',
+      pageNumberColor: settings.pageNumberColor || '#1E293B',
+      pageNumberFontSize: Math.min(16, Math.max(5, Number(settings.pageNumberFontSize) || 8)),
     };
     setSettings(clamped);
     await api.settings.saveFormSettings(activeTab, clamped);
 
-    // Propagate Branding BOX Footer to all 6 forms
+    // Propagate Styling & Branding to all 6 forms when saving Global Defaults
     const allForms = ['FORM_I', 'FORM_J', 'FORM_SHARE', 'FORM_NOM', 'FORM_PROP', 'FORM_BANK'];
     for (const fId of allForms) {
       try {
         const existing = await api.settings.getFormSettings(fId);
         const updated = {
           ...existing,
+          ...(activeTab === 'global' ? {
+            colorMode: clamped.colorMode,
+            headerBgColor: clamped.headerBgColor,
+            headerFill: clamped.headerFill,
+            headerTextColor: clamped.headerTextColor,
+            sectionBgColor: clamped.sectionBgColor,
+            sectionTextColor: clamped.sectionTextColor,
+            cellBgColor: clamped.cellBgColor,
+            cellFill: clamped.cellFill,
+            textColor: clamped.textColor,
+            borderColor: clamped.borderColor,
+            gridColor: clamped.gridColor,
+            gridOn: clamped.gridOn,
+            gridEnabled: clamped.gridEnabled,
+            gridThickness: clamped.gridThickness,
+            gridOpacity: clamped.gridOpacity,
+            fontFamily: clamped.fontFamily,
+            dataFontSize: clamped.dataFontSize,
+            fixedDataFontSize: clamped.fixedDataFontSize,
+            fontSize: clamped.fontSize,
+            bodyFontSize: clamped.bodyFontSize,
+            headerFontSize: clamped.headerFontSize,
+          } : {}),
           brandingText: clamped.brandingText,
           brandingAlign: clamped.brandingAlign,
+          pageNumberPosition: clamped.pageNumberPosition,
           pageNumberAlign: clamped.pageNumberAlign,
+          pageNumberColor: clamped.pageNumberColor,
+          pageNumberFontSize: clamped.pageNumberFontSize,
           customFooterText: clamped.customFooterText,
           customFooterAlign: clamped.customFooterAlign,
         };
         await api.settings.saveFormSettings(fId, updated);
-      } catch (e) {}
+      } catch (e) { }
     }
 
     setSaved(true);
@@ -115,6 +229,54 @@ export default function SettingsPage({ onNavigate }: Props) {
 
   const updateSetting = <K extends keyof FormDesignSettings>(field: K, val: FormDesignSettings[K]) => {
     setSettings(prev => ({ ...prev, [field]: val }));
+  };
+
+  const applyPalette = async (p: typeof COLOR_PALETTES[number]) => {
+    const updated: FormDesignSettings = {
+      ...settings,
+      headerBgColor: p.headerBgColor,
+      headerFill: p.headerBgColor,
+      headerTextColor: p.headerTextColor || p.sectionBgColor,
+      sectionBgColor: p.sectionBgColor,
+      sectionTextColor: p.sectionTextColor,
+      cellBgColor: p.cellBgColor,
+      cellFill: p.cellBgColor,
+      textColor: p.textColor,
+      borderColor: p.borderColor,
+      gridColor: p.borderColor,
+      pageNumberColor: p.headerTextColor || p.textColor,
+    };
+    setSettings(updated);
+
+    try {
+      await api.settings.saveFormSettings(activeTab, updated);
+      if (activeTab === 'global') {
+        const allForms = ['FORM_I', 'FORM_J', 'FORM_SHARE', 'FORM_NOM', 'FORM_PROP', 'FORM_BANK'];
+        for (const fId of allForms) {
+          try {
+            const existing = await api.settings.getFormSettings(fId);
+            await api.settings.saveFormSettings(fId, {
+              ...existing,
+              headerBgColor: updated.headerBgColor,
+              headerFill: updated.headerFill,
+              headerTextColor: updated.headerTextColor,
+              sectionBgColor: updated.sectionBgColor,
+              sectionTextColor: updated.sectionTextColor,
+              cellBgColor: updated.cellBgColor,
+              cellFill: updated.cellFill,
+              textColor: updated.textColor,
+              borderColor: updated.borderColor,
+              gridColor: updated.gridColor,
+              pageNumberColor: updated.pageNumberColor,
+            });
+          } catch (e) {}
+        }
+      }
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (e) {
+      console.error('Failed to auto-save palette:', e);
+    }
   };
 
   return (
@@ -199,36 +361,102 @@ export default function SettingsPage({ onNavigate }: Props) {
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">Body Font Size (Min 7pt, Max 12pt)</label>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="form-label" style={{ margin: 0, fontWeight: 700, color: 'var(--primary)' }}>
+                      📝 Input Data Font Size (7–16pt)
+                    </label>
+                  </div>
                   <div style={{ position: 'relative' }}>
                     <input
                       type="number"
                       min={7}
-                      max={12}
+                      max={16}
                       step={0.5}
                       className="form-input text-xs"
-                      value={settings.fontSize}
-                      onChange={e => updateSetting('fontSize', Math.min(12, Math.max(7, parseFloat(e.target.value) || 7.5)))}
+                      value={settings.dataFontSize || settings.fontSize || 9.5}
+                      onChange={e => {
+                        const val = Math.min(16, Math.max(7, parseFloat(e.target.value) || 9.5));
+                        updateSetting('dataFontSize', val);
+                        updateSetting('fontSize', val);
+                        updateSetting('bodyFontSize', val);
+                      }}
                     />
                     <span style={{ position: 'absolute', right: 10, top: 8, fontSize: 11, color: 'var(--text-muted)' }}>pt</span>
                   </div>
+                  <div className="flex items-center gap-4 mt-6">
+                    {[8.5, 9.5, 10.5, 12.0, 14.0].map(pt => (
+                      <button
+                        key={pt}
+                        type="button"
+                        className={`btn btn-xs ${(settings.dataFontSize || settings.fontSize) === pt ? 'btn-primary' : 'btn-ghost'}`}
+                        style={{ fontSize: 10, padding: '2px 6px' }}
+                        onClick={() => {
+                          updateSetting('dataFontSize', pt);
+                          updateSetting('fontSize', pt);
+                          updateSetting('bodyFontSize', pt);
+                        }}
+                      >
+                        {pt}pt
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-xs text-secondary mt-4" style={{ fontSize: 10 }}>
+                    Controls size of member names, address, numbers, and register cell data.
+                  </p>
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }} className="mb-16">
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 16 }} className="mb-16">
                 <div className="form-group">
-                  <label className="form-label">Header Size (8–14pt)</label>
+                  <label className="form-label" style={{ fontWeight: 700 }}>
+                    🏷️ Fixed Data / Label Size (7–14pt)
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type="number"
+                      min={7}
+                      max={14}
+                      step={0.5}
+                      className="form-input text-xs"
+                      value={settings.fixedDataFontSize || 8.5}
+                      onChange={e => updateSetting('fixedDataFontSize', Math.min(14, Math.max(7, parseFloat(e.target.value) || 8.5)))}
+                    />
+                    <span style={{ position: 'absolute', right: 10, top: 8, fontSize: 11, color: 'var(--text-muted)' }}>pt</span>
+                  </div>
+                  <div className="flex items-center gap-4 mt-6">
+                    {[7.5, 8.5, 9.5, 11.0].map(pt => (
+                      <button
+                        key={pt}
+                        type="button"
+                        className={`btn btn-xs ${(settings.fixedDataFontSize || 8.5) === pt ? 'btn-primary' : 'btn-ghost'}`}
+                        style={{ fontSize: 10, padding: '2px 6px' }}
+                        onClick={() => updateSetting('fixedDataFontSize', pt)}
+                      >
+                        {pt}pt
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-xs text-secondary mt-4" style={{ fontSize: 10 }}>
+                    Field titles ('1. Serial Number', '4. Full Name', etc.) and column headers.
+                  </p>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Header Title Size (8–16pt)</label>
                   <div style={{ position: 'relative' }}>
                     <input
                       type="number"
                       min={8}
-                      max={14}
+                      max={16}
                       className="form-input text-xs"
                       value={settings.headerFontSize}
-                      onChange={e => updateSetting('headerFontSize', Math.min(14, Math.max(8, parseFloat(e.target.value) || 11)))}
+                      onChange={e => updateSetting('headerFontSize', Math.min(16, Math.max(8, parseFloat(e.target.value) || 11)))}
                     />
                     <span style={{ position: 'absolute', right: 10, top: 8, fontSize: 11, color: 'var(--text-muted)' }}>pt</span>
                   </div>
+                  <p className="text-xs text-secondary mt-4" style={{ fontSize: 10 }}>
+                    Society name and register title in top header.
+                  </p>
                 </div>
 
                 <div className="form-group">
@@ -325,6 +553,55 @@ export default function SettingsPage({ onNavigate }: Props) {
                 <Palette size={16} className="icon-accent" /> Color Mode, Grid & Line Thickness Engine
               </h3>
 
+              {/* Color Palettes Bar */}
+              <div className="form-group mb-16">
+                <label className="form-label" style={{ fontSize: 11, fontWeight: 700 }}>
+                  🎨 Ready-to-Use Color Palettes
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(138px, 1fr))', gap: 8 }}>
+                  {COLOR_PALETTES.map(p => {
+                    const isActive =
+                      settings.headerBgColor?.toUpperCase() === p.headerBgColor.toUpperCase() &&
+                      settings.sectionBgColor?.toUpperCase() === p.sectionBgColor.toUpperCase();
+                    return (
+                      <button
+                        key={p.name}
+                        type="button"
+                        className="btn btn-xs flex flex-col items-start gap-4"
+                        style={{
+                          padding: '8px 10px',
+                          border: isActive ? '2px solid var(--accent, #7c3aed)' : '1px solid var(--border)',
+                          background: isActive ? 'rgba(124, 58, 237, 0.12)' : 'var(--surface-2)',
+                          textAlign: 'left',
+                          borderRadius: 'var(--radius-sm)',
+                          cursor: 'pointer',
+                          boxShadow: isActive ? '0 2px 8px rgba(124, 58, 237, 0.25)' : 'none',
+                          position: 'relative',
+                          transition: 'all 0.15s ease',
+                        }}
+                        onClick={() => applyPalette(p)}
+                      >
+                        <div className="flex items-center justify-between w-full">
+                          <div className="flex items-center gap-4">
+                            <span style={{ width: 14, height: 14, borderRadius: 3, background: p.sectionBgColor, border: '1px solid rgba(0,0,0,0.2)' }} title="Section / Accent" />
+                            <span style={{ width: 14, height: 14, borderRadius: 3, background: p.headerBgColor, border: '1px solid rgba(0,0,0,0.2)' }} title="Header Fill" />
+                            <span style={{ width: 14, height: 14, borderRadius: 3, background: p.borderColor, border: '1px solid rgba(0,0,0,0.2)' }} title="Border / Grid" />
+                          </div>
+                          {isActive && (
+                            <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--accent, #7c3aed)', background: 'rgba(124, 58, 237, 0.18)', padding: '1px 5px', borderRadius: 4 }}>
+                              ACTIVE ✓
+                            </span>
+                          )}
+                        </div>
+                        <span style={{ fontSize: 10, fontWeight: isActive ? 700 : 600, color: isActive ? 'var(--accent, #7c3aed)' : 'var(--text-primary)' }}>
+                          {p.name}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               {/* Color Mode Option ([ Color ] [ B&W ]) */}
               <div className="form-group mb-16">
                 <label className="form-label" style={{ fontSize: 11 }}>Color Mode</label>
@@ -348,10 +625,10 @@ export default function SettingsPage({ onNavigate }: Props) {
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14 }} className="mb-16">
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 14 }} className="mb-16">
                 {/* Text Color */}
                 <div className="form-group">
-                  <label className="form-label">Text Color</label>
+                  <label className="form-label">Body Text Color</label>
                   <div className="flex items-center gap-8" style={{ background: 'var(--surface-2)', padding: '6px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
                     <input
                       type="color"
@@ -366,16 +643,49 @@ export default function SettingsPage({ onNavigate }: Props) {
 
                 {/* Header Background */}
                 <div className="form-group">
-                  <label className="form-label">Header Fill</label>
+                  <label className="form-label">Table Header Fill</label>
                   <div className="flex items-center gap-8" style={{ background: 'var(--surface-2)', padding: '6px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
                     <input
                       type="color"
                       style={{ width: 26, height: 26, border: 'none', background: 'none', cursor: 'pointer' }}
                       value={settings.headerBgColor}
-                      onChange={e => updateSetting('headerBgColor', e.target.value)}
+                      onChange={e => {
+                        updateSetting('headerBgColor', e.target.value);
+                        updateSetting('headerFill', e.target.value);
+                      }}
                       disabled={settings.colorMode === 'BW'}
                     />
                     <span className="text-xs fw-600 text-primary uppercase">{settings.headerBgColor}</span>
+                  </div>
+                </div>
+
+                {/* Section Bar Fill */}
+                <div className="form-group">
+                  <label className="form-label">Section Bar Fill</label>
+                  <div className="flex items-center gap-8" style={{ background: 'var(--surface-2)', padding: '6px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
+                    <input
+                      type="color"
+                      style={{ width: 26, height: 26, border: 'none', background: 'none', cursor: 'pointer' }}
+                      value={settings.sectionBgColor || '#1B365D'}
+                      onChange={e => updateSetting('sectionBgColor', e.target.value)}
+                      disabled={settings.colorMode === 'BW'}
+                    />
+                    <span className="text-xs fw-600 text-primary uppercase">{settings.sectionBgColor || '#1B365D'}</span>
+                  </div>
+                </div>
+
+                {/* Section Bar Text */}
+                <div className="form-group">
+                  <label className="form-label">Section Bar Text</label>
+                  <div className="flex items-center gap-8" style={{ background: 'var(--surface-2)', padding: '6px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
+                    <input
+                      type="color"
+                      style={{ width: 26, height: 26, border: 'none', background: 'none', cursor: 'pointer' }}
+                      value={settings.sectionTextColor || '#FFFFFF'}
+                      onChange={e => updateSetting('sectionTextColor', e.target.value)}
+                      disabled={settings.colorMode === 'BW'}
+                    />
+                    <span className="text-xs fw-600 text-primary uppercase">{settings.sectionTextColor || '#FFFFFF'}</span>
                   </div>
                 </div>
 
@@ -387,15 +697,16 @@ export default function SettingsPage({ onNavigate }: Props) {
                       type="color"
                       style={{ width: 26, height: 26, border: 'none', background: 'none', cursor: 'pointer' }}
                       value={settings.cellBgColor}
-                      onChange={e => updateSetting('cellBgColor', e.target.value)}
+                      onChange={e => {
+                        updateSetting('cellBgColor', e.target.value);
+                        updateSetting('cellFill', e.target.value);
+                      }}
                       disabled={settings.colorMode === 'BW'}
                     />
                     <span className="text-xs fw-600 text-primary uppercase">{settings.cellBgColor}</span>
                   </div>
                 </div>
-              </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }} className="mb-16">
                 {/* Border/Grid Color */}
                 <div className="form-group">
                   <label className="form-label">Border / Grid Color</label>
@@ -404,7 +715,10 @@ export default function SettingsPage({ onNavigate }: Props) {
                       type="color"
                       style={{ width: 26, height: 26, border: 'none', background: 'none', cursor: 'pointer' }}
                       value={settings.borderColor}
-                      onChange={e => updateSetting('borderColor', e.target.value)}
+                      onChange={e => {
+                        updateSetting('borderColor', e.target.value);
+                        updateSetting('gridColor', e.target.value);
+                      }}
                       disabled={settings.colorMode === 'BW'}
                     />
                     <span className="text-xs fw-600 text-primary uppercase">{settings.borderColor}</span>
@@ -413,7 +727,7 @@ export default function SettingsPage({ onNavigate }: Props) {
 
                 {/* Grid ON/OFF */}
                 <div className="form-group flex flex-col justify-end">
-                  <label className="flex items-center gap-8 cursor-pointer text-xs fw-700">
+                  <label className="flex items-center gap-8 cursor-pointer text-xs fw-700" style={{ height: 38 }}>
                     <input
                       type="checkbox"
                       checked={settings.gridOn}
@@ -429,9 +743,9 @@ export default function SettingsPage({ onNavigate }: Props) {
                 <div className="flex items-center gap-6" style={{ background: 'var(--surface-2)', padding: 4, borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
                   {[
                     { val: 0.25, label: '0.25 pt (Very Fine)' },
-                    { val: 0.5,  label: '0.50 pt (Normal)' },
+                    { val: 0.5, label: '0.50 pt (Normal)' },
                     { val: 0.75, label: '0.75 pt (Medium)' },
-                    { val: 1.0,  label: '1.00 pt (Strong)' }
+                    { val: 1.0, label: '1.00 pt (Strong)' }
                   ].map(item => (
                     <button
                       key={item.val}
@@ -603,10 +917,27 @@ export default function SettingsPage({ onNavigate }: Props) {
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16, marginBottom: 16 }}>
+                <div>
+                  <label className="form-label" style={{ fontSize: 11 }}>Page Number Position</label>
+                  <div className="flex items-center gap-4" style={{ background: 'var(--surface-2)', padding: 4, borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
+                    {(['Top', 'Bottom'] as const).map(pos => (
+                      <button
+                        key={pos}
+                        type="button"
+                        className={`btn btn-xs flex-1 justify-center ${(settings.pageNumberPosition || 'Bottom') === pos ? 'btn-primary' : 'btn-ghost'}`}
+                        onClick={() => updateSetting('pageNumberPosition', pos)}
+                        style={{ fontSize: 10, padding: '4px 6px' }}
+                      >
+                        {pos === 'Top' ? '⬆️ Top' : '⬇️ Bottom (Default)'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 <div>
                   <label className="form-label" style={{ fontSize: 11 }}>Page Number Alignment</label>
-                  <div className="flex items-center gap-4 mb-8" style={{ background: 'var(--surface-2)', padding: 4, borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
+                  <div className="flex items-center gap-4" style={{ background: 'var(--surface-2)', padding: 4, borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
                     {(['left', 'center', 'right'] as const).map(align => (
                       <button
                         key={align}
@@ -621,6 +952,66 @@ export default function SettingsPage({ onNavigate }: Props) {
                   </div>
                 </div>
 
+                <div>
+                  <label className="form-label" style={{ fontSize: 11 }}>Page Number Color</label>
+                  <div className="flex items-center gap-8" style={{ background: 'var(--surface-2)', padding: '4px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', height: 31 }}>
+                    <input
+                      type="color"
+                      style={{ width: 22, height: 22, border: 'none', background: 'none', cursor: 'pointer' }}
+                      value={settings.pageNumberColor || '#1E293B'}
+                      onChange={e => updateSetting('pageNumberColor', e.target.value)}
+                      disabled={settings.colorMode === 'BW'}
+                    />
+                    <span className="text-xs fw-600 text-primary uppercase" style={{ fontSize: 11 }}>
+                      {settings.pageNumberColor || '#1E293B'}
+                    </span>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="form-label" style={{ fontSize: 11, margin: 0 }}>Page Number Size (5–16px)</label>
+                    <span className="badge badge-secondary font-mono" style={{ fontSize: 10 }}>
+                      {settings.pageNumberFontSize || 8}px
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-8">
+                    <input
+                      type="range"
+                      min={5}
+                      max={16}
+                      step={1}
+                      value={settings.pageNumberFontSize || 8}
+                      onChange={e => updateSetting('pageNumberFontSize', Math.min(16, Math.max(5, parseInt(e.target.value, 10) || 8)))}
+                      style={{ width: '100%', accentColor: 'var(--accent)' }}
+                    />
+                    <input
+                      type="number"
+                      min={5}
+                      max={16}
+                      className="input-control text-xs"
+                      style={{ width: 55, padding: '2px 6px', height: 28 }}
+                      value={settings.pageNumberFontSize || 8}
+                      onChange={e => updateSetting('pageNumberFontSize', Math.min(16, Math.max(5, parseInt(e.target.value, 10) || 8)))}
+                    />
+                  </div>
+                  <div className="flex items-center gap-4 mt-4">
+                    {[6, 8, 10, 12, 14, 16].map(px => (
+                      <button
+                        key={px}
+                        type="button"
+                        className={`btn btn-xs ${(settings.pageNumberFontSize || 8) === px ? 'btn-primary' : 'btn-ghost'}`}
+                        style={{ fontSize: 9, padding: '1px 5px' }}
+                        onClick={() => updateSetting('pageNumberFontSize', px)}
+                      >
+                        {px}px
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                 <div>
                   <label className="form-label" style={{ fontSize: 11 }}>Branding Alignment</label>
                   <div className="flex items-center gap-4 mb-8" style={{ background: 'var(--surface-2)', padding: 4, borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
@@ -755,6 +1146,21 @@ export default function SettingsPage({ onNavigate }: Props) {
                         </div>
                       )}
 
+                      {/* Top Page Number in Header Box if Top */}
+                      {settings.pageNumberPosition === 'Top' && (
+                        <div style={{
+                          position: 'absolute',
+                          right: settings.pageNumberAlign === 'left' ? 'auto' : settings.pageNumberAlign === 'center' ? 'calc(50% - 10px)' : '12px',
+                          left: settings.pageNumberAlign === 'left' ? '12px' : 'auto',
+                          top: '10px',
+                          fontSize: '8.5pt',
+                          fontWeight: 'bold',
+                          color: settings.pageNumberColor || textColor,
+                        }}>
+                          {settings.pageNumberPrefix !== undefined ? settings.pageNumberPrefix : ''}01
+                        </div>
+                      )}
+
                       {/* LINE 1: Society Registration Name */}
                       <div style={{
                         fontSize: `${settings.headerFontSize}pt`,
@@ -816,15 +1222,27 @@ export default function SettingsPage({ onNavigate }: Props) {
 
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
                           <div style={{ border: gridBorderStyle, opacity: borderOpacity, background: headerBg, color: textColor, padding: '4px 6px', fontWeight: 'bold', fontSize: `${Math.max(6.5, settings.fontSize - 1)}pt` }}>5. Residential Address</div>
-                          <div style={{ border: gridBorderStyle, opacity: borderOpacity, background: headerBg, color: textColor, padding: '4px 6px', fontWeight: 'bold', fontSize: `${Math.max(6.5, settings.fontSize - 1)}pt` }}>5. Permanent Address</div>
+                          <div style={{ border: gridBorderStyle, opacity: borderOpacity, background: headerBg, color: textColor, padding: '4px 6px', fontWeight: 'bold', fontSize: `${Math.max(6.5, settings.fontSize - 1)}pt` }}>6. Permanent Address</div>
                           <div style={{ border: gridBorderStyle, opacity: borderOpacity, background: cellBg, color: textColor, padding: '4px 6px' }}>Home Bhagesar, 10B-204, Pali</div>
                           <div style={{ border: gridBorderStyle, opacity: borderOpacity, background: cellBg, color: textColor, padding: '4px 6px' }}>Home Bhagesar, 10B-204, Pali</div>
                         </div>
 
-                        <div style={{ marginTop: 4, fontWeight: 'bold', fontSize: `${Math.max(7, settings.fontSize)}pt`, color: textColor }}>PARTICULARS OF SHARES HELD</div>
+                        <div style={{
+                          marginTop: 6,
+                          marginBottom: 4,
+                          background: isBW ? '#334155' : (settings.sectionBgColor || '#1B365D'),
+                          color: isBW ? '#FFFFFF' : (settings.sectionTextColor || '#FFFFFF'),
+                          fontWeight: 'bold',
+                          fontSize: `${Math.max(7, settings.fontSize)}pt`,
+                          textAlign: 'center',
+                          padding: '4px 6px',
+                          borderRadius: 2
+                        }}>
+                          PARTICULARS OF SHARES HELD
+                        </div>
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: `${Math.max(6.5, settings.fontSize - 1)}pt` }}>
                           <thead>
-                            <tr style={{ background: headerBg, color: textColor }}>
+                            <tr style={{ background: headerBg, color: isBW ? '#000000' : (settings.headerTextColor || settings.sectionBgColor || textColor) }}>
                               <th style={{ border: gridBorderStyle, opacity: borderOpacity, padding: '4px 6px' }}>Date</th>
                               <th style={{ border: gridBorderStyle, opacity: borderOpacity, padding: '4px 6px' }}>App. / Allotment</th>
                               <th style={{ border: gridBorderStyle, opacity: borderOpacity, padding: '4px 6px' }}>Amount (Rs)</th>
@@ -844,6 +1262,21 @@ export default function SettingsPage({ onNavigate }: Props) {
                             </tr>
                           </tbody>
                         </table>
+
+                        {/* Special Notes Box (Exact 2.00 CM Display Representation) */}
+                        <div style={{
+                          marginTop: 6,
+                          border: gridBorderStyle,
+                          opacity: borderOpacity,
+                          background: cellBg,
+                          color: isBW ? '#000000' : (settings.headerTextColor || settings.sectionBgColor || textColor),
+                          padding: '6px 8px',
+                          minHeight: 36,
+                          fontSize: '7.5pt',
+                          position: 'relative'
+                        }}>
+                          <span style={{ fontWeight: 'bold' }}>Special Notes.</span>
+                        </div>
                       </div>
                     ) : activeTab === 'FORM_J' ? (
                       /* FORM J: List of Members Schema */
@@ -866,43 +1299,46 @@ export default function SettingsPage({ onNavigate }: Props) {
                         </tbody>
                       </table>
                     ) : activeTab === 'FORM_SHARE' ? (
-                      /* SHARE REGISTER: Two-Tier Accounting Schema */
-                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: `${Math.max(6.5, settings.fontSize - 1)}pt` }}>
-                        <thead>
-                          <tr style={{ background: headerBg, color: textColor }}>
-                            <th rowSpan={2} style={{ border: gridBorderStyle, opacity: borderOpacity, padding: '4px' }}>Sr. No.</th>
-                            <th rowSpan={2} style={{ border: gridBorderStyle, opacity: borderOpacity, padding: '4px' }}>Folio / App</th>
-                            <th rowSpan={2} style={{ border: gridBorderStyle, opacity: borderOpacity, padding: '4px' }}>Date</th>
-                            <th rowSpan={2} style={{ border: gridBorderStyle, opacity: borderOpacity, padding: '4px' }}>Share Holder Name & Address</th>
-                            <th rowSpan={2} style={{ border: gridBorderStyle, opacity: borderOpacity, padding: '4px' }}>Shares</th>
-                            <th colSpan={2} style={{ border: gridBorderStyle, opacity: borderOpacity, padding: '4px' }}>Distinctive Nos.</th>
-                            <th rowSpan={2} style={{ border: gridBorderStyle, opacity: borderOpacity, padding: '4px' }}>Entry Date</th>
-                            <th rowSpan={2} style={{ border: gridBorderStyle, opacity: borderOpacity, padding: '4px' }}>Paid Up</th>
-                            <th colSpan={2} style={{ border: gridBorderStyle, opacity: borderOpacity, padding: '4px' }}>Remarks</th>
-                          </tr>
-                          <tr style={{ background: headerBg, color: textColor }}>
-                            <th style={{ border: gridBorderStyle, opacity: borderOpacity, padding: '3px' }}>From</th>
-                            <th style={{ border: gridBorderStyle, opacity: borderOpacity, padding: '3px' }}>To</th>
-                            <th style={{ border: gridBorderStyle, opacity: borderOpacity, padding: '3px' }}>Trans No</th>
-                            <th style={{ border: gridBorderStyle, opacity: borderOpacity, padding: '3px' }}>Date</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <tr style={{ background: cellBg, color: textColor }}>
-                            <td style={{ border: gridBorderStyle, opacity: borderOpacity, padding: '4px', textAlign: 'center' }}>001</td>
-                            <td style={{ border: gridBorderStyle, opacity: borderOpacity, padding: '4px', textAlign: 'center' }}>FL-101</td>
-                            <td style={{ border: gridBorderStyle, opacity: borderOpacity, padding: '4px', textAlign: 'center' }}>02/12/2025</td>
-                            <td style={{ border: gridBorderStyle, opacity: borderOpacity, padding: '4px' }}>Ramesh Patel (Home Bhagesar, Pali)</td>
-                            <td style={{ border: gridBorderStyle, opacity: borderOpacity, padding: '4px', textAlign: 'center' }}>100</td>
-                            <td style={{ border: gridBorderStyle, opacity: borderOpacity, padding: '4px', textAlign: 'center' }}>001</td>
-                            <td style={{ border: gridBorderStyle, opacity: borderOpacity, padding: '4px', textAlign: 'center' }}>100</td>
-                            <td style={{ border: gridBorderStyle, opacity: borderOpacity, padding: '4px', textAlign: 'center' }}>02/12/2025</td>
-                            <td style={{ border: gridBorderStyle, opacity: borderOpacity, padding: '4px', textAlign: 'center' }}>FULL</td>
-                            <td style={{ border: gridBorderStyle, opacity: borderOpacity, padding: '4px', textAlign: 'center' }}>—</td>
-                            <td style={{ border: gridBorderStyle, opacity: borderOpacity, padding: '4px', textAlign: 'center' }}>—</td>
-                          </tr>
-                        </tbody>
-                      </table>
+                      /* SHARE REGISTER: 15-Column Statutory Layout */
+                      <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', minWidth: 640, borderCollapse: 'collapse', fontSize: `${Math.max(6, (settings.dataFontSize || settings.fontSize || 9.5) - 2)}pt` }}>
+                          <thead>
+                            <tr style={{ background: headerBg, color: textColor }}>
+                              {['Sr. No.', 'Date of Allotment', 'Cash Book Folio No.', 'Share Cert. No.', 'No. of Shares', 'Value of Shares Rs.', 'Name of Member allotted to', 'Flat / Shop / Office No.', 'Date of Transfer / Refund', 'No. Transferred / Refunded', 'Cert. No. Transferred', 'Shares Value Transferred', 'Transferee Name', 'Authority', 'Remarks'].map((h, i) => (
+                                <th key={h} style={{ border: gridBorderStyle, opacity: borderOpacity, padding: '3px 4px', fontSize: `${Math.max(5.5, (settings.fixedDataFontSize || 8.5) - 2)}pt`, fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                                  {h}
+                                </th>
+                              ))}
+                            </tr>
+                            <tr style={{ background: cellBg, color: textColor }}>
+                              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15].map(n => (
+                                <th key={n} style={{ border: gridBorderStyle, opacity: borderOpacity, padding: '2px 3px', fontSize: '6pt', textAlign: 'center', fontWeight: 'bold' }}>
+                                  {n}
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr style={{ background: cellBg, color: textColor }}>
+                              <td style={{ border: gridBorderStyle, opacity: borderOpacity, padding: '3px 4px', textAlign: 'center' }}>1</td>
+                              <td style={{ border: gridBorderStyle, opacity: borderOpacity, padding: '3px 4px', textAlign: 'center' }}>02/12/2025</td>
+                              <td style={{ border: gridBorderStyle, opacity: borderOpacity, padding: '3px 4px', textAlign: 'center' }}>—</td>
+                              <td style={{ border: gridBorderStyle, opacity: borderOpacity, padding: '3px 4px', textAlign: 'center' }}>1</td>
+                              <td style={{ border: gridBorderStyle, opacity: borderOpacity, padding: '3px 4px', textAlign: 'center' }}>10 (Ten)</td>
+                              <td style={{ border: gridBorderStyle, opacity: borderOpacity, padding: '3px 4px', textAlign: 'right' }}>500/-</td>
+                              <td style={{ border: gridBorderStyle, opacity: borderOpacity, padding: '3px 4px', fontWeight: 'bold' }}>Nafisa Khatoon Shariff Ahmed Khan</td>
+                              <td style={{ border: gridBorderStyle, opacity: borderOpacity, padding: '3px 4px', textAlign: 'center' }}>1/01</td>
+                              <td style={{ border: gridBorderStyle, opacity: borderOpacity, padding: '3px 4px', textAlign: 'center' }}>—</td>
+                              <td style={{ border: gridBorderStyle, opacity: borderOpacity, padding: '3px 4px', textAlign: 'center' }}>—</td>
+                              <td style={{ border: gridBorderStyle, opacity: borderOpacity, padding: '3px 4px', textAlign: 'center' }}>—</td>
+                              <td style={{ border: gridBorderStyle, opacity: borderOpacity, padding: '3px 4px', textAlign: 'right' }}>—</td>
+                              <td style={{ border: gridBorderStyle, opacity: borderOpacity, padding: '3px 4px' }}>—</td>
+                              <td style={{ border: gridBorderStyle, opacity: borderOpacity, padding: '3px 4px', textAlign: 'center' }}>—</td>
+                              <td style={{ border: gridBorderStyle, opacity: borderOpacity, padding: '3px 4px' }}>—</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
                     ) : activeTab === 'FORM_NOM' ? (
                       /* NOMINATION REGISTER Schema */
                       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: `${settings.fontSize}pt` }}>
@@ -982,10 +1418,17 @@ export default function SettingsPage({ onNavigate }: Props) {
                       fontFamily: fontCss,
                       color: textColor
                     }}>
-                      {/* Page number positioned just above the footer line in center */}
-                      <div style={{ textAlign: (settings.pageNumberAlign || 'center') as any, marginBottom: 3, fontWeight: 600 }}>
-                        {settings.pageNumberPrefix !== undefined ? settings.pageNumberPrefix : ''}1
-                      </div>
+                      {/* Page number positioned just above the footer line in center if Bottom */}
+                      {(settings.pageNumberPosition || 'Bottom') === 'Bottom' && (
+                        <div style={{
+                          textAlign: (settings.pageNumberAlign || 'center') as any,
+                          marginBottom: 3,
+                          fontWeight: 600,
+                          color: settings.pageNumberColor || textColor
+                        }}>
+                          {settings.pageNumberPrefix !== undefined ? settings.pageNumberPrefix : ''}1
+                        </div>
+                      )}
                       <div style={{
                         paddingTop: 6,
                         borderTop: `1px solid ${borderColor}`,

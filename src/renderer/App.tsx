@@ -17,6 +17,7 @@ import HenuConfigPage from './pages/henu-config/HenuConfigPage';
 import HenuMasterPage from './pages/henu-master/HenuMasterPage';
 import AddSocietyModal from './components/AddSocietyModal';
 import FirstRunSetupWizard from './components/FirstRunSetupWizard';
+import SupportModal from './components/SupportModal';
 import { useSocietyContext } from './context/SocietyContext';
 import { Society } from '../main/types';
 
@@ -122,6 +123,7 @@ export default function App() {
   } = useSocietyContext();
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
   const [showFirstRunWizard, setShowFirstRunWizard] = useState(false);
 
   const api = (window as any).api;
@@ -163,6 +165,11 @@ export default function App() {
   };
 
   const handleSelectSociety = async (socId: string) => {
+    const target = societies.find(s => s.id === socId);
+    if (target?.isLocked) {
+      alert(`Society "${target.societyName}" is locked.\n\nPlease unlock it using Master Password in HENUMASTER before opening or switching.`);
+      return;
+    }
     await switchSociety(socId);
   };
 
@@ -407,7 +414,7 @@ export default function App() {
             <span style={{ fontSize: 14 }}>{theme === 'dark' ? '☀️' : '🌙'}</span>
             <span style={{ fontSize: 12 }}>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
           </button>
-          <div className="sidebar-version" style={{ marginTop: 8 }}>HENU OS v1.0 · HLabs</div>
+          <div className="sidebar-version" style={{ marginTop: 8 }}>HENU OS v1.0.4 · HLabs</div>
         </div>
       </aside>
 
@@ -435,15 +442,19 @@ export default function App() {
                 fontWeight: 700,
                 letterSpacing: '0.6px',
                 textTransform: 'uppercase',
-                color: 'var(--accent-light, #a78bfa)',
-                background: 'rgba(124, 58, 237, 0.15)',
+                color: activeSociety?.isLocked ? '#f87171' : 'var(--accent-light, #a78bfa)',
+                background: activeSociety?.isLocked ? 'rgba(239, 68, 68, 0.18)' : 'rgba(124, 58, 237, 0.15)',
+                border: activeSociety?.isLocked ? '1px solid rgba(239, 68, 68, 0.4)' : undefined,
                 padding: '2px 8px',
                 borderRadius: 4,
                 whiteSpace: 'nowrap',
                 flexShrink: 0,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
               }}
             >
-              Active Society
+              {activeSociety?.isLocked ? '🔒 Society Locked' : 'Active Society'}
             </span>
             <span
               className="fw-700 text-primary text-sm truncate"
@@ -483,8 +494,8 @@ export default function App() {
                 }}
               >
                 {societies.map(s => (
-                  <option key={s.id} value={s.id}>
-                    {s.societyName} ({s.registrationNo || 'No Reg'})
+                  <option key={s.id} value={s.id} disabled={Boolean(s.isLocked)}>
+                    {s.isLocked ? '🔒 [LOCKED] ' : ''}{s.societyName} ({s.registrationNo || 'No Reg'})
                   </option>
                 ))}
               </select>
@@ -498,6 +509,46 @@ export default function App() {
               style={{ fontSize: 11, padding: '4px 10px', height: 30 }}
             >
               <Plus size={13} /> Add Society
+            </button>
+
+            {/* Official HENU OS System Support Trigger */}
+            <button
+              className="btn btn-ghost btn-sm flex items-center gap-6"
+              onClick={() => setIsSupportModalOpen(true)}
+              title="Official HENU OS System Support (Emergency Hotline, WhatsApp, Calendly)"
+              style={{
+                height: 32,
+                padding: '2px 12px 2px 8px',
+                borderRadius: 8,
+                border: '1px solid var(--border, #334155)',
+                background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(168, 85, 247, 0.12) 100%)',
+                color: 'var(--text-primary)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <img
+                src="images/henu_support.png"
+                alt="HENU OS Support"
+                style={{
+                  width: 24,
+                  height: 24,
+                  objectFit: 'contain',
+                  borderRadius: 6,
+                  background: '#ffffff',
+                  padding: 2,
+                }}
+                onError={e => {
+                  (e.currentTarget as HTMLImageElement).src = 'henu_support.png';
+                }}
+              />
+              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent, #818cf8)', letterSpacing: '0.02em' }}>
+                Support
+              </span>
             </button>
           </div>
         </header>
@@ -532,6 +583,13 @@ export default function App() {
           loadSocietyContext();
           setIsAddModalOpen(false);
         }}
+      />
+
+      {/* Official System Support Modal */}
+      <SupportModal
+        isOpen={isSupportModalOpen}
+        onClose={() => setIsSupportModalOpen(false)}
+        activeSociety={activeSociety}
       />
 
       {/* First Run Storage Setup Wizard */}

@@ -74,6 +74,11 @@ export default function Dashboard({ onNavigate }: Props) {
   const handleSelectSociety = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     const socId = e.target.value;
     if (!socId) return;
+    const target = societies.find(s => s.id === socId);
+    if (target?.isLocked) {
+      alert(`Society "${target.societyName}" is locked.\n\nPlease unlock it in HENU MASTER first.`);
+      return;
+    }
     const api = (window as any).api;
     if (api && api.society) {
       const selected = await api.society.select(socId);
@@ -105,6 +110,39 @@ export default function Dashboard({ onNavigate }: Props) {
 
       </div>
 
+      {/* Society Locked Banner */}
+      {activeSociety?.isLocked && (
+        <div
+          className="alert alert-error mb-20"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '14px 20px',
+            border: '1px solid rgba(239, 68, 68, 0.4)',
+            background: 'rgba(239, 68, 68, 0.12)',
+            borderRadius: 8,
+          }}
+        >
+          <div className="flex items-center gap-10">
+            <Lock size={20} color="#ef4444" />
+            <div>
+              <strong style={{ color: '#ef4444', fontSize: 13 }}>Society "{activeSociety.societyName}" is Locked</strong>
+              <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
+                Opening statutory registers, generating forms, and uploading master data are completely blocked.
+              </div>
+            </div>
+          </div>
+          <button
+            className="btn btn-primary btn-sm flex items-center gap-6"
+            onClick={() => onNavigate('henumaster')}
+            style={{ background: '#ef4444', borderColor: '#ef4444', fontSize: 12 }}
+          >
+            Go to HENU MASTER to Unlock
+          </button>
+        </div>
+      )}
+
       {/* Active Society Card Banner */}
       {activeSociety && (
         <div className="card mb-20" style={{
@@ -122,10 +160,32 @@ export default function Dashboard({ onNavigate }: Props) {
               </h2>
             </div>
             <div className="flex gap-8">
-              <button className="btn btn-secondary btn-sm" onClick={() => onNavigate('masterdata')}>
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={() => {
+                  if (activeSociety.isLocked) {
+                    alert(`Society "${activeSociety.societyName}" is locked.\n\nPlease unlock it in HENU MASTER first.`);
+                    return;
+                  }
+                  onNavigate('masterdata');
+                }}
+                disabled={Boolean(activeSociety.isLocked)}
+                style={{ opacity: activeSociety.isLocked ? 0.35 : 1, cursor: activeSociety.isLocked ? 'not-allowed' : 'pointer' }}
+              >
                 <Upload size={13} /> Upload Master Data
               </button>
-              <button className="btn btn-primary btn-sm" onClick={() => onNavigate('generate')}>
+              <button
+                className="btn btn-primary btn-sm"
+                onClick={() => {
+                  if (activeSociety.isLocked) {
+                    alert(`Society "${activeSociety.societyName}" is locked.\n\nPlease unlock it in HENU MASTER first.`);
+                    return;
+                  }
+                  onNavigate('generate');
+                }}
+                disabled={Boolean(activeSociety.isLocked)}
+                style={{ opacity: activeSociety.isLocked ? 0.35 : 1, cursor: activeSociety.isLocked ? 'not-allowed' : 'pointer' }}
+              >
                 <FileText size={13} /> Generate Forms
               </button>
             </div>
@@ -309,7 +369,18 @@ export default function Dashboard({ onNavigate }: Props) {
             <div className="card-title flex items-center gap-8">
               <Layers size={15} className="icon-accent" /> Available Forms
             </div>
-            <button className="btn btn-primary btn-sm" onClick={() => onNavigate('generate')}>
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={() => {
+                if (activeSociety?.isLocked) {
+                  alert(`Society "${activeSociety.societyName}" is locked.\n\nPlease unlock it in HENU MASTER first.`);
+                  return;
+                }
+                onNavigate('generate');
+              }}
+              disabled={Boolean(activeSociety?.isLocked)}
+              style={{ opacity: activeSociety?.isLocked ? 0.35 : 1, cursor: activeSociety?.isLocked ? 'not-allowed' : 'pointer' }}
+            >
               Generate
             </button>
           </div>

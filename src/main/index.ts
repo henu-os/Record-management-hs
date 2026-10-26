@@ -227,6 +227,7 @@ function getActiveSociety(): Society {
     pinCode: row.pin_code || '',
     createdAt: row.created_at,
     isActive: Boolean(row.is_active),
+    isLocked: Boolean(row.is_locked),
     logoBase64: row.logo_base64 || '',
   };
 }
@@ -287,7 +288,20 @@ ipcMain.handle('society:list', () => {
     logoBase64: row.logo_base64 || '',
     createdAt: row.created_at,
     isActive: Boolean(row.is_active),
+    isLocked: Boolean(row.is_locked),
   }));
+});
+
+ipcMain.handle('system:openExternal', async (_e, targetUrl: string) => {
+  if (targetUrl && typeof targetUrl === 'string') {
+    try {
+      await shell.openExternal(targetUrl);
+      return true;
+    } catch (err) {
+      console.error('Failed to open external URL:', err);
+    }
+  }
+  return false;
 });
 
 ipcMain.handle('society:getActive', () => {
@@ -331,8 +345,12 @@ ipcMain.handle('society:create', (_e, payload: AddSocietyPayload) => {
 
 ipcMain.handle('society:select', (_e, societyId: string) => {
   const db = getDatabase();
-  const exists = db.prepare('SELECT id FROM societies WHERE id = ?').get(societyId);
-  if (!exists) return getActiveSociety();
+  const target = db.prepare('SELECT id, is_locked, society_name FROM societies WHERE id = ?').get(societyId) as any;
+  if (!target) return getActiveSociety();
+
+  if (Number(target.is_locked) === 1) {
+    throw new Error(`Society "${target.society_name || societyId}" is locked. Unlock it in HENU MASTER before opening or selecting it.`);
+  }
 
   db.prepare('UPDATE societies SET is_active = 0').run();
   db.prepare('UPDATE societies SET is_active = 1 WHERE id = ?').run(societyId);
@@ -344,6 +362,11 @@ ipcMain.handle('society:select', (_e, societyId: string) => {
 
 ipcMain.handle('society:delete', (_e, societyId: string) => {
   const db = getDatabase();
+  const target = db.prepare('SELECT id, is_locked, society_name FROM societies WHERE id = ?').get(societyId) as any;
+  if (target && Number(target.is_locked) === 1) {
+    throw new Error(`Society "${target.society_name || societyId}" is locked. Unlock it before deleting.`);
+  }
+
   db.prepare('DELETE FROM societies WHERE id = ?').run(societyId);
   db.prepare('DELETE FROM master_workbooks WHERE society_id = ?').run(societyId);
   db.prepare('DELETE FROM generation_history WHERE society_id = ?').run(societyId);
@@ -1238,6 +1261,9 @@ ipcMain.handle('generate:previewPdf', async (_e, arg1: any, arg2?: any, arg3?: a
   }
 
   const activeSoc = getActiveSociety();
+  if (activeSoc?.isLocked) {
+    return { error: `Active society "${activeSoc.societyName}" is locked. Unlock it in HENU MASTER before previewing or generating forms.` };
+  }
   let wb: MasterWorkbook;
   if (options?.workbook && (Array.isArray(options.workbook.commonFile) || Array.isArray(options.workbook.voucherData))) {
     wb = synchronizeMasterWorkbook(options.workbook);
@@ -1259,6 +1285,7 @@ ipcMain.handle('generate:previewPdf', async (_e, arg1: any, arg2?: any, arg3?: a
     const output = await PdfEngine.generate({
       formId, fromSerial, toSerial,
       nonSerialCount: extraCount,
+      paperSize: (options as any)?.paperSize,
       templateId: (options as any)?.templateId,
       shareRegisterTemplateId: (options as any)?.shareRegisterTemplateId,
       voucherPaperSize: (options as any)?.voucherPaperSize,
@@ -1331,6 +1358,9 @@ ipcMain.handle('generate:execute', async (_e, arg1: any, arg2?: any, arg3?: any,
   }
 
   const activeSoc = getActiveSociety();
+  if (activeSoc?.isLocked) {
+    return { success: false, errorMessage: `Active society "${activeSoc.societyName}" is locked. Unlock it in HENU MASTER before generating forms.` };
+  }
   let wb: MasterWorkbook;
   if (options?.workbook && (Array.isArray(options.workbook.commonFile) || Array.isArray(options.workbook.voucherData))) {
     wb = synchronizeMasterWorkbook(options.workbook);
@@ -1354,6 +1384,7 @@ ipcMain.handle('generate:execute', async (_e, arg1: any, arg2?: any, arg3?: any,
     const output = await PdfEngine.generate({
       formId, fromSerial, toSerial,
       nonSerialCount: extraCount,
+      paperSize: (options as any)?.paperSize,
       templateId: (options as any)?.templateId,
       shareRegisterTemplateId: (options as any)?.shareRegisterTemplateId,
       voucherPaperSize: (options as any)?.voucherPaperSize,
@@ -1548,17 +1579,130 @@ ipcMain.handle('system:showSaveDialog', async (_e, options: Electron.SaveDialogO
   return result.canceled ? null : result.filePath;
 });
 
+/**
+ * Direct Print to Physical Printer
+ * Enforces Legal paper size (8.5 × 14 in), exact orientation, and 100% 1:1 scale (no compression/shrinking).
+ */
+ipcMain.handle('system:printPdf', async (_e, payload: {
+  pdfPath?: string;
+  pdfUrl?: string;
+  pdfBase64?: string;
+  orientation?: 'Portrait' | 'Landscape';
+  pageSize?: 'Legal' | 'Foolscap' | string;
+  paperSize?: 'LEGAL' | 'FOOLSCAP' | string;
+  silent?: boolean;
+}) => {
+  try {
+    const isLandscape = payload.orientation === 'Landscape';
+    const rawPaper = payload.paperSize || payload.pageSize || 'Legal';
+    const isFoolscap = String(rawPaper).toUpperCase().includes('FOOLSCAP');
+    let targetPdfPath = payload.pdfPath;
+
+    if (!targetPdfPath && payload.pdfBase64) {
+      const b64 = payload.pdfBase64.includes(',') ? payload.pdfBase64.split(',')[1] : payload.pdfBase64;
+      const tempPath = path.join(getPaths().temp, `print_${Date.now()}.pdf`);
+      fs.writeFileSync(tempPath, Buffer.from(b64, 'base64'));
+      targetPdfPath = tempPath;
+    } else if (!targetPdfPath && payload.pdfUrl && payload.pdfUrl.startsWith('data:application/pdf;base64,')) {
+      const b64 = payload.pdfUrl.split(',')[1];
+      const tempPath = path.join(getPaths().temp, `print_${Date.now()}.pdf`);
+      fs.writeFileSync(tempPath, Buffer.from(b64, 'base64'));
+      targetPdfPath = tempPath;
+    }
+
+    const printWin = new BrowserWindow({
+      show: false,
+      title: 'Printing Document',
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+        plugins: true,
+      },
+    });
+
+    const fileUrl = targetPdfPath
+      ? `file://${targetPdfPath.replace(/\\/g, '/')}`
+      : (payload.pdfUrl || '');
+
+    const printHtml = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    @page {
+      size: ${isFoolscap
+        ? (isLandscape ? '13.5in 8.5in landscape' : '8.5in 13.5in portrait')
+        : (isLandscape ? '14in 8.5in landscape' : '8.5in 14in portrait')};
+      margin: 0mm;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #ffffff;
+    }
+    embed {
+      width: 100vw;
+      height: 100vh;
+      border: none;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <embed src="${fileUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH" type="application/pdf" width="100%" height="100%" />
+</body>
+</html>`;
+
+    await printWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(printHtml)}`);
+
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        const printPageSize = isFoolscap
+          ? (isLandscape ? { width: 342900, height: 215900 } : { width: 215900, height: 342900 })
+          : 'Legal';
+
+        printWin.webContents.print({
+          silent: Boolean(payload.silent),
+          printBackground: true,
+          pageSize: printPageSize,
+          landscape: isLandscape,
+          margins: {
+            marginType: 'none',
+          },
+          scaleFactor: 100,
+        }, (success, failureReason) => {
+          setTimeout(() => {
+            if (!printWin.isDestroyed()) printWin.close();
+          }, 1000);
+          if (!success) {
+            resolve({ success: false, error: failureReason || 'Printing was cancelled' });
+          } else {
+            resolve({ success: true });
+          }
+        });
+      }, 600);
+    });
+  } catch (err: any) {
+    console.error('system:printPdf error:', err);
+    return { success: false, error: err.message || 'Print dispatch failed' };
+  }
+});
+
 // ══════════════════════════════════════════════════════════════
 // CALIBRATION & TEMPLATES
 // ══════════════════════════════════════════════════════════════
 ipcMain.handle('calibration:getTemplates', async () => {
   return [
-    { id: 'FORM_I', name: 'Form I (Register of Members)', orientation: 'Portrait', paperSize: 'A4' },
-    { id: 'FORM_J', name: 'Form J (List of Members)', orientation: 'Portrait', paperSize: 'A4' },
-    { id: 'FORM_SHARE', name: 'Share Register', orientation: 'Landscape', paperSize: 'A4' },
-    { id: 'FORM_NOM', name: 'Nomination Register', orientation: 'Landscape', paperSize: 'A4' },
-    { id: 'FORM_PROP', name: 'Property Register', orientation: 'Landscape', paperSize: 'A4' },
-    { id: 'FORM_BANK', name: 'Bank Line Mark Register', orientation: 'Landscape', paperSize: 'A4' },
+    { id: 'FORM_I', name: 'Form I (Register of Members)', orientation: 'Portrait', paperSize: 'Legal' },
+    { id: 'FORM_J', name: 'Form J (List of Members)', orientation: 'Portrait', paperSize: 'Legal' },
+    { id: 'FORM_SHARE', name: 'Share Register', orientation: 'Landscape', paperSize: 'Legal' },
+    { id: 'FORM_NOM', name: 'Nomination Register', orientation: 'Landscape', paperSize: 'Legal' },
+    { id: 'FORM_PROP', name: 'Property Register', orientation: 'Landscape', paperSize: 'Legal' },
+    { id: 'FORM_BANK', name: 'Bank Line Mark Register', orientation: 'Portrait', paperSize: 'Legal' },
     { id: 'FORM_SHARE_CERT', name: 'Share Certificate', orientation: 'Landscape', paperSize: 'Super A3 (13x19)' },
     { id: 'FORM_VOUCHER', name: 'Payment Voucher', orientation: 'Portrait', paperSize: 'A4' },
   ];
@@ -1852,6 +1996,15 @@ ipcMain.handle('henuMaster:openFolder', async (_e, folderPath: string) => {
     return { success: true };
   }
   return { success: false, error: 'Path does not exist' };
+});
+
+ipcMain.handle('henuMaster:toggleSocietyLock', async (_e, societyId: string, password: string, locked: boolean) => {
+  const verify = HenuSecurityService.getInstance().verifyLockPassword(password);
+  if (!verify.success) {
+    return { success: false, error: verify.error || 'Invalid master authorization password.' };
+  }
+  const ok = HenuMasterService.getInstance().toggleSocietyLock(societyId, locked);
+  return { success: ok };
 });
 
 // ── Centralized Security IPC Handlers ────────────────────────

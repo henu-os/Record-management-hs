@@ -6,6 +6,7 @@
 import { generateRange, normalizeSerial, validateSerialRange } from '../services/SerialRangeEngine';
 import { MasterDataQueryEngine } from '../services/MasterDataQueryEngine';
 import { FormMappingService } from '../services/FormMappingService';
+import { FormDesignSettingsService } from '../services/FormDesignSettingsService';
 import { ValidationEngine } from '../services/ValidationEngine';
 import { PdfDocumentBuilder } from '../services/renderers/PdfDocumentBuilder';
 import { FormIRenderer } from '../services/renderers/FormIRenderer';
@@ -1078,14 +1079,14 @@ export class TestRunner {
       expect(formatSerialWithPrefix('70', '', '-') === '70', 'Empty prefix must not add separator');
     });
 
-    await run('T83', 'Legal Paper Physical Geometry — Width=612pt, Height=1008pt, Margins 0.7in (50.4pt) and 0.5in (36.0pt)', () => {
+    await run('T83', 'Legal Paper Physical Geometry — Width=612pt, Height=1008pt, Margins 1.5cm (42.52pt) on all 4 sides', () => {
       const { LEGAL_WIDTH, LEGAL_HEIGHT, MARGIN_LEFT, MARGIN_RIGHT, MARGIN_TOP, MARGIN_BOTTOM } = require('../services/renderers/PdfDocumentBuilder');
       expect(LEGAL_WIDTH === 612, `LEGAL_WIDTH must be 612, got ${LEGAL_WIDTH}`);
       expect(LEGAL_HEIGHT === 1008, `LEGAL_HEIGHT must be 1008, got ${LEGAL_HEIGHT}`);
-      expect(MARGIN_LEFT === 50.4, `MARGIN_LEFT must be 50.4 (0.7 in), got ${MARGIN_LEFT}`);
-      expect(MARGIN_RIGHT === 50.4, `MARGIN_RIGHT must be 50.4 (0.7 in), got ${MARGIN_RIGHT}`);
-      expect(MARGIN_TOP === 36.0, `MARGIN_TOP must be 36.0 (0.5 in), got ${MARGIN_TOP}`);
-      expect(MARGIN_BOTTOM === 36.0, `MARGIN_BOTTOM must be 36.0 (0.5 in), got ${MARGIN_BOTTOM}`);
+      expect(Math.abs(MARGIN_LEFT - 42.52) < 0.1, `MARGIN_LEFT must be 42.52 (1.5 cm), got ${MARGIN_LEFT}`);
+      expect(Math.abs(MARGIN_RIGHT - 42.52) < 0.1, `MARGIN_RIGHT must be 42.52 (1.5 cm), got ${MARGIN_RIGHT}`);
+      expect(Math.abs(MARGIN_TOP - 42.52) < 0.1, `MARGIN_TOP must be 42.52 (1.5 cm), got ${MARGIN_TOP}`);
+      expect(Math.abs(MARGIN_BOTTOM - 42.52) < 0.1, `MARGIN_BOTTOM must be 42.52 (1.5 cm), got ${MARGIN_BOTTOM}`);
     });
 
     await run('T84', 'Statutory Register Orientations — Form I (Portrait), Form J (Portrait/Landscape), Share (Landscape), Prop (Landscape), Nom (Landscape), Bank (Portrait)', () => {
@@ -1756,6 +1757,68 @@ export class TestRunner {
       expect(contextService.validateContextToken(tokenA) === false, 'Token A must be rejected after context switch to Soc B');
       expect(contextService.validateActiveSociety(socA) === false, 'Soc A async results must be rejected after context switch to Soc B');
       expect(contextService.validateActiveSociety(socB) === true, 'Soc B must now be validated');
+    });
+
+    await run('T109', 'Form J — Address section prints Residential Address (with Flat/Wing)', async () => {
+      const { FormJRenderer } = await import('../services/renderers/FormJRenderer');
+      const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.js');
+      const rec = {
+        srNo: '1',
+        member1: 'Nafisha Khan',
+        flatNo: '302',
+        wingNo: 'C',
+        residentialAddress: 'Kidwai Marg, Wadala, Mumbai',
+        permanentAddress: 'Plot 24, Civil Lines, Nagpur',
+      };
+      const society = { societyName: 'SIDD', registrationNo: 'hvk564', address: 'Mumbai' };
+      const jBuf = await FormJRenderer.render([{ serial: '1', record: rec as any }], society as any);
+      const doc = await pdfjsLib.getDocument({ data: new Uint8Array(jBuf) }).promise;
+      const page = await doc.getPage(1);
+      const textContent = await page.getTextContent();
+      const allText = textContent.items.map((i: any) => i.str).join(' ');
+      expect(allText.includes('302/C') || allText.includes('Kidwai Marg'), 'Form J address must contain residential address / flat');
+      expect(!allText.includes('Civil Lines') && !allText.includes('Nagpur'), 'Form J address must not display permanent address when residential is present');
+    });
+
+    await run('T110', 'Page Number — Top vs Bottom switch and customizable color', async () => {
+      const { FormIRenderer } = await import('../services/renderers/FormIRenderer');
+      const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.js');
+      const rec = { srNo: '1', member1: 'Test Member' };
+      const society = { societyName: 'SIDD', registrationNo: 'hvk564', address: 'Mumbai' };
+
+      // 1. Bottom Position (Default)
+      const bottomSettings = FormDesignSettingsService.clampSettings({ pageNumberPosition: 'Bottom', pageNumberAlign: 'right', pageNumberColor: '#FF0000' });
+      const bBuf = (await FormIRenderer.render([{ serial: '1', record: rec as any }], society as any, { settings: bottomSettings }))[0];
+      const bDoc = await pdfjsLib.getDocument({ data: new Uint8Array(bBuf) }).promise;
+      const bText = (await (await bDoc.getPage(1)).getTextContent()).items.map((i: any) => ({ str: i.str, y: i.transform[5] }));
+      const bHeaderNum = bText.some((i: any) => i.str === '01' && i.y > 900);
+      const bFooterNum = bText.some((i: any) => i.str === '1' && i.y < 100);
+      expect(!bHeaderNum, 'Top header must NOT contain page number 01 when position is Bottom');
+      expect(bFooterNum, 'Bottom footer MUST contain page number 1 when position is Bottom');
+
+      // 2. Top Position
+      const topSettings = FormDesignSettingsService.clampSettings({ pageNumberPosition: 'Top', pageNumberAlign: 'right', pageNumberColor: '#00AA00' });
+      const tBuf = (await FormIRenderer.render([{ serial: '1', record: rec as any }], society as any, { settings: topSettings }))[0];
+      const tDoc = await pdfjsLib.getDocument({ data: new Uint8Array(tBuf) }).promise;
+      const tText = (await (await tDoc.getPage(1)).getTextContent()).items.map((i: any) => ({ str: i.str, y: i.transform[5] }));
+      const tHeaderNum = tText.some((i: any) => i.str === '01' && i.y > 900);
+      const tFooterNum = tText.some((i: any) => i.str === '1' && i.y < 100);
+      expect(tHeaderNum, 'Top header MUST contain page number 01 when position is Top');
+      expect(!tFooterNum, 'Bottom footer must NOT contain page number 1 when position is Top');
+    });
+
+    await run('T111', 'Form Design Configuration — low-ink palette clamping & propagation', async () => {
+      const ecoClamped = FormDesignSettingsService.clampSettings({
+        sectionBgColor: '#CBD5E1',
+        sectionTextColor: '#0F172A',
+        headerBgColor: '#F1F5F9',
+        pageNumberPosition: 'Top',
+        pageNumberColor: '#334155',
+      });
+      expect(ecoClamped.sectionBgColor === '#CBD5E1', 'Must clamp sectionBgColor correctly');
+      expect(ecoClamped.sectionTextColor === '#0F172A', 'Must clamp sectionTextColor correctly');
+      expect(ecoClamped.pageNumberPosition === 'Top', 'Must clamp pageNumberPosition correctly');
+      expect(ecoClamped.pageNumberColor === '#334155', 'Must clamp pageNumberColor correctly');
     });
 
     const passed = results.filter(r => r.passed).length;

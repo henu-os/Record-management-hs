@@ -89,7 +89,17 @@
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5);
   --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.6);
+  --accent: #A855F7;
+  --accent-light: #C084FC;
   --accent-lighter: #2D1B6E;
+  --success: #34D399;
+  --success-bg: rgba(16, 185, 129, 0.18);
+  --warning: #FBBF24;
+  --warning-bg: rgba(245, 158, 11, 0.18);
+  --error: #F87171;
+  --error-bg: rgba(239, 68, 68, 0.18);
+  --info: #60A5FA;
+  --info-bg: rgba(59, 130, 246, 0.18);
 }
 
 /* ── Reset ── */
@@ -172,13 +182,13 @@ body {
 }
 
 .sidebar-brand-logo {
-  height: 38px;
+  height: 48px;
   width: auto;
-  max-width: 48px;
+  max-width: 60px;
   object-fit: contain;
-  border-radius: 6px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.08);
-  padding: 3px;
+  padding: 4px;
   flex-shrink: 0;
 }
 

@@ -823,23 +823,32 @@ export const browserMockApi = {
         colorMode: 'Color',
         horizontalAlign: 'center',
         verticalAlign: 'middle',
-        fontFamily: 'Helvetica',
-        fontSize: 7.5,
+        fontFamily: 'Times-Roman',
+        fontSize: 9.5,
+        bodyFontSize: 9.5,
+        dataFontSize: 9.5,
+        fixedDataFontSize: 8.5,
         headerFontSize: 11,
         bold: false,
         italic: false,
         textWrapping: true,
         textRotation: 0,
-        textColor: '#1C355E',
-        headerBgColor: '#D9E1F2',
+        textColor: '#0F172A',
+        headerBgColor: '#F1F5F9',
+        headerTextColor: '#0F172A',
+        sectionBgColor: '#CBD5E1',
+        sectionTextColor: '#0F172A',
         cellBgColor: '#FFFFFF',
-        borderColor: '#8EA9DB',
-        gridColor: '#D9E1F2',
-        gridOpacity: 100,
+        borderColor: '#94A3B8',
+        gridColor: '#94A3B8',
+        gridOpacity: 80,
+        gridThickness: 0.50,
         gridOn: true,
         rowsPerPage: 10,
+        pageNumberPosition: 'Bottom',
         pageNumberAlign: 'center',
         pageNumberPrefix: '',
+        pageNumberColor: '#0F172A',
         brandingText: 'HENU OS - Records Management',
         brandingAlign: 'right',
         customFooterText: '',
@@ -856,14 +865,41 @@ export const browserMockApi = {
       const keyName = `settings_${socId}_${cleanFormId}`;
       map[keyName] = JSON.stringify(settings);
 
-      // Propagate Branding BOX Footer to all 6 forms
+      // Propagate Global Theme Styling & Branding to all 6 forms
       const allForms = ['FORM_I', 'FORM_J', 'FORM_SHARE', 'FORM_NOM', 'FORM_PROP', 'FORM_BANK'];
       for (const f of allForms) {
         const k = `settings_${socId}_${f}`;
         const existing = map[k] ? JSON.parse(map[k]) : {};
+        if (cleanFormId === 'global') {
+          Object.assign(existing, {
+            colorMode: settings.colorMode,
+            headerBgColor: settings.headerBgColor,
+            headerFill: settings.headerFill || settings.headerBgColor,
+            headerTextColor: settings.headerTextColor,
+            sectionBgColor: settings.sectionBgColor,
+            sectionTextColor: settings.sectionTextColor,
+            cellBgColor: settings.cellBgColor,
+            cellFill: settings.cellFill || settings.cellBgColor,
+            textColor: settings.textColor,
+            borderColor: settings.borderColor,
+            gridColor: settings.gridColor || settings.borderColor,
+            gridOn: settings.gridOn,
+            gridEnabled: settings.gridEnabled,
+            gridThickness: settings.gridThickness,
+            gridOpacity: settings.gridOpacity,
+            fontFamily: settings.fontFamily,
+            dataFontSize: settings.dataFontSize,
+            fixedDataFontSize: settings.fixedDataFontSize,
+            fontSize: settings.fontSize,
+            bodyFontSize: settings.bodyFontSize,
+            headerFontSize: settings.headerFontSize,
+          });
+        }
         existing.brandingText = settings.brandingText;
         existing.brandingAlign = settings.brandingAlign;
+        existing.pageNumberPosition = settings.pageNumberPosition;
         existing.pageNumberAlign = settings.pageNumberAlign;
+        existing.pageNumberColor = settings.pageNumberColor;
         existing.customFooterText = settings.customFooterText;
         existing.customFooterAlign = settings.customFooterAlign;
         map[k] = JSON.stringify(existing);
@@ -1704,6 +1740,53 @@ export const browserMockApi = {
     showItemInFolder: async (p: string) => console.log('Mock Show In Folder:', p),
     openFileDialog: async () => 'mock-file.xlsx',
     showSaveDialog: async () => 'HENU_OS_Output.zip',
+    openExternal: async (url: string) => {
+      window.open(url, '_blank');
+      return true;
+    },
+    printPdf: async (options: any) => {
+      const isLandscape = options?.orientation === 'Landscape';
+      const iframe = document.createElement('iframe');
+      iframe.style.position = 'fixed';
+      iframe.style.top = '-9999px';
+      iframe.style.left = '-9999px';
+      iframe.style.width = '1px';
+      iframe.style.height = '1px';
+      iframe.style.border = 'none';
+      document.body.appendChild(iframe);
+
+      const fileUrl = options?.pdfUrl || '';
+      const html = `<!DOCTYPE html><html><head><style>
+        @page { size: ${isLandscape ? '14in 8.5in landscape' : '8.5in 14in portrait'}; margin: 0; }
+        html, body { margin: 0; padding: 0; width: 100%; height: 100%; }
+        embed { width: 100%; height: 100%; }
+      </style></head><body>
+        <embed src="${fileUrl}" type="application/pdf" width="100%" height="100%" />
+      </body></html>`;
+
+      const blob = new Blob([html], { type: 'text/html' });
+      const blobUrl = URL.createObjectURL(blob);
+      iframe.src = blobUrl;
+      setTimeout(() => {
+        try {
+          iframe.contentWindow?.print();
+        } catch (e) {
+          window.print();
+        }
+        setTimeout(() => {
+          document.body.removeChild(iframe);
+          URL.revokeObjectURL(blobUrl);
+        }, 3000);
+      }, 500);
+      return { success: true };
+    },
+  },
+  print: {
+    printPdf: async (options: any) => {
+      const isLandscape = options?.orientation === 'Landscape';
+      window.print();
+      return { success: true };
+    },
   },
 
   henuAi: (() => {
@@ -2529,6 +2612,7 @@ CRITICAL: If a field is blank or missing, set its value to null. Never invent or
       ],
       exportSocietySummary: async () => 'HENU OS SUMMARY EXPORT',
       openFolder: async () => ({ success: true }),
+      toggleSocietyLock: async (_socId: string, _pass: string, _locked: boolean) => ({ success: true }),
     };
   })(),
   security: (() => {

@@ -61,6 +61,18 @@ interface Window {
       showItemInFolder(p: string): Promise<void>;
       openFileDialog(options: any): Promise<string | null>;
       showSaveDialog(options: any): Promise<string | null>;
+      printPdf(options: {
+        pdfPath?: string;
+        pdfUrl?: string;
+        pdfBase64?: string;
+        orientation?: 'Portrait' | 'Landscape';
+        pageSize?: 'Legal' | 'Foolscap' | string;
+        paperSize?: 'LEGAL' | 'FOOLSCAP' | string;
+        silent?: boolean;
+      }): Promise<{ success: boolean; error?: string }>;
+    };
+    print?: {
+      printPdf(options: any): Promise<{ success: boolean; error?: string }>;
     };
   };
 }

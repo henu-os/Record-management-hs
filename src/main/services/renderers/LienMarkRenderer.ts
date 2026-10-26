@@ -13,7 +13,7 @@ export class LienMarkRenderer {
   static async render(
     records: { serial: string; record: BankLineMarkRecord | null }[],
     society: SocietyMaster | null,
-    options?: { orientationOverride?: 'Portrait' | 'Landscape'; settings?: FormDesignSettings; renderMode?: 'Color' | 'BW'; gridOn?: boolean } | 'Portrait' | 'Landscape',
+    options?: { orientationOverride?: 'Portrait' | 'Landscape'; settings?: FormDesignSettings; renderMode?: 'Color' | 'BW'; gridOn?: boolean; paperSize?: 'LEGAL' | 'FOOLSCAP' | string } | 'Portrait' | 'Landscape',
     settingsParam?: FormDesignSettings
   ): Promise<Buffer> {
     const def = LienMarkDefinition;
@@ -21,11 +21,14 @@ export class LienMarkRenderer {
     const settings = typeof options === 'object' ? options?.settings : settingsParam;
     const renderMode = typeof options === 'object' ? options?.renderMode : undefined;
     const gridOn = typeof options === 'object' ? options?.gridOn : undefined;
+    const paperSize = typeof options === 'object' ? (options?.paperSize || (options?.settings as any)?.paperSize) : undefined;
+    const isFoolscap = String(paperSize || '').toUpperCase().includes('FOOLSCAP');
 
     const builder = await PdfDocumentBuilder.create({
       orientation: orientationOverride || def.orientation,
       title: def.title,
       society,
+      paperSize: isFoolscap ? 'FOOLSCAP' : 'LEGAL',
       settings,
       renderMode,
       gridOn,
@@ -110,37 +113,40 @@ export class LienMarkRenderer {
           bRemark = (rec as any)[`${p}Remark`] || '';
         }
 
+        const rowH = 22;
+        const addrH = 42;
+
         builder.drawNavySectionBar(section.title, 20);
 
         // Name of the Bank
-        builder.drawFormField('Name of the Bank', bName, colA, cw - colA, 22);
+        builder.drawFormField('Name of the Bank', bName, colA, cw - colA, rowH);
 
         // Bank Address (Auto-scaled inside cell)
-        builder.drawFormField('Bank Address', bAddr, colA, cw - colA, 42);
+        builder.drawFormField('Bank Address', bAddr, colA, cw - colA, addrH);
 
         // Loan Amount / Period of Loan
         builder.drawFormFieldPair(
           'Loan Amount', amt, colA, colB,
           'Period of Loan', period, colC, colD,
-          22
+          rowH
         );
 
         // Managing Committee Meeting Date / Resolution No
         builder.drawFormFieldPair(
           'Managing Committee Meeting Date', mcDate, colA, colB,
           'Resolution No.', resNo, colC, colD,
-          22
+          rowH
         );
 
         // Date of NOC given by Society / Date of Documents of Lien Cancellation
         builder.drawFormFieldPair(
           'Date of NOC given by Society', nocDate, colA, colB,
           'Date of Documents of Lien Cancellation', cancelDate, colC, colD,
-          22
+          rowH
         );
 
         // Loan Section Remarks
-        builder.drawFormField('Remarks', bRemark, colA, cw - colA, 22);
+        builder.drawFormField('Remarks', bRemark, colA, cw - colA, rowH);
       }
     }
 

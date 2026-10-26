@@ -4,7 +4,7 @@
 // NEVER uses HTML-to-PDF or background PDF template files.
 // ============================================================
 
-import { PDFDocument } from 'pdf-lib';
+import { PDFDocument, PDFName } from 'pdf-lib';
 import {
   FormId,
   MasterWorkbook,
@@ -40,6 +40,7 @@ export interface PdfGenerationOptions {
   workbook: MasterWorkbook;
   societyId?: string;
   orientationOverride?: 'Portrait' | 'Landscape';
+  paperSize?: 'LEGAL' | 'FOOLSCAP' | string;
   rowsPerPage?: number;
   renderMode?: 'Color' | 'BW';
   gridOn?: boolean;
@@ -178,10 +179,11 @@ export class PdfEngine {
     };
 
     const basePrefix = filePrefixMap[formId] || formId;
+    const paperSize = opts.paperSize || (settings as any)?.paperSize || 'LEGAL';
 
     switch (formId) {
       case 'FORM_I': {
-        const buffers = await FormIRenderer.render(items, workbook.societyMaster, { orientationOverride, settings, renderMode, gridOn });
+        const buffers = await FormIRenderer.render(items, workbook.societyMaster, { orientationOverride, settings, renderMode, gridOn, paperSize });
         let blankCounter = 1;
         const files = buffers.map((buf, idx) => {
           const item = items[idx];
@@ -209,6 +211,7 @@ export class PdfEngine {
           settings,
           renderMode,
           gridOn,
+          paperSize,
           templateId: opts.templateId,
           emptyRows: opts.emptyRows,
           dataFontSize: opts.dataFontSize,
@@ -225,6 +228,7 @@ export class PdfEngine {
           settings,
           renderMode,
           gridOn,
+          paperSize,
           templateId: opts.shareRegisterTemplateId,
           emptyRows: opts.emptyRows,
           dataFontSize: opts.dataFontSize,
@@ -241,6 +245,7 @@ export class PdfEngine {
           settings,
           renderMode,
           gridOn,
+          paperSize,
           templateId: opts.templateId,
           emptyRows: opts.emptyRows,
           dataFontSize: opts.dataFontSize,
@@ -257,6 +262,7 @@ export class PdfEngine {
           settings,
           renderMode,
           gridOn,
+          paperSize,
           templateId: opts.templateId,
           emptyRows: opts.emptyRows,
           dataFontSize: opts.dataFontSize,
@@ -268,7 +274,7 @@ export class PdfEngine {
       }
 
       case 'FORM_BANK': {
-        const buffer = await LienMarkRenderer.render(items, workbook.societyMaster, { orientationOverride, settings, renderMode, gridOn });
+        const buffer = await LienMarkRenderer.render(items, workbook.societyMaster, { orientationOverride, settings, renderMode, gridOn, paperSize });
         const rangeStr = pfx ? `${pfx}${sep}${fromSerial}-${toSerial}` : `${fromSerial}-${toSerial}`;
         const filename = `${basePrefix}_${rangeStr}.pdf`;
         return { files: [{ filename, buffer }], isSingleZip: true };
@@ -406,6 +412,15 @@ export class PdfEngine {
       const indices = srcDoc.getPageIndices();
       const pages = await mergedDoc.copyPages(srcDoc, indices);
       for (const p of pages) mergedDoc.addPage(p);
+    }
+    try {
+      const prefs = mergedDoc.context.obj({
+        PrintScaling: PDFName.of('None'),
+        PickTrayByPDFSize: true,
+      });
+      mergedDoc.catalog.set(PDFName.of('ViewerPreferences'), prefs);
+    } catch (e) {
+      console.warn('Failed to set ViewerPreferences on merged doc:', e);
     }
     const bytes = await mergedDoc.save();
     return typeof Buffer !== 'undefined' ? Buffer.from(bytes) : (bytes as any);

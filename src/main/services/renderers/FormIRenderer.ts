@@ -13,7 +13,7 @@ export class FormIRenderer {
   static async render(
     records: { serial: string; record: FormIRecord | null }[],
     society: SocietyMaster | null,
-    options?: { orientationOverride?: 'Portrait' | 'Landscape'; settings?: FormDesignSettings; renderMode?: 'Color' | 'BW'; gridOn?: boolean } | 'Portrait' | 'Landscape',
+    options?: { orientationOverride?: 'Portrait' | 'Landscape'; settings?: FormDesignSettings; renderMode?: 'Color' | 'BW'; gridOn?: boolean; paperSize?: 'LEGAL' | 'FOOLSCAP' | string } | 'Portrait' | 'Landscape',
     settingsParam?: FormDesignSettings
   ): Promise<Buffer[]> {
     const def = FormIDefinition;
@@ -21,6 +21,8 @@ export class FormIRenderer {
     const settings = typeof options === 'object' ? options?.settings : settingsParam;
     const renderMode = typeof options === 'object' ? options?.renderMode : undefined;
     const gridOn = typeof options === 'object' ? options?.gridOn : undefined;
+    const paperSize = typeof options === 'object' ? (options?.paperSize || (options?.settings as any)?.paperSize) : undefined;
+    const isFoolscap = String(paperSize || '').toUpperCase().includes('FOOLSCAP');
     const outputs: Buffer[] = [];
 
     for (const item of records) {
@@ -31,6 +33,7 @@ export class FormIRenderer {
         settings,
         renderMode,
         gridOn,
+        paperSize: isFoolscap ? 'FOOLSCAP' : 'LEGAL',
       });
 
       const rec = item.record;
@@ -56,52 +59,57 @@ export class FormIRenderer {
       const memberName = FormMappingService.formatAllMemberNames(rec);
       builder.drawFormField('4. Full Name', memberName, w1, cw - w1, 36);
 
-      // ── Row 3: Field 5 (Residential & Permanent Address 50/50 Split Stacked, 6-line space) ──
+      // ── Row 3: Field 5 & 6 (Residential & Permanent Address 50/50 Split Stacked, 6-line space) ──
+      const resAddress = FormMappingService.formatResidentialAddress(rec, society);
       const permAddress = FormMappingService.formatPermanentAddress(rec, society);
-      const resAddress = rec?.residentialAddress ? rec.residentialAddress.trim() : '';
 
       builder.drawStackedFields([
         { label: '5. Residential Address', value: resAddress, width: halfW },
-        { label: '5. Permanent Address', value: permAddress, width: cw - halfW },
+        { label: '6. Permanent Address', value: permAddress, width: cw - halfW },
       ], 16, 70);
 
-      // ── Row 4: Fields 6 & 7 (Occupation w1, halfW - w1 | Age w3, cw - halfW - w3) ──
+      // ── Row 4: Fields 7 & 8 (Occupation w1, halfW - w1 | Age w3, cw - halfW - w3) ──
+      const occVal = rec?.occupation !== undefined && rec?.occupation !== null ? String(rec.occupation).trim() : '';
+      const ageVal = rec?.age !== undefined && rec?.age !== null ? String(rec.age).trim() : '';
       builder.drawFormFieldPair(
-        '6. Occupation', rec?.occupation || '', w1, halfW - w1,
-        '7. Age on the date of admission', rec?.age || '', w3, cw - halfW - w3,
+        '7. Occupation', occVal, w1, halfW - w1,
+        '8. Age on the date of admission', ageVal, w3, cw - halfW - w3,
         24
       );
 
-      // ── Row 5: Field 8 (Full Name nominee - Expanded vertical height) ──
-      builder.drawFormField('8. Full Name nominee', rec?.nomineeName || '', w1, cw - w1, 36);
+      // ── Row 5: Field 9 (Full Name nominee - Expanded vertical height) ──
+      const nomineeVal = rec?.nomineeName || rec?.nominee1 || '';
+      builder.drawFormField('9. Full Name nominee', nomineeVal ? String(nomineeVal).trim() : '', w1, cw - w1, 36);
 
-      // ── Row 6: Field 9 (Address of nominee - Expanded vertical height for multi-line address) ──
-      builder.drawFormField('9. Address of nominee', rec?.nomineeAddress || '', w1, cw - w1, 48);
+      // ── Row 6: Field 9A (Address of nominee - Expanded vertical height for multi-line address) ──
+      const nomAddrVal = rec?.nomineeAddress !== undefined && rec?.nomineeAddress !== null ? String(rec.nomineeAddress).trim() : '';
+      builder.drawFormField('9A. Address of nominee', nomAddrVal, w1, cw - w1, 48);
 
       // ── Row 7: Fields 10 & 11 (Date of nomination | Date of cessation) ──
+      const nomDateVal = rec?.dateOfNomination !== undefined && rec?.dateOfNomination !== null ? String(rec.dateOfNomination).trim() : '';
+      const cessDateVal = rec?.dateOfCessation !== undefined && rec?.dateOfCessation !== null ? String(rec.dateOfCessation).trim() : '';
       builder.drawFormFieldPair(
-        '10. Date of nomination', rec?.dateOfNomination || '', w1, halfW - w1,
-        '11. Date of cessation of Membership', rec?.dateOfCessation || '', w3, cw - halfW - w3,
+        '10. Date of nomination', nomDateVal, w1, halfW - w1,
+        '11. Date of cessation of Membership', cessDateVal, w3, cw - halfW - w3,
         26
       );
 
       // ── Row 8: Field 12 (Reason for cessation - Left Label w1 | Right Value cw - w1) ──
-      builder.drawFormField('12. Reason for cessation', rec?.reasonForCessation || '', w1, cw - w1, 26);
+      const cessReasonVal = rec?.reasonForCessation !== undefined && rec?.reasonForCessation !== null ? String(rec.reasonForCessation).trim() : '';
+      builder.drawFormField('12. Reason for cessation', cessReasonVal, w1, cw - w1, 26);
 
       // ── Row 9: Field 13 (Remarks - Left Label w1 | Right Value cw - w1) ──
-      builder.drawFormField('13. Remarks', rec?.remarks || '', w1, cw - w1, 26);
-
-      // ── Row 10: Blank row under Remarks ──
-      builder.drawFormField('', '', 0, cw, 20);
+      const remarksVal = rec?.remarks !== undefined && rec?.remarks !== null ? String(rec.remarks).trim() : '';
+      builder.drawFormField('13. Remarks', remarksVal, w1, cw - w1, 26);
 
       // ── Shares Held Table ──
       builder.drawNavySectionBar('PARTICULARS OF SHARES HELD', 20);
 
       const shareGroups: HeaderGroupDef[] = [
-        { header: '', columns: [{ id: 'date',   header: 'Date',                 width: Math.floor(cw * 0.12),  align: 'center', fontSize: 7.5 }] },
-        { header: '', columns: [{ id: 'cbf',    header: 'Cash Book\nFolio',     width: Math.floor(cw * 0.08),  align: 'center', fontSize: 7.5 }] },
-        { header: '', columns: [{ id: 'app',    header: 'Application',          width: Math.floor(cw * 0.10),  align: 'center', fontSize: 7.5 }] },
-        { header: '', columns: [{ id: 'allot',  header: 'Allotment',            width: Math.floor(cw * 0.085), align: 'center', fontSize: 7.5 }] },
+        { header: '', columns: [{ id: 'date', header: 'Date', width: Math.floor(cw * 0.12), align: 'center', fontSize: 7.5 }] },
+        { header: '', columns: [{ id: 'cbf', header: 'Cash Book\nFolio', width: Math.floor(cw * 0.08), align: 'center', fontSize: 7.5 }] },
+        { header: '', columns: [{ id: 'app', header: 'Application', width: Math.floor(cw * 0.10), align: 'center', fontSize: 7.5 }] },
+        { header: '', columns: [{ id: 'allot', header: 'Allotment', width: Math.floor(cw * 0.085), align: 'center', fontSize: 7.5 }] },
         {
           header: 'Amount received on',
           columns: [
@@ -109,16 +117,16 @@ export class FormIRenderer {
             { id: 'call2', header: '2nd Call', width: Math.floor(cw * 0.075), align: 'center', fontSize: 7.0 },
           ],
         },
-        { header: '', columns: [{ id: 'total',  header: 'Total\nAmount\nReceived', width: Math.floor(cw * 0.095), align: 'center', fontSize: 7.5 }] },
-        { header: '', columns: [{ id: 'held',   header: 'No. of\nShare\nheld', width: Math.floor(cw * 0.08),  align: 'center', fontSize: 7.5 }] },
+        { header: '', columns: [{ id: 'total', header: 'Total\nAmount\nReceived', width: Math.floor(cw * 0.095), align: 'center', fontSize: 7.5 }] },
+        { header: '', columns: [{ id: 'held', header: 'No. of\nShare\nheld', width: Math.floor(cw * 0.08), align: 'center', fontSize: 7.5 }] },
         {
           header: 'No. of Share',
           columns: [
-            { id: 'from', header: 'From', width: Math.floor(cw * 0.07), align: 'center', fontSize: 7.0 },
-            { id: 'to',   header: 'To',   width: Math.floor(cw * 0.07), align: 'center', fontSize: 7.0 },
+            { id: 'from', header: 'From', width: Math.floor(cw * 0.088), align: 'center', fontSize: 7.0 },
+            { id: 'to', header: 'To', width: Math.floor(cw * 0.088), align: 'center', fontSize: 7.0 },
           ],
         },
-        { header: '', columns: [{ id: 'cert',   header: 'Serial No.\nof Share\nCertificate', width: 0, align: 'center', fontSize: 7.5 }] },
+        { header: '', columns: [{ id: 'cert', header: 'Serial No.\nof Share\nCertificate', width: 0, align: 'center', fontSize: 7.5 }] },
       ];
 
       // Flat column list for data rows
@@ -191,47 +199,51 @@ export class FormIRenderer {
         const hasData = entry && Object.values(entry).some(v => v && String(v).trim() !== '');
 
         if (hasData) {
+          const fs = builder.dataFontSize || 8.5;
           const shareDataCells: CellDef[] = [
-            { text: entry.date || '', width: shareFlatCols[0].width, align: 'center', fontSize: 8 },
-            { text: entry.cashBookFolio || '', width: shareFlatCols[1].width, align: 'center', fontSize: 8 },
-            { text: entry.application || '', width: shareFlatCols[2].width, align: 'center', fontSize: 8 },
-            { text: entry.allotment || '', width: shareFlatCols[3].width, align: 'center', fontSize: 8 },
-            { text: entry.call1st || '', width: shareFlatCols[4].width, align: 'center', fontSize: 8 },
-            { text: entry.call2nd || '', width: shareFlatCols[5].width, align: 'center', fontSize: 8 },
-            { text: entry.totalAmountReceived || '', width: shareFlatCols[6].width, align: 'center', fontSize: 8 },
-            { text: entry.noOfShares || '', width: shareFlatCols[7].width, align: 'center', fontSize: 8 },
-            { text: entry.sharesFrom || '', width: shareFlatCols[8].width, align: 'center', fontSize: 8 },
-            { text: entry.sharesTo || '', width: shareFlatCols[9].width, align: 'center', fontSize: 8 },
-            { text: entry.shareCertificateNo || '', width: shareFlatCols[10].width, align: 'center', fontSize: 8 },
+            { text: entry.date || '', width: shareFlatCols[0].width, align: 'center', fontSize: fs },
+            { text: entry.cashBookFolio || '', width: shareFlatCols[1].width, align: 'center', fontSize: fs },
+            { text: entry.application || '', width: shareFlatCols[2].width, align: 'center', fontSize: fs },
+            { text: entry.allotment || '', width: shareFlatCols[3].width, align: 'center', fontSize: fs },
+            { text: entry.call1st || '', width: shareFlatCols[4].width, align: 'center', fontSize: fs },
+            { text: entry.call2nd || '', width: shareFlatCols[5].width, align: 'center', fontSize: fs },
+            { text: entry.totalAmountReceived || '', width: shareFlatCols[6].width, align: 'center', fontSize: fs },
+            { text: entry.noOfShares || '', width: shareFlatCols[7].width, align: 'center', fontSize: fs },
+            { text: entry.sharesFrom || '', width: shareFlatCols[8].width, align: 'center', fontSize: fs },
+            { text: entry.sharesTo || '', width: shareFlatCols[9].width, align: 'center', fontSize: fs },
+            { text: entry.shareCertificateNo || '', width: shareFlatCols[10].width, align: 'center', fontSize: fs },
           ];
-          builder.drawTableRow(shareDataCells, 26, 8);
+          const shareRowH = isFoolscap ? 26.4 : 30;
+          builder.drawTableRow(shareDataCells, shareRowH, fs);
         } else {
+          const shareRowH = isFoolscap ? 26.4 : 30;
           const emptyRow = shareFlatCols.map(c => ({ text: '', width: c.width, align: 'center' as const }));
-          builder.drawTableRow(emptyRow, 26, 8);
+          builder.drawTableRow(emptyRow, shareRowH, builder.dataFontSize || 8.5);
         }
       }
 
       // ── Shares Transferred Table ──
       builder.drawNavySectionBar('PARTICULARS OF SHARES TRANSFERRED OR SURRENDERED', 20);
 
+      const pColW = Math.max(24, Math.floor(cw * 0.045));
       const transGroups: HeaderGroupDef[] = [
-        { header: '', columns: [{ id: 'date',     header: 'Date',                 width: Math.floor(cw * 0.12), align: 'center', fontSize: 7.5 }] },
-        { header: '', columns: [{ id: 'cbf',      header: 'Cash Book\nFolio',     width: Math.floor(cw * 0.085), align: 'center', fontSize: 7.5 }] },
-        { header: '', columns: [{ id: 'date2',    header: 'Date',                 width: Math.floor(cw * 0.085), align: 'center', fontSize: 7.5 }] },
-        { header: '', columns: [{ id: 'certNo',   header: 'No./ Serial No.\nof Share Certificate', width: Math.floor(cw * 0.14), align: 'center', fontSize: 7 }] },
-        { header: '', columns: [{ id: 'transNo',  header: 'No. of shares\ntransferred / refunded', width: Math.floor(cw * 0.14), align: 'center', fontSize: 7 }] },
+        { header: '', columns: [{ id: 'date', header: 'Date', width: Math.floor(cw * 0.12), align: 'center', fontSize: 7.5 }] },
+        { header: '', columns: [{ id: 'cbf', header: 'Cash Book\nFolio', width: Math.floor(cw * 0.085), align: 'center', fontSize: 7.5 }] },
+        { header: '', columns: [{ id: 'date2', header: 'Date', width: Math.floor(cw * 0.085), align: 'center', fontSize: 7.5 }] },
+        { header: '', columns: [{ id: 'certNo', header: 'No./ Serial No.\nof Share Certificate', width: Math.floor(cw * 0.13), align: 'center', fontSize: 7 }] },
+        { header: '', columns: [{ id: 'transNo', header: 'No. of shares\ntransferred / refunded', width: Math.floor(cw * 0.13), align: 'center', fontSize: 7 }] },
         {
           header: 'BALANCES',
           columns: [
-            { id: 'balNo',   header: 'No. of shares\nheld', width: Math.floor(cw * 0.12), align: 'center', fontSize: 7 },
-            { id: 'balCert', header: 'Serial No. of\nshare cert.', width: Math.floor(cw * 0.14), align: 'center', fontSize: 7 },
+            { id: 'balNo', header: 'No. of shares\nheld', width: Math.floor(cw * 0.11), align: 'center', fontSize: 7 },
+            { id: 'balCert', header: 'Serial No. of\nshare cert.', width: Math.floor(cw * 0.13), align: 'center', fontSize: 7 },
           ],
         },
         {
           header: 'Amount',
           columns: [
-            { id: 'amtRs', header: 'Rs', width: Math.floor(cw * 0.09), align: 'center', fontSize: 7.5 },
-            { id: 'amtP',  header: 'P',  width: 0, align: 'center', fontSize: 7.5 },
+            { id: 'amtRs', header: 'Rs', width: 0, align: 'center', fontSize: 7.5 },
+            { id: 'amtP', header: 'P', width: pColW, align: 'center', fontSize: 7.5 },
           ],
         },
       ];
@@ -240,9 +252,10 @@ export class FormIRenderer {
       for (const g of transGroups) {
         for (const c of g.columns) transFlatCols.push(c);
       }
-      const usedTransW = transFlatCols.slice(0, -1).reduce((s, c) => s + c.width, 0);
-      transFlatCols[transFlatCols.length - 1].width = cw - usedTransW;
-      transGroups[transGroups.length - 1].columns[1].width = cw - usedTransW;
+      const amtRsCol = transFlatCols.find(c => c.id === 'amtRs')!;
+      const otherColsW = transFlatCols.filter(c => c.id !== 'amtRs').reduce((s, c) => s + c.width, 0);
+      amtRsCol.width = cw - otherColsW;
+      transGroups[transGroups.length - 1].columns[0].width = amtRsCol.width;
 
       builder.drawTwoTierHeader(transGroups, 36);
 
@@ -275,33 +288,69 @@ export class FormIRenderer {
         const hasData = entry && Object.values(entry).some(v => v && String(v).trim() !== '');
 
         if (hasData) {
+          const fs = builder.dataFontSize || 8.5;
           const transDataCells: CellDef[] = [
-            { text: entry.date || '', width: transFlatCols[0].width, align: 'center', fontSize: 8 },
-            { text: entry.cashBookFolio || '', width: transFlatCols[1].width, align: 'center', fontSize: 8 },
-            { text: entry.transferDate || '', width: transFlatCols[2].width, align: 'center', fontSize: 8 },
-            { text: entry.shareCertificateNo || '', width: transFlatCols[3].width, align: 'center', fontSize: 8 },
-            { text: entry.noOfSharesTransferred || '', width: transFlatCols[4].width, align: 'center', fontSize: 8 },
-            { text: entry.balanceNoOfShares || '', width: transFlatCols[5].width, align: 'center', fontSize: 8 },
-            { text: entry.balanceSerialNoCertificate || '', width: transFlatCols[6].width, align: 'center', fontSize: 8 },
-            { text: entry.amountRs || '', width: transFlatCols[7].width, align: 'center', fontSize: 8 },
-            { text: entry.amountP || '', width: transFlatCols[8].width, align: 'center', fontSize: 8 },
+            { text: entry.date || '', width: transFlatCols[0].width, align: 'center', fontSize: fs },
+            { text: entry.cashBookFolio || '', width: transFlatCols[1].width, align: 'center', fontSize: fs },
+            { text: entry.transferDate || '', width: transFlatCols[2].width, align: 'center', fontSize: fs },
+            { text: entry.shareCertificateNo || '', width: transFlatCols[3].width, align: 'center', fontSize: fs },
+            { text: entry.noOfSharesTransferred || '', width: transFlatCols[4].width, align: 'center', fontSize: fs },
+            { text: entry.balanceNoOfShares || '', width: transFlatCols[5].width, align: 'center', fontSize: fs },
+            { text: entry.balanceSerialNoCertificate || '', width: transFlatCols[6].width, align: 'center', fontSize: fs },
+            { text: entry.amountRs || '', width: transFlatCols[7].width, align: 'center', fontSize: fs },
+            { text: entry.amountP || '', width: transFlatCols[8].width, align: 'center', fontSize: fs },
           ];
-          builder.drawTableRow(transDataCells, 26, 8);
+          const transRowH = isFoolscap ? 26.4 : 30;
+          builder.drawTableRow(transDataCells, transRowH, fs);
         } else {
+          const transRowH = isFoolscap ? 26.4 : 30;
           const emptyRow = transFlatCols.map(c => ({ text: '', width: c.width, align: 'center' as const }));
-          builder.drawTableRow(emptyRow, 26, 8);
+          builder.drawTableRow(emptyRow, transRowH, builder.dataFontSize || 8.5);
         }
       }
 
-      // Special Note
-      builder.currentY -= 8;
-      builder.currentPage.drawText('Special Note :-', {
-        x: builder.marginLeft + 4,
-        y: builder.currentY - 10,
+      // ── Special Notes Box (Exact 2.00 CM on Legal and Foolscap, Directly Above Footer Margin) ──
+      const specialNoteBottomY = builder.marginBottom + 4;
+      const maxAvailableNoteH = Math.max(38, builder.currentY - specialNoteBottomY - 4);
+      const specialNoteH = Math.min(56.7, maxAvailableNoteH);
+      const specialNoteTopY = specialNoteBottomY + specialNoteH;
+
+      // Draw Special Notes Box rectangle
+      builder.currentPage.drawRectangle({
+        x: builder.marginLeft,
+        y: specialNoteBottomY,
+        width: cw,
+        height: specialNoteH,
+        color: builder.cellBg,
+        borderColor: builder.borderColor,
+        borderWidth: 0.5,
+      });
+
+      // Header label inside Special Notes box
+      builder.currentPage.drawText('Special Notes.', {
+        x: builder.marginLeft + 6,
+        y: specialNoteTopY - 14,
         size: 8.5,
         font: builder.boldFont,
         color: builder.headerText,
       });
+
+      // Draw any custom special note or remarks inside the box
+      const specialNoteContent = (rec as any)?.specialNotes || '';
+      if (specialNoteContent && specialNoteContent.trim()) {
+        const noteLines = builder.wrapText(specialNoteContent.trim(), cw - 90, 8);
+        noteLines.slice(0, 3).forEach((line, idx) => {
+          builder.currentPage.drawText(line, {
+            x: builder.marginLeft + 80,
+            y: specialNoteTopY - 14 - idx * 11,
+            size: 8,
+            font: builder.font,
+            color: builder.bodyTextColor,
+          });
+        });
+      }
+
+      builder.currentY = specialNoteBottomY;
 
       outputs.push(await builder.buildBuffer());
     }

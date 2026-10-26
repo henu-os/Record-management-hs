@@ -131,7 +131,13 @@ export class FormMappingService {
    * CRITICAL: Society address is ONLY appended if validly present in Sheet 1 Society Master.
    * If blank or not available, it MUST remain blank.
    */
-  static buildPermanentAddressLines(
+  /**
+   * Helper method to build lines for 5. Residential Address:
+   * Flat and Wing number plus member residential address / society address lines.
+   * Line 1 = {Member Flat/Wing}, {Residential Address or Society Line 1}
+   * Line 2..6 = {Society Lines 2..6}
+   */
+  static buildResidentialAddressLines(
     rec: NormalizedMemberRecord | null | undefined,
     society: SocietyMaster | null | undefined
   ): string[] {
@@ -163,23 +169,38 @@ export class FormMappingService {
     // Sanitize society address lines: clean out placeholder field labels and blank cells
     sLines = sLines.map(l => (FormMappingService.isInvalidValue(l) ? '' : l.trim()));
 
-    // Determine member's local permanent address components (e.g. flatNo, wingNo, or raw permanentAddress)
+    // Determine member's local flat / wing components
     let memberPart = '';
     if (rec) {
-      if (rec.permanentAddress && !FormMappingService.isInvalidValue(rec.permanentAddress)) {
-        memberPart = rec.permanentAddress.trim();
-      } else {
-        const flat = rec.flatNo && !FormMappingService.isInvalidValue(rec.flatNo) ? String(rec.flatNo).trim() : '';
-        const wing = rec.wingNo && !FormMappingService.isInvalidValue(rec.wingNo) ? String(rec.wingNo).trim() : '';
-        const parts = [flat, wing].filter(Boolean);
-        memberPart = parts.join(', ');
+      const flat = rec.flatNo && !FormMappingService.isInvalidValue(rec.flatNo) ? String(rec.flatNo).trim() : '';
+      const rawWing = rec.wingNo || (rec as any).wing;
+      const wing = rawWing && !FormMappingService.isInvalidValue(rawWing) ? String(rawWing).trim() : '';
+      const flatWingParts = [flat, wing].filter(Boolean);
+      const flatWingStr = flatWingParts.length === 2 && !flat.includes('/') && !wing.includes('/')
+        ? `${flat}/${wing}`
+        : flatWingParts.join(', ');
+
+      const rawRes = rec.residentialAddress && !FormMappingService.isInvalidValue(rec.residentialAddress)
+        ? String(rec.residentialAddress).trim()
+        : '';
+
+      if (rawRes && flatWingStr) {
+        if (rawRes.toLowerCase().includes(flat.toLowerCase())) {
+          memberPart = rawRes;
+        } else {
+          memberPart = `${flatWingStr}, ${rawRes}`;
+        }
+      } else if (flatWingStr) {
+        memberPart = flatWingStr;
+      } else if (rawRes) {
+        memberPart = rawRes;
       }
     }
 
     const sLine1 = (sLines[0] || '').trim();
     let line1 = '';
     if (memberPart && sLine1) {
-      line1 = `${memberPart}, ${sLine1}`;
+      line1 = memberPart.toLowerCase().includes(sLine1.toLowerCase()) ? memberPart : `${memberPart}, ${sLine1}`;
     } else if (memberPart) {
       line1 = memberPart;
     } else {
@@ -199,16 +220,42 @@ export class FormMappingService {
   }
 
   /**
-   * Formats Permanent Address as a clean multi-line string with non-empty lines joined by newline.
-   * If all lines are empty or invalid, returns empty string "".
+   * Formats Residential Address as a clean multi-line string.
    */
-  static formatPermanentAddress(
+  static formatResidentialAddress(
     rec: NormalizedMemberRecord | null | undefined,
     society: SocietyMaster | null | undefined
   ): string {
-    const lines = FormMappingService.buildPermanentAddressLines(rec, society);
+    const lines = FormMappingService.buildResidentialAddressLines(rec, society);
     const nonBlank = lines.filter(l => l.trim() !== '' && !FormMappingService.isInvalidValue(l));
     return nonBlank.length > 0 ? nonBlank.join('\n') : '';
+  }
+
+  /**
+   * Legacy permanent address line builder preserved for backwards-compatibility.
+   */
+  static buildPermanentAddressLines(
+    rec: NormalizedMemberRecord | null | undefined,
+    society: SocietyMaster | null | undefined
+  ): string[] {
+    if (rec?.permanentAddress && !FormMappingService.isInvalidValue(rec.permanentAddress)) {
+      return String(rec.permanentAddress).split(/[\r\n]+/).map(s => s.trim()).filter(Boolean);
+    }
+    return [];
+  }
+
+  /**
+   * Formats Permanent Address: returns member's native permanent address.
+   * Flat and Wing numbers are excluded from Permanent Address and moved to Residential Address.
+   */
+  static formatPermanentAddress(
+    rec: NormalizedMemberRecord | null | undefined,
+    _society?: SocietyMaster | null | undefined
+  ): string {
+    if (!rec?.permanentAddress || FormMappingService.isInvalidValue(rec.permanentAddress)) {
+      return '';
+    }
+    return String(rec.permanentAddress).trim();
   }
 
   /**

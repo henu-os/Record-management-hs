@@ -26,6 +26,12 @@ import {
   Trash2,
   Shield,
   Lock,
+  Unlock,
+  LayoutGrid,
+  List,
+  Table,
+  Rows,
+  Square,
   KeyRound,
   Loader2,
   HelpCircle,
@@ -99,6 +105,38 @@ export default function HenuMasterPage({
   const [templateLoading, setTemplateLoading] = useState<boolean>(false);
   const [reuseNotice, setReuseNotice] = useState<string | null>(null);
 
+  // View Mode: list, detail, tile, content, large, grid, small_icon, icon
+  type SocietyViewMode = 'grid' | 'list' | 'detail' | 'tile' | 'content' | 'large' | 'small_icon' | 'icon';
+  const [viewMode, setViewMode] = useState<SocietyViewMode>('list');
+
+  // Lock / Unlock Society Modal State
+  const [lockModalTarget, setLockModalTarget] = useState<SocietySummary | null>(null);
+  const [lockPasswordInput, setLockPasswordInput] = useState<string>('');
+  const [lockPasswordError, setLockPasswordError] = useState<string | null>(null);
+  const [lockLoading, setLockLoading] = useState<boolean>(false);
+
+  const handleToggleLockSubmit = async () => {
+    if (!lockModalTarget || !api?.henuMaster?.toggleSocietyLock) return;
+    const isCurrentlyLocked = Boolean(lockModalTarget.isLocked);
+    const newLocked = !isCurrentlyLocked;
+    setLockLoading(true);
+    setLockPasswordError(null);
+    try {
+      const res = await api.henuMaster.toggleSocietyLock(lockModalTarget.id, lockPasswordInput, newLocked);
+      if (res.success) {
+        setLockModalTarget(null);
+        setLockPasswordInput('');
+        await loadData();
+      } else {
+        setLockPasswordError(res.error || 'Incorrect master password. Access denied.');
+      }
+    } catch (err: any) {
+      setLockPasswordError(err.message || 'Failed to update society lock status.');
+    } finally {
+      setLockLoading(false);
+    }
+  };
+
   const loadData = useCallback(async () => {
     if (!api?.henuMaster) return;
     setLoading(true);
@@ -144,8 +182,15 @@ export default function HenuMasterPage({
     }
   };
 
-  // Load detailed overview when selected
+  // Load detailed overview when selected (blocked if locked)
   const handleOpenOverview = async (societyId: string) => {
+    const soc = societies.find(s => s.id === societyId);
+    if (soc?.isLocked) {
+      setLockModalTarget(soc);
+      setLockPasswordInput('');
+      setLockPasswordError('Society is locked. Enter Master Password to unlock first.');
+      return;
+    }
     if (!api?.henuMaster) return;
     setSelectedSocId(societyId);
     setOverviewLoading(true);
@@ -160,6 +205,12 @@ export default function HenuMasterPage({
   };
 
   const handleSwitchSociety = async (soc: SocietySummary) => {
+    if (soc.isLocked) {
+      setLockModalTarget(soc);
+      setLockPasswordInput('');
+      setLockPasswordError('This society is locked. Unlock with Master Password first.');
+      return;
+    }
     if (!api?.society) return;
     try {
       if (api.society.select) {
@@ -173,17 +224,31 @@ export default function HenuMasterPage({
       if (selectedSocId === soc.id) {
         await handleOpenOverview(soc.id);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to switch society:', err);
+      alert(err.message || 'Failed to switch society.');
     }
   };
 
   const handleOpenSocietyDashboard = async (soc: SocietySummary) => {
+    if (soc.isLocked) {
+      setLockModalTarget(soc);
+      setLockPasswordInput('');
+      setLockPasswordError('This society is locked. Unlock with Master Password first.');
+      return;
+    }
     await handleSwitchSociety(soc);
     onNavigate('dashboard');
   };
 
   const handleOpenRegisterModule = async (reg: SocietyRegisterCount, socId: string) => {
+    const soc = societies.find(s => s.id === socId);
+    if (soc?.isLocked) {
+      setLockModalTarget(soc);
+      setLockPasswordInput('');
+      setLockPasswordError('Society is locked. Unlock it first to access registers.');
+      return;
+    }
     // 1. Switch context to the target society
     if (api?.society) {
       if (api.society.select) await api.society.select(socId);
@@ -196,7 +261,13 @@ export default function HenuMasterPage({
     }
   };
 
-  const handleOpenFolder = async (folderPath?: string) => {
+  const handleOpenFolder = async (folderPath?: string, soc?: SocietySummary) => {
+    if (soc?.isLocked) {
+      setLockModalTarget(soc);
+      setLockPasswordInput('');
+      setLockPasswordError('Society is locked. Unlock it first to open folder.');
+      return;
+    }
     if (!folderPath || !api?.henuMaster?.openFolder) return;
     try {
       await api.henuMaster.openFolder(folderPath);
@@ -206,6 +277,12 @@ export default function HenuMasterPage({
   };
 
   const handleArchiveToggle = async (soc: SocietySummary) => {
+    if (soc.isLocked) {
+      setLockModalTarget(soc);
+      setLockPasswordInput('');
+      setLockPasswordError('Society is locked. Unlock with Master Password first.');
+      return;
+    }
     if (!api?.henuMaster) return;
     try {
       if (soc.status === 'ARCHIVED') {
@@ -224,6 +301,12 @@ export default function HenuMasterPage({
   };
 
   const handleOpenEdit = (soc: SocietySummary) => {
+    if (soc.isLocked) {
+      setLockModalTarget(soc);
+      setLockPasswordInput('');
+      setLockPasswordError('Society is locked. Unlock with Master Password first.');
+      return;
+    }
     setEditingSociety(soc);
     setEditForm({
       societyName: soc.societyName || '',
@@ -375,6 +458,217 @@ export default function HenuMasterPage({
     }
   };
 
+  const renderSocietyActionButtons = (soc: SocietySummary, compact = false) => {
+    const isSelected = soc.isActive;
+    const isLocked = Boolean(soc.isLocked);
+    return (
+      <div className="flex items-center gap-4 flex-wrap">
+        {/* Open Society */}
+        <button
+          className={`btn ${isLocked ? 'btn-secondary' : 'btn-primary'} btn-sm flex items-center gap-4`}
+          onClick={() => {
+            if (isLocked) {
+              setLockModalTarget(soc);
+              setLockPasswordInput('');
+              setLockPasswordError('Society is locked. Enter Master Password to unlock first.');
+              return;
+            }
+            handleOpenSocietyDashboard(soc);
+          }}
+          style={{
+            fontSize: 11,
+            padding: compact ? '4px 8px' : '5px 10px',
+            opacity: isLocked ? 0.65 : 1,
+            color: isLocked ? '#f87171' : undefined,
+          }}
+          title={isLocked ? 'Society is locked. Unlock first to open.' : 'Switch active context and open record dashboard'}
+        >
+          {isLocked ? <Lock size={12} /> : <ExternalLink size={12} />}
+          {!compact && (isLocked ? 'Locked' : 'Open')}
+        </button>
+
+        {/* Switch Context */}
+        {!isSelected && (
+          <button
+            className="btn btn-secondary btn-sm flex items-center gap-4"
+            onClick={() => {
+              if (isLocked) {
+                setLockModalTarget(soc);
+                setLockPasswordInput('');
+                setLockPasswordError('Society is locked. Enter Master Password to unlock first.');
+                return;
+              }
+              setConfirmSwitch(soc);
+            }}
+            disabled={isLocked}
+            style={{
+              fontSize: 11,
+              padding: compact ? '4px 8px' : '5px 10px',
+              opacity: isLocked ? 0.35 : 1,
+              cursor: isLocked ? 'not-allowed' : 'pointer',
+            }}
+            title={isLocked ? 'Society is locked. Unlock first to switch context.' : 'Switch active society context'}
+          >
+            <ArrowRightLeft size={12} />
+            {!compact && 'Switch'}
+          </button>
+        )}
+
+        {/* View Complete Overview */}
+        <button
+          className="btn btn-secondary btn-sm flex items-center gap-4"
+          onClick={() => {
+            if (isLocked) {
+              setLockModalTarget(soc);
+              setLockPasswordInput('');
+              setLockPasswordError('Society is locked. Enter Master Password to unlock first.');
+              return;
+            }
+            handleOpenOverview(soc.id);
+          }}
+          disabled={isLocked}
+          style={{
+            fontSize: 11,
+            padding: compact ? '4px 8px' : '5px 10px',
+            opacity: isLocked ? 0.35 : 1,
+            cursor: isLocked ? 'not-allowed' : 'pointer',
+          }}
+          title={isLocked ? 'Society is locked. Unlock first to view overview.' : 'View complete society breakdown and statutory registers'}
+        >
+          <Info size={12} />
+          {!compact && 'Overview'}
+        </button>
+
+        {/* Lock / Unlock Toggle */}
+        <button
+          className="btn btn-secondary btn-sm flex items-center gap-4"
+          onClick={() => {
+            setLockModalTarget(soc);
+            setLockPasswordInput('');
+            setLockPasswordError(null);
+          }}
+          style={{
+            fontSize: 11,
+            padding: compact ? '4px 8px' : '5px 10px',
+            color: isLocked ? '#10b981' : '#f59e0b',
+            borderColor: isLocked ? 'rgba(16, 185, 129, 0.5)' : 'rgba(245, 158, 11, 0.4)',
+            background: isLocked ? 'rgba(16, 185, 129, 0.12)' : undefined,
+            fontWeight: isLocked ? 700 : 500,
+          }}
+          title={isLocked ? 'Unlock Society (Enter Master Password)' : 'Lock Society (Enter Master Password)'}
+        >
+          {isLocked ? <Unlock size={12} /> : <Lock size={12} />}
+          {!compact && (isLocked ? 'Unlock' : 'Lock')}
+        </button>
+
+        {/* Archive / Restore Action (Archive section directly in action section) */}
+        <button
+          className="btn btn-secondary btn-sm flex items-center gap-4"
+          onClick={() => {
+            if (isLocked) {
+              setLockModalTarget(soc);
+              setLockPasswordInput('');
+              setLockPasswordError('Society is locked. Unlock first to archive or restore.');
+              return;
+            }
+            setConfirmArchive(soc);
+          }}
+          disabled={isLocked}
+          style={{
+            fontSize: 11,
+            padding: compact ? '4px 8px' : '5px 10px',
+            color: isLocked ? '#94a3b8' : soc.status === 'ARCHIVED' ? '#10b981' : '#eab308',
+            borderColor: isLocked ? undefined : soc.status === 'ARCHIVED' ? 'rgba(16, 185, 129, 0.4)' : 'rgba(234, 179, 8, 0.4)',
+            opacity: isLocked ? 0.35 : 1,
+            cursor: isLocked ? 'not-allowed' : 'pointer',
+          }}
+          title={
+            isLocked
+              ? 'Society is locked. Unlock first to modify archive status.'
+              : soc.status === 'ARCHIVED'
+              ? 'Restore this archived society'
+              : 'Archive this society'
+          }
+        >
+          {soc.status === 'ARCHIVED' ? <RotateCcw size={12} /> : <Archive size={12} />}
+          {!compact && (soc.status === 'ARCHIVED' ? 'Restore' : 'Archive')}
+        </button>
+
+        {/* Edit Metadata */}
+        <button
+          className="btn btn-secondary btn-sm"
+          onClick={() => {
+            if (isLocked) {
+              setLockModalTarget(soc);
+              setLockPasswordInput('');
+              setLockPasswordError('Society is locked. Unlock first to modify metadata.');
+              return;
+            }
+            handleOpenEdit(soc);
+          }}
+          disabled={isLocked}
+          style={{
+            padding: '5px 8px',
+            opacity: isLocked ? 0.35 : 1,
+            cursor: isLocked ? 'not-allowed' : 'pointer',
+          }}
+          title={isLocked ? 'Society is locked. Unlock first to modify metadata.' : 'Edit society identity metadata'}
+        >
+          <Edit3 size={12} />
+        </button>
+
+        {/* Open Physical Folder */}
+        <button
+          className="btn btn-secondary btn-sm"
+          onClick={() => {
+            if (isLocked) {
+              setLockModalTarget(soc);
+              setLockPasswordInput('');
+              setLockPasswordError('Society is locked. Unlock first to access files.');
+              return;
+            }
+            handleOpenFolder(soc.folderPath, soc);
+          }}
+          disabled={isLocked}
+          style={{
+            padding: '5px 8px',
+            opacity: isLocked ? 0.35 : 1,
+            cursor: isLocked ? 'not-allowed' : 'pointer',
+          }}
+          title={isLocked ? 'Society is locked. Unlock first to open folder.' : 'Open society physical folder in Windows Explorer'}
+        >
+          <FolderOpen size={12} />
+        </button>
+
+        {/* Delete Society */}
+        <button
+          className="btn btn-secondary btn-sm"
+          onClick={() => {
+            if (isLocked) {
+              setLockModalTarget(soc);
+              setLockPasswordInput('');
+              setLockPasswordError('Society is locked. Unlock first to delete.');
+              return;
+            }
+            setDeleteTarget(soc);
+            setDeleteInput('');
+            setDeleteError(null);
+          }}
+          disabled={isLocked}
+          style={{
+            padding: '5px 8px',
+            color: isLocked ? '#94a3b8' : '#ef4444',
+            opacity: isLocked ? 0.35 : 1,
+            cursor: isLocked ? 'not-allowed' : 'pointer',
+          }}
+          title={isLocked ? 'Society is locked. Unlock first to delete.' : 'Permanently delete society and files'}
+        >
+          <Trash2 size={12} />
+        </button>
+      </div>
+    );
+  };
+
   return (
     <div className="page-container" style={{ padding: '24px 32px', width: '100%', boxSizing: 'border-box' }}>
       {/* ── Top Header ── */}
@@ -514,25 +808,26 @@ export default function HenuMasterPage({
         </div>
       )}
 
-      {/* ── KPI Stat Cards ── */}
+      {/* ── KPI Stat Cards (All 6 in ONE LINE) ── */}
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-          gap: 14,
+          gridTemplateColumns: 'repeat(6, minmax(0, 1fr))',
+          gap: 10,
           marginBottom: 20,
+          width: '100%',
         }}
       >
         {/* Total Societies */}
-        <div className="card" style={{ padding: 14 }}>
-          <div className="flex items-center justify-between" style={{ marginBottom: 6 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)' }}>TOTAL SOCIETIES</span>
-            <Building2 size={15} className="text-accent" />
+        <div className="card" style={{ padding: '10px 12px' }}>
+          <div className="flex items-center justify-between" style={{ marginBottom: 4 }}>
+            <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>TOTAL SOCIETIES</span>
+            <Building2 size={13} className="text-accent" />
           </div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-primary)' }}>
+          <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-primary)' }}>
             {stats?.totalSocieties ?? 0}
           </div>
-          <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>
+          <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             <span style={{ color: '#10b981', fontWeight: 600 }}>{stats?.activeSocieties ?? 0} Active</span>
             {' · '}
             <span style={{ color: '#64748b' }}>{stats?.archivedSocieties ?? 0} Archived</span>
@@ -540,76 +835,76 @@ export default function HenuMasterPage({
         </div>
 
         {/* Managed Documents */}
-        <div className="card" style={{ padding: 14 }}>
-          <div className="flex items-center justify-between" style={{ marginBottom: 6 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)' }}>DOCUMENTS</span>
-            <FileText size={15} className="text-accent" />
+        <div className="card" style={{ padding: '10px 12px' }}>
+          <div className="flex items-center justify-between" style={{ marginBottom: 4 }}>
+            <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>DOCUMENTS</span>
+            <FileText size={13} className="text-accent" />
           </div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-primary)' }}>
+          <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-primary)' }}>
             {stats?.totalDocuments ?? 0}
           </div>
-          <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>
-            Across {stats?.totalRegisters ?? 0} Statutory Registers
+          <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {stats?.totalRegisters ?? 0} Statutory Registers
           </div>
         </div>
 
         {/* Imports & Exports */}
-        <div className="card" style={{ padding: 14 }}>
-          <div className="flex items-center justify-between" style={{ marginBottom: 6 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)' }}>IMPORTS & EXPORTS</span>
-            <ExternalLink size={15} className="text-accent" />
+        <div className="card" style={{ padding: '10px 12px' }}>
+          <div className="flex items-center justify-between" style={{ marginBottom: 4 }}>
+            <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>IMPORTS & EXPORTS</span>
+            <ExternalLink size={13} className="text-accent" />
           </div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-primary)' }}>
+          <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-primary)' }}>
             {(stats?.totalImports ?? 0) + (stats?.totalExports ?? 0)}
           </div>
-          <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>
-            <span style={{ color: '#38bdf8', fontWeight: 600 }}>{stats?.totalImports ?? 0} Imports</span>
+          <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <span style={{ color: '#38bdf8', fontWeight: 600 }}>{stats?.totalImports ?? 0} In</span>
             {' · '}
-            <span style={{ color: '#818cf8', fontWeight: 600 }}>{stats?.totalExports ?? 0} Exports</span>
+            <span style={{ color: '#818cf8', fontWeight: 600 }}>{stats?.totalExports ?? 0} Out</span>
           </div>
         </div>
 
         {/* Society Completion Status */}
-        <div className="card" style={{ padding: 14 }}>
-          <div className="flex items-center justify-between" style={{ marginBottom: 6 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)' }}>COMPLETION STATUS</span>
-            <ShieldCheck size={15} color="#10b981" />
+        <div className="card" style={{ padding: '10px 12px' }}>
+          <div className="flex items-center justify-between" style={{ marginBottom: 4 }}>
+            <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>COMPLETION STATUS</span>
+            <ShieldCheck size={13} color="#10b981" />
           </div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: '#10b981' }}>
-            {stats?.completedSocieties ?? 0} <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)' }}>Done</span>
+          <div style={{ fontSize: 18, fontWeight: 800, color: '#10b981' }}>
+            {stats?.completedSocieties ?? 0} <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)' }}>Done</span>
           </div>
-          <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>
-            <span style={{ color: '#f59e0b', fontWeight: 600 }}>{stats?.inProgressSocieties ?? 0} In Progress</span>
+          <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <span style={{ color: '#f59e0b', fontWeight: 600 }}>{stats?.inProgressSocieties ?? 0} Prog</span>
             {' · '}
-            <span style={{ color: '#94a3b8' }}>{stats?.notStartedSocieties ?? 0} Not Started</span>
+            <span style={{ color: '#94a3b8' }}>{stats?.notStartedSocieties ?? 0} New</span>
           </div>
         </div>
 
         {/* Storage Capacity */}
-        <div className="card" style={{ padding: 14 }}>
-          <div className="flex items-center justify-between" style={{ marginBottom: 6 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)' }}>STORAGE USED</span>
-            <HardDrive size={15} className="text-accent" />
+        <div className="card" style={{ padding: '10px 12px' }}>
+          <div className="flex items-center justify-between" style={{ marginBottom: 4 }}>
+            <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>STORAGE USED</span>
+            <HardDrive size={13} className="text-accent" />
           </div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-primary)' }}>
+          <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-primary)' }}>
             {stats?.storageUsedFormatted ?? '0 B'}
           </div>
-          <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>
-            {stats?.storageAvailableFormatted} Free Space
+          <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {stats?.storageAvailableFormatted} Free
           </div>
         </div>
 
         {/* System & Society Health */}
-        <div className="card" style={{ padding: 14 }}>
-          <div className="flex items-center justify-between" style={{ marginBottom: 6 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)' }}>INTEGRITY</span>
-            <ShieldCheck size={15} color={stats?.systemHealthStatus === 'HEALTHY' ? '#10b981' : '#f59e0b'} />
+        <div className="card" style={{ padding: '10px 12px' }}>
+          <div className="flex items-center justify-between" style={{ marginBottom: 4 }}>
+            <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>INTEGRITY</span>
+            <ShieldCheck size={13} color={stats?.systemHealthStatus === 'HEALTHY' ? '#10b981' : '#f59e0b'} />
           </div>
-          <div style={{ fontSize: 18, fontWeight: 800, color: stats?.systemHealthStatus === 'HEALTHY' ? '#10b981' : '#f59e0b', marginTop: 2 }}>
+          <div style={{ fontSize: 16, fontWeight: 800, color: stats?.systemHealthStatus === 'HEALTHY' ? '#10b981' : '#f59e0b', marginTop: 1 }}>
             {stats?.systemHealthStatus === 'HEALTHY' ? '✓ HEALTHY' : '⚠ WARNINGS'}
           </div>
-          <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 6 }}>
-            {stats?.healthySocietiesCount} Intact · {stats?.warningSocietiesCount} Attention
+          <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {stats?.healthySocietiesCount} OK · {stats?.warningSocietiesCount} Warn
           </div>
         </div>
       </div>
@@ -632,10 +927,10 @@ export default function HenuMasterPage({
         </button>
       </div>
 
-      {/* ── Societies Tab: Search, Filters & Cards View ── */}
+      {/* ── Societies Tab: Search, Filters, View Modes & Directory ── */}
       {activeMasterTab === 'SOCIETIES' && (
         <>
-          {/* ── Search & Filter Controls ── */}
+          {/* ── Search, Filter & View Controls ── */}
           <div
             className="card"
             style={{
@@ -649,7 +944,7 @@ export default function HenuMasterPage({
             }}
           >
             {/* Search Box */}
-            <div style={{ position: 'relative', flex: 1, minWidth: 260 }}>
+            <div style={{ position: 'relative', flex: 1, minWidth: 240 }}>
               <Search
                 size={14}
                 style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', opacity: 0.5 }}
@@ -677,266 +972,817 @@ export default function HenuMasterPage({
                 </button>
               ))}
             </div>
+
+            {/* View Mode Switcher */}
+            <div
+              className="flex items-center gap-6"
+              style={{
+                background: 'var(--surface-2, #1e293b)',
+                padding: '4px 10px',
+                borderRadius: 6,
+                border: '1px solid var(--border)',
+              }}
+            >
+              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)' }}>View:</span>
+              <select
+                className="input-control"
+                value={viewMode}
+                onChange={e => setViewMode(e.target.value as SocietyViewMode)}
+                style={{
+                  fontSize: 12,
+                  padding: '3px 8px',
+                  height: 28,
+                  border: 'none',
+                  background: 'transparent',
+                  fontWeight: 600,
+                  color: 'var(--text-primary)',
+                  cursor: 'pointer',
+                }}
+              >
+                <option value="grid">Grid</option>
+                <option value="list">List</option>
+                <option value="detail">Detail</option>
+                <option value="tile">Tile</option>
+                <option value="content">Content</option>
+                <option value="large">Large</option>
+                <option value="small_icon">Small Icon</option>
+                <option value="icon">Icon</option>
+              </select>
+            </div>
           </div>
 
-          {/* ── Societies Grid / Cards View ── */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: 16 }}>
-            {societies.map(soc => {
-              const isSelected = soc.isActive;
-              return (
-                <div
-                  key={soc.id}
-                  className="card"
-                  style={{
-                    padding: 18,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'space-between',
-                    border: isSelected ? '2px solid var(--accent, #7c3aed)' : '1px solid var(--border)',
-                    background: isSelected ? 'rgba(124, 58, 237, 0.03)' : 'var(--bg-card)',
-                    boxShadow: isSelected ? '0 4px 20px rgba(124, 58, 237, 0.15)' : 'none',
-                    position: 'relative',
-                  }}
-                >
-                  {/* Header Badges */}
-                  <div>
-                    <div className="flex items-center justify-between gap-8" style={{ marginBottom: 10 }}>
-                      <div className="flex items-center gap-6">
-                        {isSelected && (
+          {/* ── 1. GRID VIEW (Classic Cards) ── */}
+          {viewMode === 'grid' && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: 16 }}>
+              {societies.map(soc => {
+                const isSelected = soc.isActive;
+                const isLocked = Boolean(soc.isLocked);
+                return (
+                  <div
+                    key={soc.id}
+                    className="card"
+                    style={{
+                      padding: 18,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      border: isSelected ? '2px solid var(--accent, #7c3aed)' : isLocked ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid var(--border)',
+                      background: isSelected ? 'rgba(124, 58, 237, 0.03)' : isLocked ? 'rgba(239, 68, 68, 0.02)' : 'var(--bg-card)',
+                      boxShadow: isSelected ? '0 4px 20px rgba(124, 58, 237, 0.15)' : 'none',
+                      position: 'relative',
+                    }}
+                  >
+                    <div>
+                      {/* Header Badges */}
+                      <div className="flex items-center justify-between gap-6" style={{ marginBottom: 10, flexWrap: 'wrap' }}>
+                        <div className="flex items-center gap-6 flex-wrap">
+                          {isSelected && (
+                            <span
+                              style={{
+                                fontSize: 10,
+                                fontWeight: 800,
+                                textTransform: 'uppercase',
+                                background: '#7c3aed',
+                                color: '#ffffff',
+                                padding: '2px 8px',
+                                borderRadius: 4,
+                                letterSpacing: '0.5px',
+                              }}
+                            >
+                              ACTIVE CONTEXT
+                            </span>
+                          )}
                           <span
                             style={{
                               fontSize: 10,
-                              fontWeight: 800,
+                              fontWeight: 700,
                               textTransform: 'uppercase',
-                              background: '#7c3aed',
-                              color: '#ffffff',
+                              background: soc.status === 'ARCHIVED' ? '#334155' : '#064e3b',
+                              color: soc.status === 'ARCHIVED' ? '#94a3b8' : '#6ee7b7',
                               padding: '2px 8px',
                               borderRadius: 4,
-                              letterSpacing: '0.5px',
                             }}
                           >
-                            ACTIVE CONTEXT
+                            {soc.status}
                           </span>
-                        )}
-                        <span
-                          style={{
-                            fontSize: 10,
-                            fontWeight: 700,
-                            textTransform: 'uppercase',
-                            background: soc.status === 'ARCHIVED' ? '#334155' : '#064e3b',
-                            color: soc.status === 'ARCHIVED' ? '#94a3b8' : '#6ee7b7',
-                            padding: '2px 8px',
-                            borderRadius: 4,
-                          }}
-                        >
-                          {soc.status}
+
+                          <span
+                            style={{
+                              fontSize: 10,
+                              fontWeight: 700,
+                              textTransform: 'uppercase',
+                              background:
+                                soc.completionStatus === 'COMPLETED'
+                                  ? 'rgba(16, 185, 129, 0.15)'
+                                  : soc.completionStatus === 'IN_PROGRESS'
+                                  ? 'rgba(245, 158, 11, 0.15)'
+                                  : 'rgba(100, 116, 139, 0.15)',
+                              color:
+                                soc.completionStatus === 'COMPLETED'
+                                  ? '#10b981'
+                                  : soc.completionStatus === 'IN_PROGRESS'
+                                  ? '#f59e0b'
+                                  : '#94a3b8',
+                              border: `1px solid ${
+                                soc.completionStatus === 'COMPLETED'
+                                  ? 'rgba(16, 185, 129, 0.3)'
+                                  : soc.completionStatus === 'IN_PROGRESS'
+                                  ? 'rgba(245, 158, 11, 0.3)'
+                                  : 'rgba(100, 116, 139, 0.3)'
+                              }`,
+                              padding: '2px 8px',
+                              borderRadius: 4,
+                            }}
+                          >
+                            {soc.completionStatus === 'COMPLETED'
+                              ? 'COMPLETED'
+                              : soc.completionStatus === 'IN_PROGRESS'
+                              ? 'IN PROGRESS'
+                              : 'NOT STARTED'}
+                          </span>
+
+                          {isLocked && (
+                            <span
+                              style={{
+                                fontSize: 10,
+                                fontWeight: 800,
+                                textTransform: 'uppercase',
+                                background: 'rgba(239, 68, 68, 0.15)',
+                                color: '#f87171',
+                                border: '1px solid rgba(239, 68, 68, 0.4)',
+                                padding: '2px 8px',
+                                borderRadius: 4,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 3,
+                              }}
+                            >
+                              <Lock size={10} /> LOCKED
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-4">
+                          {soc.healthStatus === 'HEALTHY' ? (
+                            <span style={{ fontSize: 11, color: '#10b981', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                              <CheckCircle2 size={13} /> Intact
+                            </span>
+                          ) : (
+                            <span style={{ fontSize: 11, color: '#f59e0b', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                              <AlertTriangle size={13} /> Attention
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Society Title */}
+                      <h3
+                        style={{
+                          fontSize: 16,
+                          fontWeight: 700,
+                          margin: '0 0 4px 0',
+                          color: 'var(--text-primary)',
+                          lineHeight: 1.3,
+                        }}
+                      >
+                        {soc.societyName}
+                      </h3>
+                      <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 8 }}>
+                        Reg: <span className="fw-600 text-primary">{soc.registrationNo || 'N/A'}</span>
+                        {soc.city && ` · ${soc.city}, ${soc.state}`}
+                      </div>
+
+                      {/* Metadata Row */}
+                      <div
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(4, 1fr)',
+                          gap: 6,
+                          background: 'var(--surface-2, #1e293b)',
+                          padding: '8px 10px',
+                          borderRadius: 6,
+                          marginBottom: 8,
+                          fontSize: 11,
+                          textAlign: 'center',
+                        }}
+                      >
+                        <div>
+                          <div style={{ color: 'var(--text-secondary)', fontSize: 10 }}>Docs</div>
+                          <strong style={{ color: 'var(--text-primary)', fontSize: 13 }}>{soc.documentCount}</strong>
+                        </div>
+                        <div>
+                          <div style={{ color: 'var(--text-secondary)', fontSize: 10 }}>Imports</div>
+                          <strong style={{ color: '#38bdf8', fontSize: 13 }}>{soc.importCount || 0}</strong>
+                        </div>
+                        <div>
+                          <div style={{ color: 'var(--text-secondary)', fontSize: 10 }}>Exports</div>
+                          <strong style={{ color: '#818cf8', fontSize: 13 }}>{soc.exportCount || 0}</strong>
+                        </div>
+                        <div>
+                          <div style={{ color: 'var(--text-secondary)', fontSize: 10 }}>Storage</div>
+                          <strong style={{ color: 'var(--text-primary)', fontSize: 11 }}>{soc.storageSizeFormatted}</strong>
+                        </div>
+                      </div>
+
+                      {/* Last Activity */}
+                      <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <span style={{ color: 'var(--text-secondary)' }}>Last Activity:</span>
+                        <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                          {soc.lastActivityTitle || 'Society Created'}
                         </span>
-
-                        {/* Completion Status Badge */}
-                        <span
-                          style={{
-                            fontSize: 10,
-                            fontWeight: 700,
-                            textTransform: 'uppercase',
-                            background:
-                              soc.completionStatus === 'COMPLETED'
-                                ? 'rgba(16, 185, 129, 0.15)'
-                                : soc.completionStatus === 'IN_PROGRESS'
-                                ? 'rgba(245, 158, 11, 0.15)'
-                                : 'rgba(100, 116, 139, 0.15)',
-                            color:
-                              soc.completionStatus === 'COMPLETED'
-                                ? '#10b981'
-                                : soc.completionStatus === 'IN_PROGRESS'
-                                ? '#f59e0b'
-                                : '#94a3b8',
-                            border: `1px solid ${
-                              soc.completionStatus === 'COMPLETED'
-                                ? 'rgba(16, 185, 129, 0.3)'
-                                : soc.completionStatus === 'IN_PROGRESS'
-                                ? 'rgba(245, 158, 11, 0.3)'
-                                : 'rgba(100, 116, 139, 0.3)'
-                            }`,
-                            padding: '2px 8px',
-                            borderRadius: 4,
-                          }}
-                        >
-                          {soc.completionStatus === 'COMPLETED'
-                            ? 'COMPLETED'
-                            : soc.completionStatus === 'IN_PROGRESS'
-                            ? 'IN PROGRESS'
-                            : 'NOT STARTED'}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-4">
-                        {soc.healthStatus === 'HEALTHY' ? (
-                          <span style={{ fontSize: 11, color: '#10b981', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <CheckCircle2 size={13} /> Intact
-                          </span>
-                        ) : (
-                          <span style={{ fontSize: 11, color: '#f59e0b', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <AlertTriangle size={13} /> Attention
-                          </span>
-                        )}
                       </div>
                     </div>
 
-                    {/* Society Title */}
-                    <h3
-                      style={{
-                        fontSize: 16,
-                        fontWeight: 700,
-                        margin: '0 0 4px 0',
-                        color: 'var(--text-primary)',
-                        lineHeight: 1.3,
-                      }}
-                    >
-                      {soc.societyName}
-                    </h3>
-                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 8 }}>
-                      Reg: <span className="fw-600 text-primary">{soc.registrationNo || 'N/A'}</span>
-                      {soc.city && ` · ${soc.city}, ${soc.state}`}
-                    </div>
-
-                    {/* Metadata Row */}
-                    <div
-                      style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(4, 1fr)',
-                        gap: 6,
-                        background: 'var(--surface-2, #1e293b)',
-                        padding: '8px 10px',
-                        borderRadius: 6,
-                        marginBottom: 8,
-                        fontSize: 11,
-                        textAlign: 'center',
-                      }}
-                    >
-                      <div>
-                        <div style={{ color: 'var(--text-secondary)', fontSize: 10 }}>Docs</div>
-                        <strong style={{ color: 'var(--text-primary)', fontSize: 13 }}>{soc.documentCount}</strong>
-                      </div>
-                      <div>
-                        <div style={{ color: 'var(--text-secondary)', fontSize: 10 }}>Imports</div>
-                        <strong style={{ color: '#38bdf8', fontSize: 13 }}>{soc.importCount || 0}</strong>
-                      </div>
-                      <div>
-                        <div style={{ color: 'var(--text-secondary)', fontSize: 10 }}>Exports</div>
-                        <strong style={{ color: '#818cf8', fontSize: 13 }}>{soc.exportCount || 0}</strong>
-                      </div>
-                      <div>
-                        <div style={{ color: 'var(--text-secondary)', fontSize: 10 }}>Storage</div>
-                        <strong style={{ color: 'var(--text-primary)', fontSize: 11 }}>{soc.storageSizeFormatted}</strong>
-                      </div>
-                    </div>
-
-                    {/* Last Activity */}
-                    <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <span style={{ color: 'var(--text-secondary)' }}>Last Activity:</span>
-                      <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
-                        {soc.lastActivityTitle || 'Society Created'}
-                      </span>
+                    {/* Action Buttons */}
+                    <div className="flex items-center justify-between gap-8 pt-10" style={{ borderTop: '1px solid var(--border)' }}>
+                      {renderSocietyActionButtons(soc, false)}
                     </div>
                   </div>
+                );
+              })}
+            </div>
+          )}
 
-                  {/* Action Buttons */}
-                  <div className="flex items-center justify-between gap-8 pt-10" style={{ borderTop: '1px solid var(--border)' }}>
-                    <div className="flex items-center gap-6">
-                      {/* Open Society */}
-                      <button
-                        className="btn btn-primary btn-sm flex items-center gap-4"
-                        onClick={() => handleOpenSocietyDashboard(soc)}
-                        style={{ fontSize: 11, padding: '5px 10px' }}
-                        title="Switch active context and open record dashboard"
+          {/* ── 2. LIST VIEW (Single-Line Compact Rows) ── */}
+          {viewMode === 'list' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {societies.map(soc => {
+                const isSelected = soc.isActive;
+                const isLocked = Boolean(soc.isLocked);
+                return (
+                  <div
+                    key={soc.id}
+                    className="card"
+                    style={{
+                      padding: '10px 16px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 16,
+                      border: isSelected ? '2px solid var(--accent, #7c3aed)' : isLocked ? '1px solid rgba(239,68,68,0.3)' : '1px solid var(--border)',
+                      background: isSelected ? 'rgba(124, 58, 237, 0.03)' : 'var(--bg-card)',
+                    }}
+                  >
+                    {/* Left: Identity */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 260, flex: 1 }}>
+                      <div
+                        style={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: 6,
+                          background: isSelected ? '#7c3aed' : 'var(--surface-2, #1e293b)',
+                          color: isSelected ? '#ffffff' : 'var(--text-secondary)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                        }}
                       >
-                        <ExternalLink size={12} />
-                        Open
-                      </button>
+                        <Building2 size={16} />
+                      </div>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)' }}>{soc.societyName}</span>
+                          {isSelected && (
+                            <span style={{ fontSize: 9, fontWeight: 800, background: '#7c3aed', color: '#fff', padding: '1px 6px', borderRadius: 3 }}>
+                              ACTIVE
+                            </span>
+                          )}
+                          {isLocked && (
+                            <span style={{ fontSize: 9, fontWeight: 800, background: 'rgba(239,68,68,0.15)', color: '#f87171', border: '1px solid rgba(239,68,68,0.4)', padding: '1px 6px', borderRadius: 3, display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+                              <Lock size={9} /> LOCKED
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                          Reg: {soc.registrationNo || 'N/A'} {soc.city ? `· ${soc.city}, ${soc.state}` : ''}
+                        </div>
+                      </div>
+                    </div>
 
-                      {/* Switch Context */}
-                      {!isSelected && (
-                        <button
-                          className="btn btn-secondary btn-sm flex items-center gap-4"
-                          onClick={() => setConfirmSwitch(soc)}
-                          style={{ fontSize: 11, padding: '5px 10px' }}
-                          title="Switch active society context"
-                        >
-                          <ArrowRightLeft size={12} />
-                          Switch
-                        </button>
+                    {/* Middle: Stats & Status */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                      <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                        Docs: <strong style={{ color: 'var(--text-primary)' }}>{soc.documentCount}</strong>
+                      </span>
+                      <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                        In: <strong style={{ color: '#38bdf8' }}>{soc.importCount || 0}</strong> / Out: <strong style={{ color: '#818cf8' }}>{soc.exportCount || 0}</strong>
+                      </span>
+                      <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                        Storage: <strong style={{ color: 'var(--text-primary)' }}>{soc.storageSizeFormatted}</strong>
+                      </span>
+                      <span
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 700,
+                          padding: '2px 8px',
+                          borderRadius: 4,
+                          background: soc.status === 'ARCHIVED' ? '#334155' : '#064e3b',
+                          color: soc.status === 'ARCHIVED' ? '#94a3b8' : '#6ee7b7',
+                        }}
+                      >
+                        {soc.status}
+                      </span>
+                      {soc.healthStatus === 'HEALTHY' ? (
+                        <CheckCircle2 size={14} color="#10b981" title="Healthy" />
+                      ) : (
+                        <AlertTriangle size={14} color="#f59e0b" title="Attention" />
                       )}
                     </div>
 
-                    <div className="flex items-center gap-6">
-                      {/* View Complete Overview */}
-                      <button
-                        className="btn btn-secondary btn-sm flex items-center gap-4"
-                        onClick={() => handleOpenOverview(soc.id)}
-                        style={{ fontSize: 11, padding: '5px 10px' }}
-                        title="View complete society breakdown and statutory registers"
-                      >
-                        <Info size={12} />
-                        Overview
-                      </button>
+                    {/* Right: Actions */}
+                    <div>{renderSocietyActionButtons(soc, true)}</div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
-                      {/* Edit Metadata */}
-                      <button
-                        className="btn btn-secondary btn-sm"
-                        onClick={() => handleOpenEdit(soc)}
-                        style={{ padding: '5px 8px' }}
-                        title="Edit society identity metadata"
-                      >
-                        <Edit3 size={12} />
-                      </button>
-
-                      {/* Open Physical Folder */}
-                      <button
-                        className="btn btn-secondary btn-sm"
-                        onClick={() => handleOpenFolder(soc.folderPath)}
-                        style={{ padding: '5px 8px' }}
-                        title="Open society physical folder in Windows Explorer"
-                      >
-                        <FolderOpen size={12} />
-                      </button>
-
-                      {/* Delete Society */}
-                      <button
-                        className="btn btn-secondary btn-sm"
-                        onClick={() => {
-                          setDeleteTarget(soc);
-                          setDeleteInput('');
-                          setDeleteError(null);
+          {/* ── 3. DETAIL VIEW (Tabular Data Table) ── */}
+          {viewMode === 'detail' && (
+            <div className="card" style={{ padding: 0, overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 12 }}>
+                <thead>
+                  <tr style={{ background: 'var(--surface-2, #1e293b)', borderBottom: '1px solid var(--border)' }}>
+                    <th style={{ padding: '10px 14px', fontWeight: 700, color: 'var(--text-secondary)' }}>Society Name & Reg</th>
+                    <th style={{ padding: '10px 14px', fontWeight: 700, color: 'var(--text-secondary)' }}>Location</th>
+                    <th style={{ padding: '10px 14px', fontWeight: 700, color: 'var(--text-secondary)' }}>Status</th>
+                    <th style={{ padding: '10px 14px', fontWeight: 700, color: 'var(--text-secondary)' }}>Completion</th>
+                    <th style={{ padding: '10px 14px', fontWeight: 700, color: 'var(--text-secondary)' }}>Integrity</th>
+                    <th style={{ padding: '10px 14px', fontWeight: 700, color: 'var(--text-secondary)' }}>Docs</th>
+                    <th style={{ padding: '10px 14px', fontWeight: 700, color: 'var(--text-secondary)' }}>Imp / Exp</th>
+                    <th style={{ padding: '10px 14px', fontWeight: 700, color: 'var(--text-secondary)' }}>Storage</th>
+                    <th style={{ padding: '10px 14px', fontWeight: 700, color: 'var(--text-secondary)' }}>Lock</th>
+                    <th style={{ padding: '10px 14px', fontWeight: 700, color: 'var(--text-secondary)', textAlign: 'right' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {societies.map(soc => {
+                    const isSelected = soc.isActive;
+                    const isLocked = Boolean(soc.isLocked);
+                    return (
+                      <tr
+                        key={soc.id}
+                        style={{
+                          borderBottom: '1px solid var(--border)',
+                          background: isSelected ? 'rgba(124, 58, 237, 0.05)' : 'transparent',
                         }}
-                        style={{ padding: '5px 8px', color: '#ef4444' }}
-                        title="Permanently delete society and files"
                       >
-                        <Trash2 size={12} />
+                        <td style={{ padding: '10px 14px' }}>
+                          <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{soc.societyName}</div>
+                          <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Reg: {soc.registrationNo || 'N/A'}</div>
+                        </td>
+                        <td style={{ padding: '10px 14px', color: 'var(--text-secondary)' }}>
+                          {soc.city ? `${soc.city}, ${soc.state}` : '—'}
+                        </td>
+                        <td style={{ padding: '10px 14px' }}>
+                          <span
+                            style={{
+                              fontSize: 10,
+                              fontWeight: 700,
+                              padding: '2px 8px',
+                              borderRadius: 4,
+                              background: soc.status === 'ARCHIVED' ? '#334155' : '#064e3b',
+                              color: soc.status === 'ARCHIVED' ? '#94a3b8' : '#6ee7b7',
+                            }}
+                          >
+                            {soc.status}
+                          </span>
+                        </td>
+                        <td style={{ padding: '10px 14px' }}>
+                          <span
+                            style={{
+                              fontSize: 10,
+                              fontWeight: 700,
+                              color: soc.completionStatus === 'COMPLETED' ? '#10b981' : soc.completionStatus === 'IN_PROGRESS' ? '#f59e0b' : '#94a3b8',
+                            }}
+                          >
+                            {soc.completionStatus === 'COMPLETED' ? 'Completed' : soc.completionStatus === 'IN_PROGRESS' ? 'In Progress' : 'Not Started'}
+                          </span>
+                        </td>
+                        <td style={{ padding: '10px 14px' }}>
+                          {soc.healthStatus === 'HEALTHY' ? (
+                            <span style={{ color: '#10b981', display: 'flex', alignItems: 'center', gap: 4, fontSize: 11 }}>
+                              <CheckCircle2 size={12} /> Intact
+                            </span>
+                          ) : (
+                            <span style={{ color: '#f59e0b', display: 'flex', alignItems: 'center', gap: 4, fontSize: 11 }}>
+                              <AlertTriangle size={12} /> Attention
+                            </span>
+                          )}
+                        </td>
+                        <td style={{ padding: '10px 14px', fontWeight: 600 }}>{soc.documentCount}</td>
+                        <td style={{ padding: '10px 14px', fontSize: 11 }}>
+                          <span style={{ color: '#38bdf8' }}>{soc.importCount || 0}</span> / <span style={{ color: '#818cf8' }}>{soc.exportCount || 0}</span>
+                        </td>
+                        <td style={{ padding: '10px 14px', fontSize: 11 }}>{soc.storageSizeFormatted}</td>
+                        <td style={{ padding: '10px 14px' }}>
+                          {isLocked ? (
+                            <span style={{ color: '#f87171', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10 }}>
+                              <Lock size={11} /> Locked
+                            </span>
+                          ) : (
+                            <span style={{ color: '#64748b', fontSize: 10 }}>Unlocked</span>
+                          )}
+                        </td>
+                        <td style={{ padding: '10px 14px', textAlign: 'right' }}>
+                          {renderSocietyActionButtons(soc, true)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* ── 4. TILE VIEW (Compact Horizontal Tiles) ── */}
+          {viewMode === 'tile' && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
+              {societies.map(soc => {
+                const isSelected = soc.isActive;
+                const isLocked = Boolean(soc.isLocked);
+                return (
+                  <div
+                    key={soc.id}
+                    className="card"
+                    style={{
+                      padding: 12,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      border: isSelected ? '2px solid var(--accent, #7c3aed)' : isLocked ? '1px solid rgba(239,68,68,0.3)' : '1px solid var(--border)',
+                      background: isSelected ? 'rgba(124, 58, 237, 0.03)' : 'var(--bg-card)',
+                    }}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between" style={{ marginBottom: 6 }}>
+                        <div className="flex items-center gap-6">
+                          <Building2 size={16} className="text-accent" />
+                          <strong style={{ fontSize: 13, color: 'var(--text-primary)' }}>{soc.societyName}</strong>
+                        </div>
+                        {isLocked && <Lock size={12} color="#f87171" title="Locked" />}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 8 }}>
+                        Reg: {soc.registrationNo || 'N/A'} {soc.city ? `· ${soc.city}` : ''}
+                      </div>
+                      <div className="flex items-center justify-between" style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 8 }}>
+                        <span>Docs: <strong>{soc.documentCount}</strong></span>
+                        <span>Storage: <strong>{soc.storageSizeFormatted}</strong></span>
+                      </div>
+                    </div>
+                    <div style={{ borderTop: '1px solid var(--border)', paddingTop: 8 }}>
+                      {renderSocietyActionButtons(soc, true)}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* ── 5. CONTENT VIEW (Deep Identity & Register Breakdown) ── */}
+          {viewMode === 'content' && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(480px, 1fr))', gap: 16 }}>
+              {societies.map(soc => {
+                const isSelected = soc.isActive;
+                const isLocked = Boolean(soc.isLocked);
+                return (
+                  <div
+                    key={soc.id}
+                    className="card"
+                    style={{
+                      padding: 20,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      border: isSelected ? '2px solid var(--accent, #7c3aed)' : isLocked ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid var(--border)',
+                      background: isSelected ? 'rgba(124, 58, 237, 0.03)' : 'var(--bg-card)',
+                    }}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between" style={{ marginBottom: 12 }}>
+                        <div>
+                          <div className="flex items-center gap-8">
+                            <h3 style={{ fontSize: 17, fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>{soc.societyName}</h3>
+                            {isLocked && (
+                              <span style={{ fontSize: 10, fontWeight: 800, background: 'rgba(239,68,68,0.15)', color: '#f87171', border: '1px solid rgba(239,68,68,0.4)', padding: '2px 8px', borderRadius: 4, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                                <Lock size={10} /> LOCKED
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
+                            Registration No: <strong style={{ color: 'var(--text-primary)' }}>{soc.registrationNo || 'N/A'}</strong>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-6">
+                          <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 4, background: soc.status === 'ARCHIVED' ? '#334155' : '#064e3b', color: soc.status === 'ARCHIVED' ? '#94a3b8' : '#6ee7b7' }}>
+                            {soc.status}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Content Details Block */}
+                      <div style={{ background: 'var(--surface-2, #1e293b)', padding: '12px 14px', borderRadius: 6, marginBottom: 12, fontSize: 12 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+                          <div><span style={{ color: 'var(--text-secondary)' }}>City:</span> <strong>{soc.city || 'N/A'}</strong></div>
+                          <div><span style={{ color: 'var(--text-secondary)' }}>State:</span> <strong>{soc.state || 'N/A'}</strong></div>
+                          <div><span style={{ color: 'var(--text-secondary)' }}>Pin:</span> <strong>{soc.pincode || 'N/A'}</strong></div>
+                          <div><span style={{ color: 'var(--text-secondary)' }}>Est. Year:</span> <strong>{soc.yearEstablished || 'N/A'}</strong></div>
+                        </div>
+                        <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 8, display: 'flex', justifyContent: 'space-between' }}>
+                          <span>Total Managed Documents: <strong>{soc.documentCount}</strong></span>
+                          <span>Storage: <strong>{soc.storageSizeFormatted}</strong></span>
+                        </div>
+                      </div>
+
+                      <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 12 }}>
+                        Last Activity: <strong style={{ color: 'var(--text-primary)' }}>{soc.lastActivityTitle || 'Society Created'}</strong>
+                      </div>
+                    </div>
+
+                    <div style={{ borderTop: '1px solid var(--border)', paddingTop: 12 }}>
+                      {renderSocietyActionButtons(soc, false)}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* ── 6. LARGE VIEW (Expanded Cards) ── */}
+          {viewMode === 'large' && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(460px, 1fr))', gap: 20 }}>
+              {societies.map(soc => {
+                const isSelected = soc.isActive;
+                const isLocked = Boolean(soc.isLocked);
+                return (
+                  <div
+                    key={soc.id}
+                    className="card"
+                    style={{
+                      padding: 22,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      border: isSelected ? '2px solid var(--accent, #7c3aed)' : isLocked ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid var(--border)',
+                      background: isSelected ? 'rgba(124, 58, 237, 0.03)' : 'var(--bg-card)',
+                      boxShadow: '0 6px 24px rgba(0,0,0,0.12)',
+                    }}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between" style={{ marginBottom: 12 }}>
+                        <div className="flex items-center gap-8">
+                          <div style={{ width: 40, height: 40, borderRadius: 8, background: 'var(--surface-2, #1e293b)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <Building2 size={22} className="text-accent" />
+                          </div>
+                          <div>
+                            <h3 style={{ fontSize: 18, fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>{soc.societyName}</h3>
+                            <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                              Reg: <strong style={{ color: 'var(--text-primary)' }}>{soc.registrationNo || 'N/A'}</strong>
+                            </div>
+                          </div>
+                        </div>
+
+                        {isLocked && (
+                          <span style={{ fontSize: 11, fontWeight: 800, background: 'rgba(239, 68, 68, 0.15)', color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.4)', padding: '4px 10px', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                            <Lock size={12} /> LOCKED
+                          </span>
+                        )}
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, background: 'var(--surface-2, #1e293b)', padding: '12px 14px', borderRadius: 8, marginBottom: 14, textAlign: 'center' }}>
+                        <div><div style={{ fontSize: 10, color: 'var(--text-secondary)' }}>Documents</div><div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-primary)' }}>{soc.documentCount}</div></div>
+                        <div><div style={{ fontSize: 10, color: 'var(--text-secondary)' }}>Imports</div><div style={{ fontSize: 16, fontWeight: 800, color: '#38bdf8' }}>{soc.importCount || 0}</div></div>
+                        <div><div style={{ fontSize: 10, color: 'var(--text-secondary)' }}>Exports</div><div style={{ fontSize: 16, fontWeight: 800, color: '#818cf8' }}>{soc.exportCount || 0}</div></div>
+                        <div><div style={{ fontSize: 10, color: 'var(--text-secondary)' }}>Storage</div><div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)' }}>{soc.storageSizeFormatted}</div></div>
+                      </div>
+
+                      <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 12 }}>
+                        <div>Location: <strong style={{ color: 'var(--text-primary)' }}>{soc.city ? `${soc.city}, ${soc.state}` : 'Unspecified'}</strong></div>
+                        <div style={{ marginTop: 4 }}>Last Activity: <strong style={{ color: 'var(--text-primary)' }}>{soc.lastActivityTitle || 'Society Created'}</strong></div>
+                      </div>
+                    </div>
+
+                    <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
+                      {renderSocietyActionButtons(soc, false)}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* ── 7. SMALL ICON VIEW (Ultra-Compact App Icons) ── */}
+          {viewMode === 'small_icon' && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 12 }}>
+              {societies.map(soc => {
+                const isSelected = soc.isActive;
+                const isLocked = Boolean(soc.isLocked);
+                return (
+                  <div
+                    key={soc.id}
+                    className="card"
+                    style={{
+                      padding: '12px 8px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      textAlign: 'center',
+                      border: isSelected ? '2px solid var(--accent, #7c3aed)' : isLocked ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid var(--border)',
+                      background: isSelected ? 'rgba(124, 58, 237, 0.05)' : 'var(--bg-card)',
+                      cursor: 'pointer',
+                      position: 'relative',
+                    }}
+                    onClick={() => handleOpenSocietyDashboard(soc)}
+                    title={`Click to open ${soc.societyName}`}
+                  >
+                    {isLocked && (
+                      <div style={{ position: 'absolute', top: 6, right: 6, color: '#f87171' }}>
+                        <Lock size={12} />
+                      </div>
+                    )}
+                    <div
+                      style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: 8,
+                        background: isSelected ? '#7c3aed' : 'var(--surface-2, #1e293b)',
+                        color: isSelected ? '#ffffff' : 'var(--text-primary)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginBottom: 8,
+                      }}
+                    >
+                      <Building2 size={20} />
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        fontWeight: 700,
+                        color: 'var(--text-primary)',
+                        width: '100%',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                      }}
+                      title={soc.societyName}
+                    >
+                      {soc.societyName}
+                    </div>
+                    <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 2 }}>
+                      {soc.registrationNo || 'No Reg'}
+                    </div>
+                    <div style={{ marginTop: 8, display: 'flex', gap: 4 }}>
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        onClick={e => {
+                          e.stopPropagation();
+                          setLockModalTarget(soc);
+                          setLockPasswordInput('');
+                          setLockPasswordError(null);
+                        }}
+                        style={{ padding: '2px 6px', fontSize: 10, color: isLocked ? '#10b981' : '#f59e0b' }}
+                        title={isLocked ? 'Unlock' : 'Lock'}
+                      >
+                        {isLocked ? <Unlock size={10} /> : <Lock size={10} />}
+                      </button>
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        onClick={e => {
+                          e.stopPropagation();
+                          if (isLocked) {
+                            setLockModalTarget(soc);
+                            setLockPasswordInput('');
+                            setLockPasswordError('Society is locked. Unlock first to archive or restore.');
+                            return;
+                          }
+                          setConfirmArchive(soc);
+                        }}
+                        disabled={isLocked}
+                        style={{
+                          padding: '2px 6px',
+                          fontSize: 10,
+                          opacity: isLocked ? 0.35 : 1,
+                          color: isLocked ? '#94a3b8' : soc.status === 'ARCHIVED' ? '#10b981' : '#eab308',
+                        }}
+                        title={isLocked ? 'Locked' : soc.status === 'ARCHIVED' ? 'Restore' : 'Archive'}
+                      >
+                        {soc.status === 'ARCHIVED' ? <RotateCcw size={10} /> : <Archive size={10} />}
                       </button>
                     </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
+          )}
 
-            {societies.length === 0 && !loading && (
-              <div
-                className="card"
-                style={{
-                  gridColumn: '1 / -1',
-                  padding: 40,
-                  textAlign: 'center',
-                  color: 'var(--text-secondary)',
-                }}
-              >
-                <Building2 size={36} style={{ margin: '0 auto 12px auto', opacity: 0.4 }} />
-                <h4 style={{ margin: '0 0 6px 0', color: 'var(--text-primary)' }}>No Societies Found</h4>
-                <p style={{ margin: 0, fontSize: 13 }}>
-                  {searchTerm ? 'No societies match your search query.' : 'Create your first society to get started.'}
-                </p>
-              </div>
-            )}
-          </div>
+          {/* ── 8. ICON VIEW (Medium Centered Visual Cards) ── */}
+          {viewMode === 'icon' && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 14 }}>
+              {societies.map(soc => {
+                const isSelected = soc.isActive;
+                const isLocked = Boolean(soc.isLocked);
+                return (
+                  <div
+                    key={soc.id}
+                    className="card"
+                    style={{
+                      padding: 16,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      textAlign: 'center',
+                      border: isSelected ? '2px solid var(--accent, #7c3aed)' : isLocked ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid var(--border)',
+                      background: isSelected ? 'rgba(124, 58, 237, 0.04)' : 'var(--bg-card)',
+                      position: 'relative',
+                    }}
+                  >
+                    {isLocked && (
+                      <span
+                        style={{
+                          position: 'absolute',
+                          top: 8,
+                          right: 8,
+                          fontSize: 9,
+                          fontWeight: 800,
+                          background: 'rgba(239,68,68,0.15)',
+                          color: '#f87171',
+                          padding: '1px 5px',
+                          borderRadius: 3,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 2,
+                        }}
+                      >
+                        <Lock size={9} />
+                      </span>
+                    )}
+                    <div
+                      style={{
+                        width: 48,
+                        height: 48,
+                        borderRadius: 12,
+                        background: isSelected ? 'linear-gradient(135deg, #7c3aed, #4f46e5)' : 'var(--surface-2, #1e293b)',
+                        color: isSelected ? '#ffffff' : 'var(--text-primary)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginBottom: 10,
+                        boxShadow: isSelected ? '0 4px 12px rgba(124, 58, 237, 0.3)' : 'none',
+                      }}
+                    >
+                      <Building2 size={24} />
+                    </div>
+                    <strong
+                      style={{
+                        fontSize: 13,
+                        color: 'var(--text-primary)',
+                        lineHeight: 1.3,
+                        marginBottom: 4,
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                        height: 34,
+                      }}
+                      title={soc.societyName}
+                    >
+                      {soc.societyName}
+                    </strong>
+                    <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 8 }}>
+                      Reg: {soc.registrationNo || 'N/A'}
+                    </div>
+                    <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginBottom: 12 }}>
+                      {soc.documentCount} Docs · {soc.storageSizeFormatted}
+                    </div>
+                    <div style={{ marginTop: 'auto', width: '100%', display: 'flex', justifyContent: 'center' }}>
+                      {renderSocietyActionButtons(soc, true)}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Empty State */}
+          {societies.length === 0 && !loading && (
+            <div
+              className="card"
+              style={{
+                padding: 40,
+                textAlign: 'center',
+                color: 'var(--text-secondary)',
+                marginTop: 16,
+              }}
+            >
+              <Building2 size={36} style={{ margin: '0 auto 12px auto', opacity: 0.4 }} />
+              <h4 style={{ margin: '0 0 6px 0', color: 'var(--text-primary)' }}>No Societies Found</h4>
+              <p style={{ margin: 0, fontSize: 13 }}>
+                {searchTerm ? 'No societies match your search query.' : 'Create your first society to get started.'}
+              </p>
+            </div>
+          )}
         </>
       )}
 
@@ -2039,6 +2885,127 @@ export default function HenuMasterPage({
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ── Lock / Unlock Society Password Modal ── */}
+      {lockModalTarget && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.75)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: 20,
+          }}
+        >
+          <div
+            className="card"
+            style={{
+              width: '100%',
+              maxWidth: 460,
+              padding: 24,
+              border: lockModalTarget.isLocked ? '1px solid #10b981' : '1px solid #f59e0b',
+              boxShadow: '0 20px 40px rgba(0, 0, 0, 0.5)',
+            }}
+          >
+            <div className="flex items-center gap-12" style={{ marginBottom: 16 }}>
+              <div
+                style={{
+                  width: 42,
+                  height: 42,
+                  borderRadius: 10,
+                  background: lockModalTarget.isLocked ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: lockModalTarget.isLocked ? '#10b981' : '#f59e0b',
+                }}
+              >
+                {lockModalTarget.isLocked ? <Unlock size={22} /> : <Lock size={22} />}
+              </div>
+              <div>
+                <h3 style={{ fontSize: 16, fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
+                  {lockModalTarget.isLocked ? 'Unlock Society' : 'Lock Society'}
+                </h3>
+                <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                  {lockModalTarget.societyName}
+                </div>
+              </div>
+            </div>
+
+            <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16, lineHeight: 1.5 }}>
+              {lockModalTarget.isLocked
+                ? 'Enter Master Password to unlock this society. Unlocking will allow modifications, register updating, and deletion.'
+                : 'Enter Master Password to lock this society. Locking protects this society from accidental changes or deletion.'}
+            </p>
+
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>
+                Master Authorization Password
+              </label>
+              <input
+                type="password"
+                className="input-control"
+                placeholder="Enter Master Password..."
+                value={lockPasswordInput}
+                onChange={e => {
+                  setLockPasswordInput(e.target.value);
+                  setLockPasswordError(null);
+                }}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && lockPasswordInput.trim()) {
+                    handleToggleLockSubmit();
+                  }
+                }}
+                autoFocus
+                style={{ width: '100%' }}
+              />
+              {lockPasswordError && (
+                <div style={{ color: '#ef4444', fontSize: 12, marginTop: 6, fontWeight: 500 }}>
+                  {lockPasswordError}
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-10">
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={() => {
+                  setLockModalTarget(null);
+                  setLockPasswordInput('');
+                  setLockPasswordError(null);
+                }}
+                disabled={lockLoading}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn btn-sm"
+                style={{
+                  background: lockModalTarget.isLocked ? '#10b981' : '#f59e0b',
+                  color: '#ffffff',
+                  fontWeight: 700,
+                  padding: '7px 16px',
+                }}
+                onClick={handleToggleLockSubmit}
+                disabled={!lockPasswordInput.trim() || lockLoading}
+              >
+                {lockLoading
+                  ? 'Verifying...'
+                  : lockModalTarget.isLocked
+                  ? 'Confirm Unlock'
+                  : 'Confirm Lock'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

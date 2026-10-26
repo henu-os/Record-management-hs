@@ -5,8 +5,10 @@ import {
 import { ModuleId, FoundationStatus, MasterDataStatus } from '../../main/types';
 import EditDataModal from '../components/EditDataModal';
 import SpreadsheetEditor from '../components/SpreadsheetEditor';
+import { useSocietyContext } from '../context/SocietyContext';
 
 export default function MasterData() {
+  const { activeSociety } = useSocietyContext();
   const [status, setStatus] = useState<MasterDataStatus | null>(null);
   const [foundationStatus, setFoundationStatus] = useState<FoundationStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -53,6 +55,10 @@ export default function MasterData() {
   };
 
   const handleImportMaster = async () => {
+    if (activeSociety?.isLocked) {
+      setMessage({ type: 'error', text: 'Active society is locked. Master workbook import is disabled until unlocked in HENU MASTER.' });
+      return;
+    }
     setProcessingModule('master_import');
     setMessage(null);
     try {
@@ -96,6 +102,10 @@ export default function MasterData() {
   };
 
   const handleImportModule = async (moduleId: ModuleId) => {
+    if (activeSociety?.isLocked) {
+      setMessage({ type: 'error', text: 'Active society is locked. Module import is disabled until unlocked in HENU MASTER.' });
+      return;
+    }
     setProcessingModule(`imp_${moduleId}`);
     setMessage(null);
     try {
@@ -126,6 +136,10 @@ export default function MasterData() {
   };
 
   const handleClear = async () => {
+    if (activeSociety?.isLocked) {
+      alert('Active society is locked. Deleting master data is disabled until unlocked in HENU MASTER.');
+      return;
+    }
     if (!confirm('This will clear master data for the active society only. Are you sure you want to proceed?')) return;
     await api.masterData.clear();
     setStatus(null);
@@ -195,11 +209,40 @@ export default function MasterData() {
           </p>
         </div>
         {status && (
-          <button className="btn btn-secondary btn-sm text-error flex items-center gap-6" onClick={handleClear}>
+          <button
+            className="btn btn-secondary btn-sm text-error flex items-center gap-6"
+            onClick={handleClear}
+            disabled={Boolean(activeSociety?.isLocked)}
+            style={{ opacity: activeSociety?.isLocked ? 0.35 : 1, cursor: activeSociety?.isLocked ? 'not-allowed' : 'pointer' }}
+          >
             <Trash2 size={14} /> Clear Master Data
           </button>
         )}
       </div>
+
+      {/* Society Locked Banner */}
+      {activeSociety?.isLocked && (
+        <div
+          className="alert alert-error mb-20"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            padding: '14px 18px',
+            border: '1px solid rgba(239, 68, 68, 0.4)',
+            background: 'rgba(239, 68, 68, 0.12)',
+            borderRadius: 8,
+          }}
+        >
+          <Lock size={20} color="#ef4444" />
+          <div>
+            <strong style={{ color: '#ef4444', fontSize: 13 }}>Society "{activeSociety.societyName}" is Locked</strong>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
+              Master workbook importing, register editing, and data clearing are blocked. Unlock this society in HENU MASTER to modify.
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Alert Banner */}
       {message && (
@@ -357,8 +400,16 @@ export default function MasterData() {
                 </button>
                 <button
                   className="btn btn-ghost btn-sm text-accent flex items-center gap-4"
-                  onClick={() => { setActiveEditModule(m.id); setIsEditModalOpen(true); }}
-                  disabled={m.locked}
+                  onClick={() => {
+                    if (activeSociety?.isLocked) {
+                      alert('This society is locked. Unlock in HENU MASTER to edit data.');
+                      return;
+                    }
+                    setActiveEditModule(m.id);
+                    setIsEditModalOpen(true);
+                  }}
+                  disabled={m.locked || Boolean(activeSociety?.isLocked)}
+                  style={{ opacity: activeSociety?.isLocked ? 0.35 : 1 }}
                 >
                   <Edit3 size={13} /> Edit Data
                 </button>
@@ -399,7 +450,7 @@ export default function MasterData() {
                 <button
                   className="btn btn-primary btn-sm"
                   onClick={() => handleImportModule(m.id)}
-                  disabled={m.locked || processingModule === `imp_${m.id}`}
+                  disabled={m.locked || Boolean(activeSociety?.isLocked) || processingModule === `imp_${m.id}`}
                   style={{ fontSize: 11, padding: '5px 10px' }}
                 >
                   Import
@@ -414,9 +465,16 @@ export default function MasterData() {
                 </button>
                 <button
                   className="btn btn-ghost btn-sm text-accent flex items-center gap-4"
-                  onClick={() => { setActiveEditModule(m.id); setIsEditModalOpen(true); }}
-                  disabled={m.locked}
-                  style={{ fontSize: 11, padding: '5px 10px' }}
+                  onClick={() => {
+                    if (activeSociety?.isLocked) {
+                      alert('This society is locked. Unlock in HENU MASTER to edit data.');
+                      return;
+                    }
+                    setActiveEditModule(m.id);
+                    setIsEditModalOpen(true);
+                  }}
+                  disabled={m.locked || Boolean(activeSociety?.isLocked)}
+                  style={{ fontSize: 11, padding: '5px 10px', opacity: activeSociety?.isLocked ? 0.35 : 1 }}
                 >
                   <Edit3 size={11} /> Edit Data
                 </button>

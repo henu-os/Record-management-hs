@@ -23,10 +23,16 @@ export class FormDesignSettingsService {
   static clampSettings(settings: Partial<FormDesignSettings>): FormDesignSettings {
     const base = { ...DEFAULT_FORM_DESIGN_SETTINGS, ...settings };
 
-    const rawFs = settings.fontSize !== undefined ? settings.fontSize : settings.bodyFontSize;
-    const fontSize = Math.min(12, Math.max(7, Number(rawFs) || 7.5));
-    const headerFontSize = Math.min(14, Math.max(8, Number(base.headerFontSize) || 11));
-    const gridOpacity = Math.min(100, Math.max(0, Number(base.gridOpacity) ?? 100));
+    const rawDataFs = settings.dataFontSize ?? settings.bodyFontSize ?? settings.fontSize ?? base.dataFontSize;
+    const dataFontSize = Math.min(16, Math.max(7, Number(rawDataFs) || 9.5));
+
+    const rawFixedFs = settings.fixedDataFontSize ?? settings.headerFontSize ?? base.fixedDataFontSize;
+    const fixedDataFontSize = Math.min(14, Math.max(7, Number(rawFixedFs) || 8.5));
+
+    const fontSize = dataFontSize;
+    const bodyFontSize = dataFontSize;
+    const headerFontSize = Math.min(16, Math.max(8, Number(base.headerFontSize) || 11));
+    const gridOpacity = Math.min(100, Math.max(0, Number(base.gridOpacity) ?? 80));
     const gridThickness = Math.min(1.0, Math.max(0.25, Number(base.gridThickness) || 0.5));
     const colorMode: 'Color' | 'BW' = base.colorMode === 'BW' ? 'BW' : 'Color';
 
@@ -45,14 +51,23 @@ export class FormDesignSettingsService {
       : 0;
 
     const isGridOn = settings.gridOn !== undefined ? Boolean(settings.gridOn) : (settings.gridEnabled !== undefined ? Boolean(settings.gridEnabled) : true);
+    const pageNumberPosition: 'Top' | 'Bottom' = base.pageNumberPosition === 'Top' ? 'Top' : 'Bottom';
+    const pageNumberAlign = validHAlign.includes(base.pageNumberAlign as any) ? base.pageNumberAlign : 'center';
+    const pageNumberColor = base.pageNumberColor || '#1E293B';
+    const rawPageNumberFs = base.pageNumberFontSize ?? 8;
+    const pageNumberFontSize = Math.min(16, Math.max(5, Number(rawPageNumberFs) || 8));
+    const paperSize = String(base.paperSize || '').toUpperCase().includes('FOOLSCAP') ? 'FOOLSCAP' : 'LEGAL';
 
     return {
       ...base,
+      paperSize,
       colorMode,
       fontFamily,
       fontSize,
-      bodyFontSize: fontSize,
+      bodyFontSize,
       headerFontSize,
+      dataFontSize,
+      fixedDataFontSize,
       gridOpacity,
       gridThickness,
       horizontalAlign,
@@ -63,10 +78,19 @@ export class FormDesignSettingsService {
       textWrapping: base.textWrapping !== undefined ? Boolean(base.textWrapping) : true,
       gridOn: isGridOn,
       gridEnabled: isGridOn,
+      pageNumberPosition,
+      pageNumberAlign,
+      pageNumberColor,
+      pageNumberFontSize,
       headerBgColor: base.headerBgColor || base.headerFill || '#D9E1F2',
       headerFill: base.headerFill || base.headerBgColor || '#D9E1F2',
+      headerTextColor: base.headerTextColor || '#1C355E',
+      sectionBgColor: base.sectionBgColor || '#1B365D',
+      sectionTextColor: base.sectionTextColor || '#FFFFFF',
       cellBgColor: base.cellBgColor || base.cellFill || '#FFFFFF',
       cellFill: base.cellFill || base.cellBgColor || '#FFFFFF',
+      borderColor: base.borderColor || '#8EA9DB',
+      gridColor: settings.borderColor && !settings.gridColor ? settings.borderColor : (base.gridColor || base.borderColor || '#8EA9DB'),
     };
   }
 
@@ -153,9 +177,36 @@ export class FormDesignSettingsService {
         for (const fId of allForms) {
           const fKey = societyId ? `settings_${societyId}_${fId}` : `settings_${fId}`;
           const existing = map[fKey] ? (typeof map[fKey] === 'string' ? JSON.parse(map[fKey]) : map[fKey]) : {};
+          if (cleanFormId === 'global') {
+            Object.assign(existing, {
+              colorMode: clamped.colorMode,
+              headerBgColor: clamped.headerBgColor,
+              headerFill: clamped.headerFill,
+              headerTextColor: clamped.headerTextColor,
+              sectionBgColor: clamped.sectionBgColor,
+              sectionTextColor: clamped.sectionTextColor,
+              cellBgColor: clamped.cellBgColor,
+              cellFill: clamped.cellFill,
+              textColor: clamped.textColor,
+              borderColor: clamped.borderColor,
+              gridColor: clamped.gridColor,
+              gridOn: clamped.gridOn,
+              gridEnabled: clamped.gridEnabled,
+              gridThickness: clamped.gridThickness,
+              gridOpacity: clamped.gridOpacity,
+              fontFamily: clamped.fontFamily,
+              dataFontSize: clamped.dataFontSize,
+              fixedDataFontSize: clamped.fixedDataFontSize,
+              fontSize: clamped.fontSize,
+              bodyFontSize: clamped.bodyFontSize,
+              headerFontSize: clamped.headerFontSize,
+            });
+          }
           existing.brandingText = clamped.brandingText;
           existing.brandingAlign = clamped.brandingAlign;
+          existing.pageNumberPosition = clamped.pageNumberPosition;
           existing.pageNumberAlign = clamped.pageNumberAlign;
+          existing.pageNumberColor = clamped.pageNumberColor;
           existing.customFooterText = clamped.customFooterText;
           existing.customFooterAlign = clamped.customFooterAlign;
           map[fKey] = JSON.stringify(existing);
@@ -171,22 +222,48 @@ export class FormDesignSettingsService {
         ON CONFLICT(key) DO UPDATE SET value = excluded.value
       `).run(keyName, JSON.stringify(clamped));
 
-      // Propagate Branding BOX Footer to all 6 forms
+      // Propagate Global Theme Styling & Branding to all 6 forms
       const allForms = ['FORM_I', 'FORM_J', 'FORM_SHARE', 'FORM_NOM', 'FORM_PROP', 'FORM_BANK'];
       for (const fId of allForms) {
         const fKey = societyId ? `settings_${societyId}_${fId}` : `settings_${fId}`;
         const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(fKey) as { value: string } | undefined;
-        if (row && row.value) {
-          try {
-            const parsed = JSON.parse(row.value);
-            parsed.brandingText = clamped.brandingText;
-            parsed.brandingAlign = clamped.brandingAlign;
-            parsed.pageNumberAlign = clamped.pageNumberAlign;
-            parsed.customFooterText = clamped.customFooterText;
-            parsed.customFooterAlign = clamped.customFooterAlign;
-            db.prepare('UPDATE settings SET value = ? WHERE key = ?').run(JSON.stringify(parsed), fKey);
-          } catch {}
+        const parsed = (row && row.value) ? JSON.parse(row.value) : {};
+        if (cleanFormId === 'global') {
+          Object.assign(parsed, {
+            colorMode: clamped.colorMode,
+            headerBgColor: clamped.headerBgColor,
+            headerFill: clamped.headerFill,
+            headerTextColor: clamped.headerTextColor,
+            sectionBgColor: clamped.sectionBgColor,
+            sectionTextColor: clamped.sectionTextColor,
+            cellBgColor: clamped.cellBgColor,
+            cellFill: clamped.cellFill,
+            textColor: clamped.textColor,
+            borderColor: clamped.borderColor,
+            gridColor: clamped.gridColor,
+            gridOn: clamped.gridOn,
+            gridEnabled: clamped.gridEnabled,
+            gridThickness: clamped.gridThickness,
+            gridOpacity: clamped.gridOpacity,
+            fontFamily: clamped.fontFamily,
+            dataFontSize: clamped.dataFontSize,
+            fixedDataFontSize: clamped.fixedDataFontSize,
+            fontSize: clamped.fontSize,
+            bodyFontSize: clamped.bodyFontSize,
+            headerFontSize: clamped.headerFontSize,
+          });
         }
+        parsed.brandingText = clamped.brandingText;
+        parsed.brandingAlign = clamped.brandingAlign;
+        parsed.pageNumberPosition = clamped.pageNumberPosition;
+        parsed.pageNumberAlign = clamped.pageNumberAlign;
+        parsed.pageNumberColor = clamped.pageNumberColor;
+        parsed.customFooterText = clamped.customFooterText;
+        parsed.customFooterAlign = clamped.customFooterAlign;
+        db.prepare(`
+          INSERT INTO settings (key, value) VALUES (?, ?)
+          ON CONFLICT(key) DO UPDATE SET value = excluded.value
+        `).run(fKey, JSON.stringify(parsed));
       }
     } catch {}
 

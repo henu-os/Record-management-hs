@@ -262,6 +262,15 @@ export class JsonDatabaseAdapter {
           }
           return { changes: 1 };
         }
+        if (/UPDATE\s+societies\s+SET\s+is_locked\s*=\s*\?\s+WHERE\s+id\s*=/i.test(s)) {
+          const idx = self.data.societies.findIndex(x => String(x.id).trim() === String(params[1]).trim());
+          if (idx >= 0) {
+            self.data.societies[idx].is_locked = Number(params[0]) === 1 ? 1 : 0;
+            self.data.societies[idx].updated_at = new Date().toISOString();
+            self.save();
+          }
+          return { changes: 1 };
+        }
         if (/UPDATE\s+societies\s+SET\s+society_name\s*=/i.test(s)) {
           const socId = String(params[params.length - 1]).trim();
           const idx = self.data.societies.findIndex(x => String(x.id).trim() === socId);

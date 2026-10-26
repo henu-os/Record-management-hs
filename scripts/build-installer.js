@@ -21,15 +21,21 @@ cp.execSync(`"${builderBin}" --win nsis`, { stdio: 'inherit', cwd: path.resolve(
 console.log('\n=== Step 3: Verifying and copying output ===');
 const setupExe = path.join(releaseDir, 'HENU OS RECMA Setup.exe');
 const rootSetupExe = path.resolve(__dirname, '..', 'HENU OS RECMA Setup.exe');
+const versionedExe = path.join(releaseDir, 'HENU OS RECMA v1.0.4 Setup.exe');
+const rootVersionedExe = path.resolve(__dirname, '..', 'HENU OS RECMA v1.0.4 Setup.exe');
 
 if (fs.existsSync(setupExe)) {
   fs.copyFileSync(setupExe, rootSetupExe);
+  fs.copyFileSync(setupExe, versionedExe);
+  fs.copyFileSync(setupExe, rootVersionedExe);
   const sizeMB = (fs.statSync(rootSetupExe).size / (1024 * 1024)).toFixed(2);
   console.log(`\n========================================================`);
   console.log(`🎉 SUCCESS! Windows Desktop Installer Generated:`);
-  console.log(`- Project Root: ${rootSetupExe}`);
-  console.log(`- Release Dir:  ${setupExe}`);
-  console.log(`- File Size:    ${sizeMB} MB`);
+  console.log(`- Project Root:     ${rootSetupExe}`);
+  console.log(`- Versioned File:   ${rootVersionedExe}`);
+  console.log(`- Release Dir:      ${setupExe}`);
+  console.log(`- Release Versioned:${versionedExe}`);
+  console.log(`- File Size:        ${sizeMB} MB`);
   console.log(`========================================================\n`);
 } else {
   console.log('Files in release:', fs.existsSync(releaseDir) ? fs.readdirSync(releaseDir) : 'none');

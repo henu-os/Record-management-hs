@@ -1,6 +1,6 @@
 {
   "name": "henu-os-records",
-  "version": "1.0.0",
+  "version": "1.0.4",
   "description": "HENU OS Records Management / HLABS Filing System",
   "main": "dist/main/index.js",
   "author": "HLabs",

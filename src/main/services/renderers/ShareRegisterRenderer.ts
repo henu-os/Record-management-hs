@@ -22,6 +22,7 @@ export interface ShareRegisterRenderOptions {
   settings?: FormDesignSettings;
   renderMode?: 'Color' | 'BW';
   gridOn?: boolean;
+  paperSize?: 'LEGAL' | 'FOOLSCAP' | string;
   templateId?: ShareRegisterTemplateId;
   emptyRows?: number; // 0 to 6
   dataFontSize?: number; // 7.5 to 12.5 pt
@@ -40,18 +41,20 @@ export class ShareRegisterRenderer {
     const settings = isOptionsObj ? options?.settings : settingsParam;
     const renderMode = isOptionsObj ? options?.renderMode : undefined;
     const gridOn = isOptionsObj ? options?.gridOn : undefined;
-    const templateId: ShareRegisterTemplateId = (isOptionsObj && options?.templateId) ? options.templateId : '19_COLUMN';
+    const paperSize = isOptionsObj ? (options?.paperSize || (options?.settings as any)?.paperSize) : undefined;
+    const isFoolscap = String(paperSize || '').toUpperCase().includes('FOOLSCAP');
+    const templateId: ShareRegisterTemplateId = (isOptionsObj && options?.templateId) ? options.templateId : '15_COLUMN';
     const emptyRowsCount: number = Math.max(0, Math.min(6, (isOptionsObj && typeof options?.emptyRows === 'number') ? options.emptyRows : 0));
 
-    // Data font size (limit 7.5 to 12.5 pt, default 8.5 pt)
-    const dataFontSize: number = Math.max(
-      7.5,
-      Math.min(12.5, (isOptionsObj && typeof options?.dataFontSize === 'number') ? options.dataFontSize : 8.5)
-    );
+    // Data font size (limit 7.0 to 16.0 pt, default 9.5 pt or from settings)
+    const rawDataFs = (isOptionsObj && typeof options?.dataFontSize === 'number')
+      ? options.dataFontSize
+      : (settings?.dataFontSize ?? settings?.fontSize ?? 9.5);
+    const dataFontSize: number = Math.max(7.0, Math.min(16.0, Number(rawDataFs) || 9.5));
 
     // Data text color (customizable, default deep navy in Color mode, black in BW)
     const rawColor = isOptionsObj && options?.dataTextColor ? options.dataTextColor : undefined;
-    const dataTextColor = renderMode === 'BW' ? '#000000' : (rawColor || '#002060');
+    const dataTextColor = renderMode === 'BW' ? '#000000' : (rawColor || settings?.textColor || '#0F172A');
 
     // Merge font size & color into builder settings while keeping header font size fixed
     const mergedSettings: Partial<FormDesignSettings> = {
@@ -61,7 +64,7 @@ export class ShareRegisterRenderer {
       textColor: dataTextColor,
     };
 
-    // Choose definition based on selected template
+    // Choose definition based on selected template (defaults to standard 15-Column)
     const def = templateId === '19_COLUMN' ? ShareRegister19ColDefinition : ShareRegister15ColDefinition;
     const is19Col = templateId === '19_COLUMN';
 
@@ -69,6 +72,7 @@ export class ShareRegisterRenderer {
       orientation: orientationOverride || def.orientation,
       title: def.title,
       society,
+      paperSize: isFoolscap ? 'FOOLSCAP' : 'LEGAL',
       settings: mergedSettings as FormDesignSettings,
       renderMode,
       gridOn,
@@ -151,8 +155,11 @@ export class ShareRegisterRenderer {
       if (rec) {
         const flat = rec.flatNo ? String(rec.flatNo).trim() : '';
         const wing = rec.wingNo ? String(rec.wingNo).trim() : '';
-        const parts = [flat, wing].filter(Boolean);
-        unitText = parts.join(', ') || rec.descriptionOfTenement || '';
+        if (wing && flat && !flat.includes(wing)) {
+          unitText = `${wing}/${flat}`;
+        } else {
+          unitText = flat || wing || rec.descriptionOfTenement || '';
+        }
       }
 
       // ── Sub-row 0: Main Populated Data Row ──

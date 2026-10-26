@@ -249,10 +249,28 @@ export class HenuMasterService {
         healthMessage,
         lastDocumentDate,
         lastDocumentName,
+        isLocked: Boolean(Number(soc.is_locked || soc.isLocked) === 1),
       });
     }
 
     return results;
+  }
+
+  /**
+   * Toggles society lock/unlock state in database
+   */
+  public toggleSocietyLock(societyId: string, locked: boolean): boolean {
+    const db = getDatabase();
+    try {
+      try {
+        db.exec('ALTER TABLE societies ADD COLUMN is_locked INTEGER DEFAULT 0');
+      } catch {}
+      db.prepare('UPDATE societies SET is_locked = ? WHERE id = ?').run(locked ? 1 : 0, societyId);
+      return true;
+    } catch (e) {
+      console.error('Failed to toggle society lock:', e);
+      return false;
+    }
   }
 
   /**
@@ -360,6 +378,7 @@ export class HenuMasterService {
       yearEstablished: soc.year_established || '',
       status: soc.status === 'ARCHIVED' ? 'ARCHIVED' : 'ACTIVE',
       isActive: Number(soc.is_active) === 1,
+      isLocked: Boolean(Number(soc.is_locked || soc.isLocked) === 1),
       rootStoragePath: config.rootStoragePath,
       folderPath: socFolderPath,
       storageSizeBytes: totalStorageBytes,
@@ -395,6 +414,9 @@ export class HenuMasterService {
     const db = getDatabase();
     const existing = db.prepare('SELECT * FROM societies WHERE id = ?').get(societyId) as any;
     if (!existing) throw new Error(`Society ${societyId} not found`);
+    if (Number(existing.is_locked) === 1) {
+      throw new Error(`Society "${existing.society_name || societyId}" is locked. Unlock it in HENU MASTER before modifying metadata.`);
+    }
 
     const societyName = metadata.societyName !== undefined ? metadata.societyName : existing.society_name;
     const registrationNo = metadata.registrationNo !== undefined ? metadata.registrationNo : existing.registration_no;
@@ -448,6 +470,9 @@ export class HenuMasterService {
     const db = getDatabase();
     const soc = db.prepare('SELECT * FROM societies WHERE id = ?').get(societyId) as any;
     if (!soc) return false;
+    if (Number(soc.is_locked) === 1) {
+      throw new Error(`Society "${soc.society_name || societyId}" is locked. Unlock it in HENU MASTER before archiving.`);
+    }
 
     db.prepare('UPDATE societies SET status = ? WHERE id = ?').run('ARCHIVED', societyId);
 
@@ -469,6 +494,9 @@ export class HenuMasterService {
     const db = getDatabase();
     const soc = db.prepare('SELECT * FROM societies WHERE id = ?').get(societyId) as any;
     if (!soc) return false;
+    if (Number(soc.is_locked) === 1) {
+      throw new Error(`Society "${soc.society_name || societyId}" is locked. Unlock it in HENU MASTER before restoring.`);
+    }
 
     db.prepare('UPDATE societies SET status = ? WHERE id = ?').run('ACTIVE', societyId);
     return true;
@@ -485,6 +513,9 @@ export class HenuMasterService {
     const soc = db.prepare('SELECT * FROM societies WHERE id = ?').get(societyId) as any;
     if (!soc) {
       throw new Error(`Society with ID ${societyId} does not exist`);
+    }
+    if (Number(soc.is_locked) === 1) {
+      throw new Error(`Society "${soc.society_name || soc.societyName || societyId}" is locked. Unlock it in HENU MASTER before deleting.`);
     }
 
     const socName = soc.society_name || soc.societyName || 'Unnamed_Society';

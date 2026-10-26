@@ -53,7 +53,8 @@ export const SocietyProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (activeSoc && !/^\d{4}-\d{2}-\d{2}T/.test(activeSoc.societyName)) {
         chosenSoc = activeSoc;
       } else if (resolvedList.length > 0) {
-        chosenSoc = resolvedList[0];
+        // Prefer an unlocked society if available
+        chosenSoc = resolvedList.find((s: any) => !s.isLocked) || resolvedList[0];
       } else {
         chosenSoc = activeSoc || null;
       }
@@ -80,6 +81,11 @@ export const SocietyProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const switchSociety = useCallback(
     async (societyId: string): Promise<boolean> => {
       if (!societyId || !api || !api.society) return false;
+      const target = societies.find(s => s.id === societyId);
+      if (target?.isLocked) {
+        alert(`Society "${target.societyName}" is LOCKED.\n\nYou cannot switch to, open, or edit a locked society. Please unlock it with a Master Password in HENU MASTER.`);
+        return false;
+      }
       if (societyId === activeSocietyIdRef.current && contextStatus === 'READY') return true;
 
       try {
@@ -99,13 +105,14 @@ export const SocietyProvider: React.FC<{ children: React.ReactNode }> = ({ child
         await reloadSocieties();
         setContextStatus('READY');
         return true;
-      } catch (err) {
+      } catch (err: any) {
         console.error('Failed to switch society:', err);
+        alert(err.message || 'Failed to switch society: Society is locked or inaccessible.');
         setContextStatus('ERROR');
         return false;
       }
     },
-    [api, reloadSocieties, contextStatus]
+    [api, reloadSocieties, contextStatus, societies]
   );
 
   const isRequestValid = useCallback((reqSocId: string, reqVersion: number): boolean => {
@@ -116,22 +123,34 @@ export const SocietyProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, []);
 
   const openImportsFolder = useCallback(async () => {
+    if (activeSociety?.isLocked) {
+      alert('This society is locked. Unlock it in HENU MASTER to access its folders.');
+      return;
+    }
     if (api?.storage?.openImportsFolder) {
       await api.storage.openImportsFolder();
     }
-  }, [api]);
+  }, [api, activeSociety]);
 
   const openExportsFolder = useCallback(async () => {
+    if (activeSociety?.isLocked) {
+      alert('This society is locked. Unlock it in HENU MASTER to access its folders.');
+      return;
+    }
     if (api?.storage?.openExportsFolder) {
       await api.storage.openExportsFolder();
     }
-  }, [api]);
+  }, [api, activeSociety]);
 
   const openSocietyFolder = useCallback(async () => {
+    if (activeSociety?.isLocked) {
+      alert('This society is locked. Unlock it in HENU MASTER to access its folders.');
+      return;
+    }
     if (api?.storage?.openSocietyFolder) {
       await api.storage.openSocietyFolder();
     }
-  }, [api]);
+  }, [api, activeSociety]);
 
   const value: SocietyContextType = {
     activeSocietyId: activeSociety?.id || '',

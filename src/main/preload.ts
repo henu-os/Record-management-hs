@@ -106,6 +106,11 @@ contextBridge.exposeInMainWorld('api', {
     showItemInFolder: (p: string): Promise<void> => ipcRenderer.invoke('system:showItemInFolder', p),
     openFileDialog: (options: any): Promise<string | null> => ipcRenderer.invoke('system:openFileDialog', options),
     showSaveDialog: (options: any): Promise<string | null> => ipcRenderer.invoke('system:showSaveDialog', options),
+    printPdf: (options: any): Promise<any> => ipcRenderer.invoke('system:printPdf', options),
+    openExternal: (url: string): Promise<boolean> => ipcRenderer.invoke('system:openExternal', url),
+  },
+  print: {
+    printPdf: (options: any): Promise<any> => ipcRenderer.invoke('system:printPdf', options),
   },
   henuAi: {
     getStatus: (): Promise<any> => ipcRenderer.invoke('henuAi:getStatus'),
@@ -160,6 +165,8 @@ contextBridge.exposeInMainWorld('api', {
     getRecentActivity: (societyId?: string, limit?: number): Promise<any[]> => ipcRenderer.invoke('henuMaster:getRecentActivity', societyId, limit),
     exportSocietySummary: (societyId: string, format?: string): Promise<string> => ipcRenderer.invoke('henuMaster:exportSocietySummary', societyId, format),
     openFolder: (folderPath: string): Promise<any> => ipcRenderer.invoke('henuMaster:openFolder', folderPath),
+    toggleSocietyLock: (societyId: string, password: string, locked: boolean): Promise<any> =>
+      ipcRenderer.invoke('henuMaster:toggleSocietyLock', societyId, password, locked),
   },
   security: {
     verifyAdminPassword: (password: string): Promise<any> => ipcRenderer.invoke('security:verifyAdminPassword', password),

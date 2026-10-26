@@ -15,6 +15,7 @@ import {
   StandardFonts,
   Color,
   degrees,
+  PDFName,
 } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
 import { SocietyMaster } from '../../types';
@@ -132,17 +133,16 @@ export function wrapPdfDocumentForWinAnsi(doc: PDFDocument): PDFDocument {
 // Borders:           #8EA9DB (medium blue) thin lines
 // Background:        #FFFFFF (white paper)
 
-export const COLOR_HEADER_BG     = rgb(217 / 255, 225 / 255, 242 / 255);  // #D9E1F2
-export const COLOR_SECTION_BG    = rgb(237 / 255, 237 / 255, 237 / 255);  // #EDEDED
-export const COLOR_SUBSECTION_BG = rgb(238 / 255, 242 / 255, 247 / 255);  // #EEF2F7
-export const COLOR_HEADER_TEXT   = rgb(28 / 255, 53 / 255, 94 / 255);     // #1C355E (dark navy)
-export const COLOR_BODY_TEXT     = rgb(0, 0, 0);                           // #000000
-export const COLOR_BORDER        = rgb(142 / 255, 169 / 255, 219 / 255);  // #8EA9DB
+export const COLOR_HEADER_BG     = rgb(241 / 255, 245 / 255, 249 / 255);  // #F1F5F9 (Eco Ink-Saver light slate)
+export const COLOR_SECTION_BG    = rgb(203 / 255, 213 / 255, 225 / 255);  // #CBD5E1 (Eco Ink-Saver soft slate)
+export const COLOR_SUBSECTION_BG = rgb(241 / 255, 245 / 255, 249 / 255);  // #F1F5F9
+export const COLOR_HEADER_TEXT   = rgb(15 / 255, 23 / 255, 42 / 255);     // #0F172A
+export const COLOR_BODY_TEXT     = rgb(15 / 255, 23 / 255, 42 / 255);     // #0F172A
+export const COLOR_BORDER        = rgb(148 / 255, 163 / 255, 184 / 255);  // #94A3B8
 export const COLOR_WHITE         = rgb(1, 1, 1);                          // #FFFFFF
-export const COLOR_LABEL_TEXT    = rgb(28 / 255, 53 / 255, 94 / 255);     // #1C355E
-// Navy section bars: dark navy bg (#1C355E) + white text — matches approved reference images
-export const COLOR_NAVY_BG       = rgb(28 / 255, 53 / 255, 94 / 255);     // #1C355E
-export const COLOR_WHITE_TEXT    = rgb(1, 1, 1);                           // #FFFFFF
+export const COLOR_LABEL_TEXT    = rgb(15 / 255, 23 / 255, 42 / 255);     // #0F172A
+export const COLOR_NAVY_BG       = rgb(203 / 255, 213 / 255, 225 / 255);  // #CBD5E1 (Light pastel section bar)
+export const COLOR_WHITE_TEXT    = rgb(15 / 255, 23 / 255, 42 / 255);     // #0F172A (Dark readable text on light section bar)
 
 // Legacy aliases for backward compatibility
 export const COLOR_PRIMARY       = COLOR_HEADER_TEXT;
@@ -157,22 +157,28 @@ export const COLOR_PAGE_NUMBER   = COLOR_HEADER_TEXT;
 export const LEGAL_WIDTH  = 612;
 export const LEGAL_HEIGHT = 1008;
 
-// Exact physical margins:
-// Left: 0.7 inch = 50.4 points
-// Right: 0.7 inch = 50.4 points
-// Top: 0.5 inch = 36.0 points
-// Bottom: 0.5 inch = 36.0 points
-export const MARGIN_LEFT   = 50.4;
-export const MARGIN_RIGHT  = 50.4;
-export const MARGIN_TOP    = 36.0;
-export const MARGIN_BOTTOM = 36.0;
+// ── Foolscap Folio Dimensions (in points) ─────────────────────
+// 8.5 × 13.5 inches = 612 × 972 points (Standard Indian Register Printing Size)
+export const FOOLSCAP_WIDTH  = 612;
+export const FOOLSCAP_HEIGHT = 972;
+
+// Exact physical margins: 1.5 cm = 42.5197 points (1.5 * 72 / 2.54) on all 4 sides
+export const MARGIN_CM = 1.5;
+export const MARGIN_POINTS = (1.5 * 72) / 2.54; // ≈ 42.5197 pt
+export const MARGIN_LEFT   = MARGIN_POINTS;
+export const MARGIN_RIGHT  = MARGIN_POINTS;
+export const MARGIN_TOP    = MARGIN_POINTS;
+export const MARGIN_BOTTOM = MARGIN_POINTS;
 
 export interface PdfSettingsOptions {
+  paperSize?: 'LEGAL' | 'FOOLSCAP' | string;
   colorMode?: 'Color' | 'BW';
   fontFamily?: 'Helvetica' | 'Times-Roman' | 'Courier' | 'Helvetica-Bold' | string;
-  fontSize?: number;        // Bounds: 7 to 12 pt
-  headerFontSize?: number;  // Bounds: 8 to 14 pt
-  bodyFontSize?: number;    // Bounds: 6 to 10 pt
+  fontSize?: number;        // Bounds: 7 to 16 pt
+  headerFontSize?: number;  // Bounds: 8 to 16 pt
+  bodyFontSize?: number;    // Bounds: 7 to 16 pt
+  dataFontSize?: number;    // Bounds: 7 to 16 pt
+  fixedDataFontSize?: number;// Bounds: 7 to 14 pt
   bold?: boolean;
   italic?: boolean;
   textWrapping?: boolean;
@@ -183,6 +189,8 @@ export interface PdfSettingsOptions {
   headerBgColor?: string;
   headerFill?: string;
   headerTextColor?: string;
+  sectionBgColor?: string;
+  sectionTextColor?: string;
   cellBgColor?: string;
   cellFill?: string;
   borderColor?: string;
@@ -190,8 +198,11 @@ export interface PdfSettingsOptions {
   gridOpacity?: number;     // 0 to 100%
   gridThickness?: number;   // 0.25 to 1.00 pt
   gridOn?: boolean;
+  pageNumberPosition?: 'Top' | 'Bottom';
   pageNumberAlign?: 'left' | 'center' | 'right';
   pageNumberPrefix?: string;
+  pageNumberColor?: string;
+  pageNumberFontSize?: number;
   brandingText?: string;
   brandingAlign?: 'left' | 'center' | 'right';
   customFooterText?: string;
@@ -205,6 +216,7 @@ export interface PageSetupOptions {
   orientation: 'Portrait' | 'Landscape';
   title: string;
   society: SocietyMaster | null;
+  paperSize?: 'LEGAL' | 'FOOLSCAP' | string;
   settings?: PdfSettingsOptions;
   renderMode?: 'Color' | 'BW';
   gridOn?: boolean;
@@ -222,6 +234,7 @@ export class PdfDocumentBuilder {
   currentPage!: PDFPage;
 
   orientation: 'Portrait' | 'Landscape' = 'Portrait';
+  paperSize: 'LEGAL' | 'FOOLSCAP' = 'LEGAL';
   pageWidth: number = LEGAL_WIDTH;
   pageHeight: number = LEGAL_HEIGHT;
 
@@ -240,7 +253,9 @@ export class PdfDocumentBuilder {
 
   // Prompt 01 Form Design Settings Overrides
   headerFontSize: number = 11;
-  bodyFontSize: number = 7.5;
+  bodyFontSize: number = 9.5;
+  dataFontSize: number = 9.5;
+  fixedDataFontSize: number = 8.5;
   boldText: boolean = false;
   italicText: boolean = false;
   textWrapping: boolean = true;
@@ -248,17 +263,23 @@ export class PdfDocumentBuilder {
   horizontalAlign: 'left' | 'center' | 'right' = 'center';
   verticalAlign: 'top' | 'middle' | 'bottom' = 'middle';
 
-  gridOpacity: number = 100;
-  gridThickness: number = 0.5;
+  gridOpacity: number = 80;
+  gridThickness: number = 0.50;
   customHeaderBg?: Color;
   customHeaderTextColor?: Color;
+  customSectionBg?: Color;
+  customSectionTextColor?: Color;
   customCellBg?: Color;
   customBorderColor?: Color;
   customGridColor?: Color;
   customTextColor?: Color;
 
+  customPageNumberColor?: Color;
+
+  pageNumberPosition: 'Top' | 'Bottom' = 'Bottom';
   pageNumberAlign: 'left' | 'center' | 'right' = 'center';
   pageNumberPrefix: string = '';
+  pageNumberFontSize: number = 8;
   brandingText: string = 'HENU OS - Records Management';
   brandingAlign: 'left' | 'center' | 'right' = 'right';
   customFooterText: string = '';
@@ -268,13 +289,18 @@ export class PdfDocumentBuilder {
   logoOffsetY: number = 0;
   logoSize: number = 44;
 
+  get pageNumberColor(): Color {
+    if (this.renderMode === 'BW') return rgb(0, 0, 0);
+    return this.customPageNumberColor || hexToRgb('#1E293B') || this.headerText;
+  }
+
   get headerBg() {
     if (this.renderMode === 'BW') return rgb(240 / 255, 240 / 255, 240 / 255);
     return this.customHeaderBg || COLOR_HEADER_BG;
   }
   get headerText() {
     if (this.renderMode === 'BW') return rgb(0, 0, 0);
-    return this.customHeaderTextColor || COLOR_HEADER_TEXT;
+    return this.customHeaderTextColor || (this.customSectionBg ? this.customSectionBg : COLOR_HEADER_TEXT);
   }
   get borderColor() {
     if (this.renderMode === 'BW') return rgb(0, 0, 0);
@@ -282,7 +308,7 @@ export class PdfDocumentBuilder {
   }
   get navyBg() {
     if (this.renderMode === 'BW') return rgb(50 / 255, 50 / 255, 50 / 255);
-    return COLOR_NAVY_BG;
+    return this.customSectionBg || COLOR_NAVY_BG;
   }
   get cellBg() {
     if (this.renderMode === 'BW') return COLOR_WHITE;
@@ -415,18 +441,42 @@ export class PdfDocumentBuilder {
       builder.boldFont = await builder.doc.embedFont(StandardFonts.TimesRomanBold);
     }
 
-    builder.orientation = opts.orientation;
+    builder.orientation = opts.orientation || 'Portrait';
+
+    const rawPaper = (opts as any).paperSize || opts.settings?.paperSize || 'LEGAL';
+    builder.paperSize = String(rawPaper).toUpperCase().includes('FOOLSCAP') ? 'FOOLSCAP' : 'LEGAL';
+    const isFoolscap = builder.paperSize === 'FOOLSCAP';
+
+    const baseW = isFoolscap ? FOOLSCAP_WIDTH : LEGAL_WIDTH;
+    const baseH = isFoolscap ? FOOLSCAP_HEIGHT : LEGAL_HEIGHT;
+
+    if (opts.orientation === 'Landscape') {
+      builder.pageWidth = baseH;
+      builder.pageHeight = baseW;
+    } else {
+      builder.pageWidth = baseW;
+      builder.pageHeight = baseH;
+    }
+
+    // Uniform calibrated 1.5 cm (42.52 pt) physical margins on all 4 sides for both Legal and Foolscap
+    builder.marginLeft = MARGIN_LEFT;
+    builder.marginRight = MARGIN_RIGHT;
+    builder.marginTop = MARGIN_TOP;
+    builder.marginBottom = MARGIN_BOTTOM;
+
     builder.renderMode = opts.settings?.colorMode || opts.renderMode || 'Color';
     builder.gridOn = opts.gridOn !== undefined ? opts.gridOn : (opts.settings?.gridOn !== undefined ? opts.settings.gridOn : true);
 
-    // Apply & Clamp Font Size Settings (Template Safety Limits: 7-12 body, 8-14 header)
+    // Apply & Clamp Font Size Settings (Template Safety Limits: 7-16 data, 7-14 fixed labels, 8-16 header)
+    const rawDataFs = opts.settings?.dataFontSize ?? opts.settings?.bodyFontSize ?? opts.settings?.fontSize ?? 9.5;
+    builder.dataFontSize = Math.min(16, Math.max(7, Number(rawDataFs) || 9.5));
+    builder.bodyFontSize = builder.dataFontSize;
+
+    const rawFixedFs = opts.settings?.fixedDataFontSize ?? opts.settings?.headerFontSize ?? 8.5;
+    builder.fixedDataFontSize = Math.min(14, Math.max(7, Number(rawFixedFs) || 8.5));
+
     if (opts.settings?.headerFontSize !== undefined) {
-      builder.headerFontSize = Math.min(14, Math.max(8, opts.settings.headerFontSize));
-    }
-    if (opts.settings?.fontSize !== undefined) {
-      builder.bodyFontSize = Math.min(12, Math.max(7, opts.settings.fontSize));
-    } else if (opts.settings?.bodyFontSize !== undefined) {
-      builder.bodyFontSize = Math.min(12, Math.max(7, opts.settings.bodyFontSize));
+      builder.headerFontSize = Math.min(16, Math.max(8, Number(opts.settings.headerFontSize) || 11));
     }
 
     // Apply Typography & Alignment Settings
@@ -442,6 +492,9 @@ export class PdfDocumentBuilder {
     if (headerBgHex) builder.customHeaderBg = hexToRgb(headerBgHex);
     if (opts.settings?.headerTextColor) builder.customHeaderTextColor = hexToRgb(opts.settings.headerTextColor);
 
+    if (opts.settings?.sectionBgColor) builder.customSectionBg = hexToRgb(opts.settings.sectionBgColor);
+    if (opts.settings?.sectionTextColor) builder.customSectionTextColor = hexToRgb(opts.settings.sectionTextColor);
+
     const cellBgHex = opts.settings?.cellBgColor || opts.settings?.cellFill;
     if (cellBgHex) builder.customCellBg = hexToRgb(cellBgHex);
 
@@ -454,9 +507,18 @@ export class PdfDocumentBuilder {
     if (opts.settings?.gridOpacity !== undefined) builder.gridOpacity = Math.min(100, Math.max(0, opts.settings.gridOpacity));
     if (opts.settings?.gridThickness !== undefined) builder.gridThickness = Math.min(1.0, Math.max(0.25, opts.settings.gridThickness));
 
-    // Apply Footer Controls
+    // Apply Footer & Page Number Controls
+    if (opts.settings?.pageNumberPosition) builder.pageNumberPosition = opts.settings.pageNumberPosition;
     if (opts.settings?.pageNumberAlign) builder.pageNumberAlign = opts.settings.pageNumberAlign;
     if (opts.settings?.pageNumberPrefix !== undefined) builder.pageNumberPrefix = opts.settings.pageNumberPrefix;
+    if (opts.settings?.pageNumberColor) {
+      builder.customPageNumberColor = hexToRgb(opts.settings.pageNumberColor);
+    } else {
+      builder.customPageNumberColor = hexToRgb('#1E293B');
+    }
+    if (opts.settings?.pageNumberFontSize !== undefined) {
+      builder.pageNumberFontSize = Math.min(16, Math.max(5, Number(opts.settings.pageNumberFontSize) || 8));
+    }
     if (opts.settings?.brandingText !== undefined) builder.brandingText = opts.settings.brandingText;
     if (opts.settings?.brandingAlign) builder.brandingAlign = opts.settings.brandingAlign;
     if (opts.settings?.customFooterText !== undefined) builder.customFooterText = opts.settings.customFooterText;
@@ -466,14 +528,6 @@ export class PdfDocumentBuilder {
     if (opts.settings?.logoOffsetX !== undefined) builder.logoOffsetX = opts.settings.logoOffsetX;
     if (opts.settings?.logoOffsetY !== undefined) builder.logoOffsetY = opts.settings.logoOffsetY;
     if (opts.settings?.logoSize !== undefined) builder.logoSize = opts.settings.logoSize;
-
-    if (opts.orientation === 'Landscape') {
-      builder.pageWidth = LEGAL_HEIGHT;  // 1008
-      builder.pageHeight = LEGAL_WIDTH;  // 612
-    } else {
-      builder.pageWidth = LEGAL_WIDTH;   // 612
-      builder.pageHeight = LEGAL_HEIGHT; // 1008
-    }
 
     builder.title = opts.title;
     builder.society = opts.society;
@@ -498,6 +552,17 @@ export class PdfDocumentBuilder {
       } catch (e) {
         console.warn('Failed to embed society PNG logo:', e);
       }
+    }
+    // Enforce 100% Actual Size (prevent printer/browser shrinking or compression)
+    // and instruct printer to auto-pick the Legal paper tray
+    try {
+      const prefs = builder.doc.context.obj({
+        PrintScaling: PDFName.of('None'),
+        PickTrayByPDFSize: true,
+      });
+      builder.doc.catalog.set(PDFName.of('ViewerPreferences'), prefs);
+    } catch (e) {
+      console.warn('Failed to set ViewerPreferences:', e);
     }
 
     builder.addNewPage();
@@ -546,17 +611,21 @@ export class PdfDocumentBuilder {
       return this.marginLeft + (usableW - textWidth) / 2;
     };
 
-    // 1. Page Number: Positioned Just above the footer line in center
-    const pPrefix = this.pageNumberPrefix !== undefined ? this.pageNumberPrefix : '';
-    const pageText = `${pPrefix}${this.pageCount}`;
-    const pWidth = this.font.widthOfTextAtSize(pageText, fontSize);
-    page.drawText(pageText, {
-      x: getX(this.pageNumberAlign || 'center', pWidth),
-      y: lineY + 3,
-      size: fontSize,
-      font: this.font,
-      color: this.headerText,
-    });
+    // 1. Page Number: Strictly ONLY drawn at bottom when pageNumberPosition is NOT 'Top'
+    const isTopPageNumber = String(this.pageNumberPosition || '').toLowerCase() === 'top';
+    if (!isTopPageNumber) {
+      const pPrefix = this.pageNumberPrefix !== undefined ? this.pageNumberPrefix : '';
+      const pageText = `${pPrefix}${this.pageCount}`;
+      const pnFontSize = this.pageNumberFontSize || 8;
+      const pWidth = this.font.widthOfTextAtSize(pageText, pnFontSize);
+      page.drawText(pageText, {
+        x: getX(this.pageNumberAlign || 'center', pWidth),
+        y: lineY + 3,
+        size: pnFontSize,
+        font: this.font,
+        color: this.pageNumberColor,
+      });
+    }
 
     // 2. Application Branding (Positioned below the footer line)
     const brandText = this.brandingText || 'HENU OS - Records Management';
@@ -724,6 +793,32 @@ export class PdfDocumentBuilder {
       borderWidth: 1,
     });
 
+    // Top Page Number (e.g. "01") — Strictly ONLY drawn at top if pageNumberPosition is 'Top'
+    const isTopPageNumber = String(this.pageNumberPosition || '').toLowerCase() === 'top';
+    if (isTopPageNumber) {
+      const pPrefix = this.pageNumberPrefix !== undefined ? this.pageNumberPrefix : '';
+      const pNumStr = `${pPrefix}${String(this.pageCount).padStart(2, '0')}`;
+      const pnFontSize = this.pageNumberFontSize || 8.5;
+      const pNumW = boldFont.widthOfTextAtSize(pNumStr, pnFontSize);
+      let pNumX = this.marginLeft + cw - pNumW - 8; // default 'right'
+      let pNumY = headerStartY - 12;
+
+      if (this.pageNumberAlign === 'left') {
+        pNumX = this.marginLeft + (this.embeddedLogo ? Math.max(100, (this.logoSize || 44) + 16) : 8);
+      } else if (this.pageNumberAlign === 'center') {
+        pNumX = this.marginLeft + (cw - pNumW) / 2;
+        pNumY = headerStartY + 3; // Cleanly above the header box to prevent overlapping centered society name
+      }
+
+      page.drawText(pNumStr, {
+        x: pNumX,
+        y: pNumY,
+        size: pnFontSize,
+        font: boldFont,
+        color: this.pageNumberColor,
+      });
+    }
+
     // Draw Aspect-Ratio Preserved PNG Logo inside the Header Box (No stretching!)
     if (this.embeddedLogo) {
       const origW = this.embeddedLogo.width;
@@ -800,7 +895,7 @@ export class PdfDocumentBuilder {
       });
 
       if (f.label) {
-        const lFs = 8.5;
+        const lFs = this.fixedDataFontSize || 8.5;
         const lw = this.boldFont.widthOfTextAtSize(f.label, lFs);
         this.currentPage.drawText(f.label, {
           x: x + Math.max(4, (f.width - lw) / 2),
@@ -816,7 +911,7 @@ export class PdfDocumentBuilder {
       });
 
       if (f.value && f.value.trim()) {
-        let valFs = 8.5;
+        let valFs = this.dataFontSize || 9.5;
         let lines = this.wrapText(f.value, f.width - 8, valFs, true);
         let lineH = valFs * 1.15;
         let totalH = lines.length * lineH;
@@ -824,7 +919,7 @@ export class PdfDocumentBuilder {
         // Auto-scale font size if lines exceed value cell height or width
         const getOverWidth = () => lines.some(l => this.boldFont.widthOfTextAtSize(l, valFs) > f.width - 6);
         while ((totalH > actualValueHeight - 2 || getOverWidth()) && valFs > 5.0) {
-          valFs -= 0.4;
+          valFs -= 0.3;
           lines = this.wrapText(f.value, f.width - 8, valFs, true);
           lineH = valFs * 1.15;
           totalH = lines.length * lineH;
@@ -934,7 +1029,7 @@ export class PdfDocumentBuilder {
     this.ensureSpace(barHeight);
     const y = this.currentY - barHeight;
 
-    const bg = this.renderMode === 'BW' ? rgb(230 / 255, 230 / 255, 230 / 255) : COLOR_SECTION_BG;
+    const bg = this.renderMode === 'BW' ? rgb(230 / 255, 230 / 255, 230 / 255) : (this.customHeaderBg || COLOR_SECTION_BG);
     this.currentPage.drawRectangle({
       x: this.marginLeft,
       y,
@@ -979,7 +1074,7 @@ export class PdfDocumentBuilder {
     const font = this.boldFont;
     const fs = 8.5;
     const textWidth = font.widthOfTextAtSize(title, fs);
-    const textCol = this.renderMode === 'BW' ? rgb(1, 1, 1) : COLOR_WHITE_TEXT;
+    const textCol = this.renderMode === 'BW' ? rgb(1, 1, 1) : (this.customSectionTextColor || COLOR_WHITE_TEXT);
     this.currentPage.drawText(title, {
       x: this.marginLeft + (this.contentWidth - textWidth) / 2,
       y: y + (barHeight - fs) / 2,
@@ -1438,7 +1533,7 @@ export class PdfDocumentBuilder {
   ): void {
     let calcHeight = rowHeight;
     if (value && value.trim() !== '') {
-      const tempFs = 7.5;
+      const tempFs = this.dataFontSize || 9.5;
       const tempLines = this.wrapText(value, valueWidth - 8, tempFs);
       const needed = Math.ceil(tempLines.length * (tempFs * 1.15) + 8);
       if (needed > calcHeight) {
@@ -1461,15 +1556,16 @@ export class PdfDocumentBuilder {
       borderWidth: 0.5,
     });
 
-    const labelLines = this.wrapText(label, labelWidth - 6, 8.5, true);
-    const labelLineH = 8.5 * 1.15;
+    const labelFs = this.fixedDataFontSize || 8.5;
+    const labelLines = this.wrapText(label, labelWidth - 6, labelFs, true);
+    const labelLineH = labelFs * 1.15;
     const labelTotalH = labelLines.length * labelLineH;
-    const labelStartY = y - (calcHeight - labelTotalH) / 2 - 8.5;
+    const labelStartY = y - (calcHeight - labelTotalH) / 2 - labelFs;
     labelLines.forEach((line, idx) => {
       this.currentPage.drawText(line, {
         x: x + 4,
         y: labelStartY - idx * labelLineH,
-        size: 8.5,
+        size: labelFs,
         font: this.boldFont,
         color: this.headerText,
       });
@@ -1489,7 +1585,7 @@ export class PdfDocumentBuilder {
     });
 
     if (value && value.trim() !== '') {
-      let fs = 8.5;
+      let fs = this.dataFontSize || 9.5;
       let lines = this.wrapText(value, valueWidth - 10, fs, true);
       let lineHeight = fs * 1.15;
       let totalH = lines.length * lineHeight;
@@ -1497,7 +1593,7 @@ export class PdfDocumentBuilder {
       // Auto-scale font size if total text height exceeds row height or any line width exceeds cell width
       const getOverWidth = () => lines.some(l => this.boldFont.widthOfTextAtSize(l, fs) > valueWidth - 8);
       while ((totalH > calcHeight - 2 || getOverWidth()) && fs > 5.0) {
-        fs -= 0.4;
+        fs -= 0.3;
         lines = this.wrapText(value, valueWidth - 10, fs, true);
         lineHeight = fs * 1.15;
         totalH = lines.length * lineHeight;
@@ -1537,7 +1633,7 @@ export class PdfDocumentBuilder {
     align2: 'left' | 'center' | 'right' = 'left'
   ): void {
     let calcHeight = rowHeight;
-    const fs = 8.5;
+    const fs = this.dataFontSize || 9.5;
     if (value1 && value1.trim()) {
       const l1 = this.wrapText(value1, w1Value - 8, fs, true);
       const n1 = Math.ceil(l1.length * (fs * 1.15) + 8);
@@ -1552,7 +1648,7 @@ export class PdfDocumentBuilder {
     this.ensureSpace(calcHeight);
     const y = this.currentY;
     let x = this.marginLeft;
-    const defaultFs = 8.5;
+    const defaultFs = this.fixedDataFontSize || 8.5;
     const defaultLineH = defaultFs * 1.15;
 
     const drawLabel = (label: string, width: number, xPos: number) => {
@@ -1579,22 +1675,22 @@ export class PdfDocumentBuilder {
         color: this.cellBg, borderColor: this.borderColor, borderWidth: 0.5,
       });
       if (value && value.trim() && width > 0) {
-        let fs = defaultFs;
-        let lines = this.wrapText(value, width - 8, fs, true);
-        let lineH = fs * 1.15;
+        let valFs = this.dataFontSize || 9.5;
+        let lines = this.wrapText(value, width - 8, valFs, true);
+        let lineH = valFs * 1.15;
         let totalH = lines.length * lineH;
 
-        const getOverWidth = () => lines.some(l => this.boldFont.widthOfTextAtSize(l, fs) > width - 6);
-        while ((totalH > calcHeight - 2 || getOverWidth()) && fs > 5.0) {
-          fs -= 0.4;
-          lines = this.wrapText(value, width - 8, fs, true);
-          lineH = fs * 1.15;
+        const getOverWidth = () => lines.some(l => this.boldFont.widthOfTextAtSize(l, valFs) > width - 6);
+        while ((totalH > calcHeight - 2 || getOverWidth()) && valFs > 5.0) {
+          valFs -= 0.3;
+          lines = this.wrapText(value, width - 8, valFs, true);
+          lineH = valFs * 1.15;
           totalH = lines.length * lineH;
         }
 
-        const startY = y - (calcHeight - totalH) / 2 - fs;
+        const startY = y - (calcHeight - totalH) / 2 - valFs;
         lines.forEach((line, idx) => {
-          const lw = this.boldFont.widthOfTextAtSize(line, fs);
+          const lw = this.boldFont.widthOfTextAtSize(line, valFs);
           let lineX = xPos + 6;
           if (alignVal === 'center') {
             lineX = xPos + Math.max(2, (width - lw) / 2);
@@ -1605,7 +1701,7 @@ export class PdfDocumentBuilder {
           if (lineY < y - calcHeight + 1) return; // Strict clip guard
           this.currentPage.drawText(line, {
             x: Math.max(lineX, xPos + 2), y: lineY,
-            size: fs, font: this.boldFont, color: this.bodyTextColor, // BOLD INSERTED DATA
+            size: valFs, font: this.boldFont, color: this.bodyTextColor, // BOLD INSERTED DATA
           });
         });
       }

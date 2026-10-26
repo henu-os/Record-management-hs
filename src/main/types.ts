@@ -15,6 +15,7 @@ export interface Society {
   logoBase64?: string;            // Square PNG logo Data URL / base64
   createdAt: string;
   isActive?: boolean;
+  isLocked?: boolean;
 }
 
 export interface AddSocietyPayload {
@@ -371,17 +372,21 @@ export type HorizontalAlign = 'left' | 'center' | 'right';
 export type VerticalAlign = 'top' | 'middle' | 'bottom';
 export type TextRotation = 0 | 90 | 180 | 270;
 export type SelectableFontFamily = 'Times-Roman' | 'Helvetica' | 'Courier' | 'Helvetica-Bold' | 'Indie_Flower' | 'Merriweather';
+export type RegisterPaperSize = 'LEGAL' | 'FOOLSCAP';
 
 export interface FormDesignSettings {
   societyId?: string;
   formId?: string;
+  paperSize?: RegisterPaperSize;
   colorMode: 'Color' | 'BW';
   horizontalAlign: HorizontalAlign;
   verticalAlign: VerticalAlign;
   fontFamily: SelectableFontFamily;
-  fontSize: number;          // Bounds: 7 to 12 pt
-  bodyFontSize?: number;     // Alias for fontSize
-  headerFontSize: number;    // Bounds: 8 to 14 pt
+  fontSize: number;          // Bounds: 7 to 16 pt (Body/general font size)
+  bodyFontSize?: number;     // Alias for data/body font size
+  headerFontSize: number;    // Bounds: 8 to 16 pt (Form Title font size)
+  dataFontSize?: number;     // Explicit Input Data Font Size (7 to 16 pt)
+  fixedDataFontSize?: number;// Explicit Fixed Data / Field Label Font Size (7 to 14 pt)
   bold: boolean;
   italic: boolean;
   textWrapping: boolean;
@@ -389,6 +394,9 @@ export interface FormDesignSettings {
   textColor: string;
   headerBgColor: string;
   headerFill?: string;       // Alias for headerBgColor
+  headerTextColor?: string;  // Text color for headers and field labels
+  sectionBgColor?: string;   // Navy/Section Bar background color
+  sectionTextColor?: string; // Text color for section bars
   cellBgColor: string;
   cellFill?: string;         // Alias for cellBgColor
   borderColor: string;
@@ -397,8 +405,11 @@ export interface FormDesignSettings {
   gridThickness: number;     // 0.25 to 1.00 pt
   gridOn: boolean;
   gridEnabled?: boolean;     // Alias for gridOn
+  pageNumberPosition?: 'Top' | 'Bottom'; // Default: 'Bottom'
   pageNumberAlign: HorizontalAlign;
   pageNumberPrefix: string;
+  pageNumberColor?: string;              // Custom page number color (Default: #1E293B)
+  pageNumberFontSize?: number;           // Page number font size (Bounds: 5 to 16 pt)
   brandingText: string;
   brandingAlign: HorizontalAlign;
   customFooterText: string;
@@ -410,30 +421,39 @@ export interface FormDesignSettings {
 }
 
 export const DEFAULT_FORM_DESIGN_SETTINGS: FormDesignSettings = {
+  paperSize: 'LEGAL',
   colorMode: 'Color',
   horizontalAlign: 'center',
   verticalAlign: 'middle',
   fontFamily: 'Times-Roman',
-  fontSize: 7.5,
-  bodyFontSize: 7.5,
+  fontSize: 9.5,
+  bodyFontSize: 9.5,
   headerFontSize: 11,
+  dataFontSize: 9.5,
+  fixedDataFontSize: 8.5,
   bold: false,
   italic: false,
   textWrapping: true,
   textRotation: 0,
-  textColor: '#1C355E',
-  headerBgColor: '#D9E1F2',
-  headerFill: '#D9E1F2',
+  textColor: '#0F172A',
+  headerBgColor: '#F1F5F9',
+  headerFill: '#F1F5F9',
+  headerTextColor: '#0F172A',
+  sectionBgColor: '#CBD5E1',
+  sectionTextColor: '#0F172A',
   cellBgColor: '#FFFFFF',
   cellFill: '#FFFFFF',
-  borderColor: '#8EA9DB',
-  gridColor: '#D9E1F2',
-  gridOpacity: 100,
-  gridThickness: 0.5,
+  borderColor: '#94A3B8',
+  gridColor: '#94A3B8',
+  gridOpacity: 80,
+  gridThickness: 0.50,
   gridOn: true,
   gridEnabled: true,
+  pageNumberPosition: 'Bottom',
   pageNumberAlign: 'center',
   pageNumberPrefix: '',
+  pageNumberColor: '#1E293B',
+  pageNumberFontSize: 8,
   brandingText: 'HENU OS - Records Management',
   brandingAlign: 'right',
   customFooterText: '',
@@ -689,6 +709,7 @@ export interface SocietySummary {
   yearEstablished?: string;
   status: 'ACTIVE' | 'ARCHIVED' | 'SUSPENDED';
   isActive: boolean; // currently selected society in session
+  isLocked?: boolean; // society locked/protected state
   folderPath?: string;
   storageSizeBytes: number;
   storageSizeFormatted: string;

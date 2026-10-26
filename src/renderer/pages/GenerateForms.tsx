@@ -115,7 +115,7 @@ export default function GenerateForms({ selectedFormId, onNavigate }: GenerateFo
   );
 
   const [shareCertTemplateId, setShareCertTemplateId] = useState<string>('HENU_OS_DEFAULT');
-  const [shareRegTemplateId, setShareRegTemplateId] = useState<'15_COLUMN' | '19_COLUMN'>('19_COLUMN');
+  const [shareRegTemplateId, setShareRegTemplateId] = useState<'15_COLUMN' | '19_COLUMN'>('15_COLUMN');
   const [formJTemplateId, setFormJTemplateId] = useState<'TEMPLATE_1' | 'TEMPLATE_2'>('TEMPLATE_2');
   const [propRegTemplateId, setPropRegTemplateId] = useState<'TEMPLATE_1' | 'TEMPLATE_2'>('TEMPLATE_2');
   const [nomRegTemplateId, setNomRegTemplateId] = useState<'TEMPLATE_1' | 'TEMPLATE_2'>('TEMPLATE_2');
@@ -127,6 +127,7 @@ export default function GenerateForms({ selectedFormId, onNavigate }: GenerateFo
   const [customAckImg, setCustomAckImg] = useState<string>(() => localStorage.getItem('henu_custom_marathi_ack') || '');
   const [isDownloadMenuOpen, setIsDownloadMenuOpen] = useState<boolean>(false);
   const [voucherTemplateId, setVoucherTemplateId] = useState<'TEMPLATE_1' | 'TEMPLATE_2'>('TEMPLATE_1');
+  const [registerPaperSize, setRegisterPaperSize] = useState<'LEGAL' | 'FOOLSCAP'>('LEGAL');
 
   useEffect(() => {
     if (selectedFormId && selectedFormId !== 'CONTROL_CENTER') {
@@ -286,6 +287,10 @@ export default function GenerateForms({ selectedFormId, onNavigate }: GenerateFo
 
   // Open Form Workflow View
   const openFormWorkflow = (targetFormId: string) => {
+    if (activeSociety?.isLocked) {
+      alert(`Society "${activeSociety.societyName}" is locked.\n\nYou cannot generate or preview forms for a locked society. Please unlock it in HENUMASTER first.`);
+      return;
+    }
     const meta = FORMS_META.find(f => f.id === targetFormId);
     if (!meta) return;
     setFormId(targetFormId);
@@ -298,6 +303,11 @@ export default function GenerateForms({ selectedFormId, onNavigate }: GenerateFo
 
   // Switch Active Society in Dashboard Selector
   const handleSocietyChange = async (socId: string) => {
+    const target = societies.find(s => s.id === socId);
+    if (target?.isLocked) {
+      alert(`Society "${target.societyName}" is locked.\n\nPlease unlock it using Master Password in HENUMASTER before opening or switching.`);
+      return;
+    }
     try {
       if (api?.society?.select) {
         await api.society.select(socId);
@@ -310,8 +320,9 @@ export default function GenerateForms({ selectedFormId, onNavigate }: GenerateFo
         headerSelect.value = socId;
         headerSelect.dispatchEvent(new Event('change', { bubbles: true }));
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to set active society:', err);
+      alert(err.message || 'Failed to switch society.');
     }
   };
 
@@ -388,8 +399,10 @@ export default function GenerateForms({ selectedFormId, onNavigate }: GenerateFo
     if (hasMasterData && viewMode === 'form_workflow') updateRangePreview();
   }, [updateRangePreview, hasMasterData, viewMode]);
 
+  const isSocietyLocked = Boolean(activeSociety?.isLocked);
   const isUnlocked = foundationStatus ? foundationStatus.registersUnlocked : Boolean(hasMasterData);
   const canGenerate = Boolean(
+    !isSocietyLocked &&
     (generationMode !== 'STANDARD' || isUnlocked) &&
     (hasMasterData || generationMode !== 'STANDARD' || nonSerialCount > 0) &&
     isRangeValid && phase !== 'generating' && !previewLoading
@@ -399,6 +412,11 @@ export default function GenerateForms({ selectedFormId, onNavigate }: GenerateFo
 
   // Full PDF Generation
   const handleGenerate = useCallback(async () => {
+    if (activeSociety?.isLocked) {
+      setResult({ success: false, errorMessage: 'Active society is locked. Unlock it in HENU MASTER to generate forms.' });
+      setPhase('error');
+      return;
+    }
     if (!canGenerate) return;
     setPhase('generating');
     setProgressLog(['Starting PDF generation pipeline...']);
@@ -446,6 +464,7 @@ export default function GenerateForms({ selectedFormId, onNavigate }: GenerateFo
         ackImageBase64: customAckImg,
         zipFilenameHint: targetForm?.zipName,
         workbook: activeWb,
+        paperSize: registerPaperSize,
       });
       setResult(res);
       setPhase(res.success ? 'done' : 'error');
@@ -460,8 +479,14 @@ export default function GenerateForms({ selectedFormId, onNavigate }: GenerateFo
   }, [formId, fromClean, toClean, nonSerialCount, generationMode, totalForms, shareCertTemplateId, shareRegTemplateId, formJTemplateId, propRegTemplateId, nomRegTemplateId, voucherTemplateId, voucherPaperSize, shareEmptyRows, shareDataFontSize, shareDataTextColor, orientation, prefix, separator, rowsPerPage, renderMode, gridOn, selectedFont, customHeaderImg, customAckImg, activeSociety, canGenerate, loadDashboardContext]);
 
   // Live PDF preview
-  const handlePreviewOnly = async () => {
+  const handlePreviewOnly = async (paperSizeOverride?: 'LEGAL' | 'FOOLSCAP') => {
     if (!isRangeValid) return;
+    if (activeSociety?.isLocked) {
+      setResult({ success: false, errorMessage: 'Active society is locked. Unlock it in HENU MASTER to preview or generate forms.' });
+      setPhase('error');
+      return;
+    }
+    const activePaper = paperSizeOverride || registerPaperSize;
     setPreviewLoading(true);
     setPreviewPdfUrl(null);
     setResult(null);
@@ -506,6 +531,7 @@ export default function GenerateForms({ selectedFormId, onNavigate }: GenerateFo
           headerImageBase64: (formId === 'FORM_VOUCHER' ? (activeSociety?.logoBase64 || '') : (customHeaderImg || activeSociety?.logoBase64)),
           ackImageBase64: customAckImg,
           workbook: activeWb,
+          paperSize: activePaper,
         }
       );
       if (res.error) {
@@ -519,6 +545,90 @@ export default function GenerateForms({ selectedFormId, onNavigate }: GenerateFo
       setPhase('error');
     } finally {
       setPreviewLoading(false);
+    }
+  };
+
+  // Helper to determine exact Legal orientation based on official specifications
+  const getDetectedOrientation = (): 'Portrait' | 'Landscape' => {
+    if (formId === 'FORM_SHARE' || formId === 'FORM_PROP' || formId === 'FORM_NOM') {
+      return 'Landscape';
+    }
+    if (formId === 'FORM_J') {
+      return (orientation as 'Portrait' | 'Landscape') || 'Portrait';
+    }
+    return (orientation as 'Portrait' | 'Landscape') || 'Portrait';
+  };
+
+  // High-precision direct print handler for Legal & Foolscap paper (100% scale, zero distortion)
+  const handlePrintDirect = async (paperSizeOverride?: 'LEGAL' | 'FOOLSCAP') => {
+    if (activeSociety?.isLocked) {
+      alert('Active society is locked. Please unlock it in HENU MASTER before printing.');
+      return;
+    }
+    const activePaper = paperSizeOverride || registerPaperSize;
+    const detectedOrientation = getDetectedOrientation();
+    let targetUrl = previewPdfUrl;
+
+    if (!targetUrl) {
+      setPreviewLoading(true);
+      await handlePreviewOnly(activePaper);
+      setPreviewLoading(false);
+      return;
+    }
+
+    try {
+      const apiObj = (window as any).api;
+      if (apiObj?.system?.printPdf) {
+        await apiObj.system.printPdf({
+          pdfUrl: targetUrl,
+          pdfPath: (result as any)?.previewPdfPath || (result as any)?.pdfPath,
+          orientation: detectedOrientation,
+          pageSize: activePaper === 'FOOLSCAP' ? 'Foolscap' : 'Legal',
+          paperSize: activePaper,
+          silent: false,
+        });
+      } else {
+        const isLandscape = detectedOrientation === 'Landscape';
+        const isFoolscap = activePaper === 'FOOLSCAP';
+        const iframe = document.createElement('iframe');
+        iframe.style.position = 'fixed';
+        iframe.style.top = '-9999px';
+        iframe.style.left = '-9999px';
+        iframe.style.width = '1px';
+        iframe.style.height = '1px';
+        iframe.style.border = 'none';
+        document.body.appendChild(iframe);
+
+        const pageCss = isFoolscap
+          ? (isLandscape ? '13.5in 8.5in landscape' : '8.5in 13.5in portrait')
+          : (isLandscape ? '14in 8.5in landscape' : '8.5in 14in portrait');
+
+        const html = `<!DOCTYPE html><html><head><style>
+          @page { size: ${pageCss}; margin: 0; }
+          html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #fff; }
+          embed { width: 100%; height: 100%; }
+        </style></head><body>
+          <embed src="${targetUrl}#toolbar=0" type="application/pdf" width="100%" height="100%" />
+        </body></html>`;
+
+        const blob = new Blob([html], { type: 'text/html' });
+        const blobUrl = URL.createObjectURL(blob);
+        iframe.src = blobUrl;
+        setTimeout(() => {
+          try {
+            iframe.contentWindow?.print();
+          } catch (e) {
+            window.print();
+          }
+          setTimeout(() => {
+            document.body.removeChild(iframe);
+            URL.revokeObjectURL(blobUrl);
+          }, 3000);
+        }, 500);
+      }
+    } catch (err: any) {
+      console.error('Print failed:', err);
+      alert('Print error: ' + err.message);
     }
   };
 
@@ -588,6 +698,41 @@ export default function GenerateForms({ selectedFormId, onNavigate }: GenerateFo
             Centralized control center for official register generation, multi-society records, and system reports.
           </p>
         </div>
+
+        {/* Society Locked Alert Banner */}
+        {activeSociety?.isLocked && (
+          <div
+            className="alert alert-error mb-20"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '14px 20px',
+              border: '1px solid rgba(239, 68, 68, 0.4)',
+              background: 'rgba(239, 68, 68, 0.1)',
+              borderRadius: 8,
+            }}
+          >
+            <div className="flex items-center gap-10">
+              <Lock size={20} color="#ef4444" />
+              <div>
+                <strong style={{ color: '#ef4444', fontSize: 13 }}>Society "{activeSociety.societyName}" is Locked</strong>
+                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
+                  Register forms, live previews, and printing cannot be generated while locked. Unlock this society in HENU MASTER to proceed.
+                </div>
+              </div>
+            </div>
+            {onNavigate && (
+              <button
+                className="btn btn-primary btn-sm flex items-center gap-6"
+                onClick={() => onNavigate('henumaster')}
+                style={{ background: '#ef4444', borderColor: '#ef4444', fontSize: 12, flexShrink: 0 }}
+              >
+                Go to HENU MASTER to Unlock
+              </button>
+            )}
+          </div>
+        )}
 
         {/* 1. SOCIETY DASHBOARD GRAPH & METRIC CARDS */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 20, marginBottom: 24 }}>
@@ -1026,6 +1171,37 @@ export default function GenerateForms({ selectedFormId, onNavigate }: GenerateFo
           <p className="page-subtitle" style={{ fontSize: 12 }}>{selectedForm?.description}</p>
         </div>
 
+        {/* Society Locked Banner */}
+        {activeSociety?.isLocked && (
+          <div
+            className="alert alert-error mb-12"
+            style={{
+              flexDirection: 'column',
+              alignItems: 'flex-start',
+              gap: 8,
+              padding: '14px 16px',
+              border: '1px solid rgba(239, 68, 68, 0.4)',
+              background: 'rgba(239, 68, 68, 0.1)',
+            }}
+          >
+            <div className="flex items-center gap-8 fw-700 text-sm" style={{ color: '#ef4444' }}>
+              <Lock size={16} /> 🔒 Society is Locked
+            </div>
+            <div className="text-xs" style={{ color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+              <strong>{activeSociety.societyName}</strong> is locked. Form generation, PDF preview, and direct printing are completely disabled until unlocked in HENU MASTER.
+            </div>
+            {onNavigate && (
+              <button
+                className="btn btn-primary btn-sm flex items-center gap-6"
+                onClick={() => onNavigate('henumaster')}
+                style={{ background: '#ef4444', borderColor: '#ef4444', fontSize: 11, marginTop: 4 }}
+              >
+                Go to HENU MASTER to Unlock
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Register Locking Banner */}
         {foundationStatus && !foundationStatus.registersUnlocked && (
           <div className="alert alert-error mb-12" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 6, padding: '12px 14px' }}>
@@ -1439,8 +1615,8 @@ export default function GenerateForms({ selectedFormId, onNavigate }: GenerateFo
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 6, marginBottom: 8 }}>
               {[
-                { id: '15_COLUMN', title: 'Template 1: Compact (15-Col)', sub: '15 Columns · Standard (Removes Old Share Cert, Old Membership, Distinctive Nos)' },
-                { id: '19_COLUMN', title: 'Template 2: HENU OS Default (19-Col Full Register)', sub: '19 Columns · Complete (Includes Old Share Cert, Old Membership, Distinctive Nos)' },
+                { id: '15_COLUMN', title: 'Template 1: Standard 15-Column Register (Official Statutory)', sub: '15 Columns · Sr. No. to Remarks (1 to 15) exactly matching statutory Maharashtra format' },
+                { id: '19_COLUMN', title: 'Template 2: Extended 19-Column Register', sub: '19 Columns · With Old Share Cert, Old Membership, Distinctive Nos' },
               ].map(t => {
                 const isSel = shareRegTemplateId === t.id;
                 return (
@@ -2095,11 +2271,57 @@ export default function GenerateForms({ selectedFormId, onNavigate }: GenerateFo
           </div>
         </div>
 
+        {/* Paper Size Calibration for Statutory Register Forms */}
+        {formId !== 'FORM_SHARE_CERT' && formId !== 'FORM_VOUCHER' && (
+          <div style={{
+            background: 'var(--surface)',
+            border: '1px solid var(--border)',
+            borderRadius: 8,
+            padding: '8px 10px',
+            marginBottom: 10,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+              <span className="text-secondary" style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase' }}>
+                Paper Size Specification
+              </span>
+              <span className="badge badge-primary" style={{ fontSize: 9, padding: '1px 6px', fontWeight: 700 }}>
+                {registerPaperSize === 'FOOLSCAP' ? '8.5 × 13.5 in (216 × 343 mm)' : '8.5 × 14.0 in (216 × 356 mm)'}
+              </span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+              <button
+                type="button"
+                className={`btn btn-sm ${registerPaperSize === 'LEGAL' ? 'btn-primary' : 'btn-secondary'}`}
+                onClick={() => {
+                  setRegisterPaperSize('LEGAL');
+                  if (previewPdfUrl) handlePreviewOnly('LEGAL');
+                }}
+                style={{ fontSize: 11, padding: '6px 8px', fontWeight: 600, justifyContent: 'center' }}
+                title="True US Legal (8.5 × 14.0 in) - Standard Legal Paper"
+              >
+                True US Legal (8.5 × 14)
+              </button>
+              <button
+                type="button"
+                className={`btn btn-sm ${registerPaperSize === 'FOOLSCAP' ? 'btn-primary' : 'btn-secondary'}`}
+                onClick={() => {
+                  setRegisterPaperSize('FOOLSCAP');
+                  if (previewPdfUrl) handlePreviewOnly('FOOLSCAP');
+                }}
+                style={{ fontSize: 11, padding: '6px 8px', fontWeight: 600, justifyContent: 'center' }}
+                title="Indian Register / Foolscap Folio (8.5 × 13.5 in) - Standard green statutory register sheets"
+              >
+                Indian Register / Foolscap (Folio)
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* FOUR PRIMARY ACTION BOXES */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
           <button
             className="btn btn-secondary flex items-center justify-center gap-6"
-            onClick={handlePreviewOnly}
+            onClick={() => handlePreviewOnly()}
             disabled={!isRangeValid || isGenerating}
             style={{ padding: '10px 8px', fontSize: 12, fontWeight: 600 }}
             title="Live Preview PDF"
@@ -2113,10 +2335,10 @@ export default function GenerateForms({ selectedFormId, onNavigate }: GenerateFo
             onClick={handleGenerate}
             disabled={!canGenerate}
             style={{ padding: '10px 8px', fontSize: 12, fontWeight: 700 }}
-            title={`Generate ${selectedForm?.category || 'Form'} PDF`}
+            title={`Generate ${selectedForm?.category || 'Form'} PDF (${registerPaperSize === 'FOOLSCAP' ? 'Foolscap' : 'Legal'})`}
           >
             {isGenerating ? <Loader size={14} className="spin" /> : <Play size={14} />}
-            {isGenerating ? 'Generating...' : `Generate ${selectedForm?.category || 'Form'} PDF`}
+            {isGenerating ? 'Generating...' : `Generate ${selectedForm?.category || 'Form'} PDF (${registerPaperSize === 'FOOLSCAP' ? 'Foolscap' : 'Legal'})`}
           </button>
 
           <button
@@ -2149,15 +2371,34 @@ export default function GenerateForms({ selectedFormId, onNavigate }: GenerateFo
             <Download size={14} /> Download Excel / CSV
           </button>
 
+          {/* Direct Print Button */}
+          <button
+            className="btn btn-accent flex items-center justify-center gap-6"
+            onClick={() => handlePrintDirect()}
+            disabled={!isRangeValid || isGenerating}
+            style={{
+              padding: '10px 8px',
+              fontSize: 12,
+              fontWeight: 700,
+              background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+              color: '#ffffff',
+              border: 'none',
+              boxShadow: '0 2px 8px rgba(5,150,105,0.3)',
+            }}
+            title={`Direct Print on Physical ${registerPaperSize === 'FOOLSCAP' ? 'Foolscap Folio' : 'Legal'} Paper (${getDetectedOrientation()}) - No compression, 1:1 scale`}
+          >
+            <Printer size={15} /> 🖨 Print Directly ({registerPaperSize === 'FOOLSCAP' ? 'Foolscap' : 'Legal'})
+          </button>
+
           {/* Download Options Dropdown (PNG, JPG, CDR, Print) */}
-          <div style={{ position: 'relative' }}>
+          <div style={{ position: 'relative', gridColumn: 'span 2' }}>
             <button
               className="btn btn-secondary flex items-center justify-center gap-6"
               onClick={() => setIsDownloadMenuOpen(prev => !prev)}
-              style={{ width: '100%', padding: '10px 8px', fontSize: 12, fontWeight: 600 }}
-              title="Download format options (PNG, JPG, CDR)"
+              style={{ width: '100%', padding: '8px 8px', fontSize: 11, fontWeight: 600 }}
+              title="Download format options (PNG, JPG, CDR, Print)"
             >
-              <Download size={14} /> 💾 Download Options ▾
+              <Download size={13} /> 💾 Additional Formats & Print Options ▾
             </button>
 
             {isDownloadMenuOpen && (
@@ -2243,24 +2484,25 @@ export default function GenerateForms({ selectedFormId, onNavigate }: GenerateFo
                 </button>
                 <button
                   className="btn btn-ghost btn-sm"
-                  style={{ justifyContent: 'flex-start', padding: '8px 12px', fontSize: 11, borderTop: '1px solid var(--border)' }}
+                  style={{ justifyContent: 'flex-start', padding: '8px 12px', fontSize: 11, borderTop: '1px solid var(--border)', fontWeight: 600, color: 'var(--accent, #10b981)' }}
                   onClick={() => {
                     setIsDownloadMenuOpen(false);
-                    const iframe = document.querySelector('iframe') as HTMLIFrameElement;
-                    if (iframe && iframe.contentWindow) {
-                      iframe.contentWindow.print();
-                    } else if (previewPdfUrl) {
-                      const win = window.open(previewPdfUrl, '_blank');
-                      if (win) {
-                        win.focus();
-                        win.print();
-                      }
-                    } else {
-                      window.print();
-                    }
+                    handlePrintDirect('LEGAL');
                   }}
+                  title="Direct Print onto True US Legal Paper (8.5 × 14 in)"
                 >
-                  🖨 Print Certificate
+                  🖨 Print Directly (True US Legal - 8.5 × 14 in)
+                </button>
+                <button
+                  className="btn btn-ghost btn-sm"
+                  style={{ justifyContent: 'flex-start', padding: '8px 12px', fontSize: 11, borderTop: '1px solid var(--border)', fontWeight: 600, color: '#38bdf8' }}
+                  onClick={() => {
+                    setIsDownloadMenuOpen(false);
+                    handlePrintDirect('FOOLSCAP');
+                  }}
+                  title="Direct Print onto Indian Register / Foolscap Folio Paper (8.5 × 13.5 in)"
+                >
+                  🖨 Print Directly (Indian Register / Foolscap - 8.5 × 13.5 in)
                 </button>
               </div>
             )}
@@ -2312,7 +2554,13 @@ export default function GenerateForms({ selectedFormId, onNavigate }: GenerateFo
       {/* ── RIGHT PANEL — PDF Live Viewer ──────────────────────── */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--bg-app)', minWidth: 0 }}>
         {previewPdfUrl ? (
-          <PdfViewer pdfUrl={previewPdfUrl} />
+          <PdfViewer
+            pdfUrl={previewPdfUrl}
+            pdfPath={(result as any)?.previewPdfPath || (result as any)?.pdfPath}
+            orientation={getDetectedOrientation()}
+            paperSize={registerPaperSize}
+            onPrint={(target) => handlePrintDirect(target)}
+          />
         ) : (
           <div style={{
             flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',

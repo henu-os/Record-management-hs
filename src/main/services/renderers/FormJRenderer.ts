@@ -18,6 +18,7 @@ export class FormJRenderer {
       settings?: FormDesignSettings;
       renderMode?: 'Color' | 'BW';
       gridOn?: boolean;
+      paperSize?: 'LEGAL' | 'FOOLSCAP' | string;
       templateId?: string;
       emptyRows?: number;
       dataFontSize?: number;
@@ -30,6 +31,8 @@ export class FormJRenderer {
     const settings = typeof options === 'object' ? options?.settings : undefined;
     const renderMode = typeof options === 'object' ? options?.renderMode : undefined;
     const gridOn = typeof options === 'object' ? options?.gridOn : undefined;
+    const paperSize = typeof options === 'object' ? (options?.paperSize || (options?.settings as any)?.paperSize) : undefined;
+    const isFoolscap = String(paperSize || '').toUpperCase().includes('FOOLSCAP');
     const emptyRowsCount = typeof options === 'object' && options?.emptyRows !== undefined ? Math.min(6, Math.max(0, options.emptyRows)) : 0;
     const dataFontSize = typeof options === 'object' && options?.dataFontSize ? Math.min(12.5, Math.max(7.5, options.dataFontSize)) : 8.5;
     const dataTextColor = typeof options === 'object' && options?.dataTextColor ? options.dataTextColor : undefined;
@@ -43,6 +46,7 @@ export class FormJRenderer {
       orientation,
       title: def.title,
       society,
+      paperSize: isFoolscap ? 'FOOLSCAP' : 'LEGAL',
       settings,
       renderMode,
       gridOn,
@@ -90,7 +94,7 @@ export class FormJRenderer {
       }
 
       const address = rec
-        ? (rec.permanentAddress ? FormMappingService.formatPermanentAddress(rec, society) : (rec.residentialAddress || ''))
+        ? (FormMappingService.formatResidentialAddress(rec, society) || FormMappingService.formatPermanentAddress(rec, society) || '')
         : '';
       const memberClass = rec ? (rec.classOfMember || 'Active Member') : '';
 

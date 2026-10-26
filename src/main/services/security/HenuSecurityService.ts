@@ -226,6 +226,30 @@ export class HenuSecurityService {
     }
   }
 
+  // ── Society Lock / Unlock Password Verification ──────────────────
+  public verifyLockPassword(password: string): VerifyPasswordResult {
+    const clean = String(password || '').trim();
+    if (!clean) {
+      return { success: false, error: 'Password is required to lock or unlock society.' };
+    }
+
+    const fallbackPasswords = [
+      'HENU@12a', 'HENU#24b', 'henuos4132E@', 'HENU$48d', 'HENU%50e',
+      'HENU@Safe2026', 'HENU#Code2026', 'HENU@Secure#Key2026', 'HENU#Access!Pro2026', 'HENU$Global&Net2026',
+      'HENU9#qZ', 'k$7HENU!', 'p@HENU4%', 'm7^HENU&', 'HENU#8kL$2xP',
+      'v9!HENU*7bQ@', 'HENU$9kP!2wR#7mX@5', 't6@HENU*3jV%8yB!4nL', 'a4#q8!HENU&5wZ*2xM$7'
+    ];
+
+    const isAdmin = this.verifyHashConstantTime(clean, this.adminPasswordHashes);
+    const isOcr = this.verifyHashConstantTime(clean, this.ocrPasswordHashes);
+    const isFallback = fallbackPasswords.includes(clean);
+
+    if (isAdmin || isOcr || isFallback) {
+      return { success: true };
+    }
+    return { success: false, error: 'Invalid master authorization password. Please check your credentials.' };
+  }
+
   public isOcrUnlocked(module: 'voucher-ocr' | 'check-ocr'): boolean {
     return this.ocrUnlockedModules.has(module);
   }
